@@ -972,13 +972,14 @@ export default function Dashboard() {
           --gray-800: #1E293B;
           --gray-900: #0F172A;
         }
-        navbar {
-          background: white;
-          padding: 1rem 2rem;
-          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        .nav-bar {
           display: flex;
-          justify-content: space-between;
-          align-items: center;
+          gap: 1.5rem;
+          padding: 1rem 2rem;
+          background: linear-gradient(135deg,rgb(12, 7, 7),rgb(61, 111, 228));
+          border-radius: 16px;
+          margin-bottom: 2rem;
+          box-shadow: 0 4px 6px rgba(8, 7, 7, 0.05);
         }
 
         .nav-logo {
@@ -988,23 +989,41 @@ export default function Dashboard() {
           text-decoration: none;
         }
 
-        .nav-links {
-          display: flex;
-          gap: 1.5rem;
+        .nav-link {
+          color: #94a3b8;
+          font-weight: 500;
+          padding: 0.75rem 1.25rem;
+          border-radius: 8px;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          
+          &:hover {
+            color: #e2e8f0;
+            background: rgba(255,255,255,0.05);
+          }
+          
+          &::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #3b82f6;
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+          }
+          
+          &:hover::after {
+            transform: scaleX(1);
+          }
         }
 
-        .nav-link {
-          color: var(--gray-500);
-          text-decoration: none;
-          font-weight: 500;
-          padding: 0.5rem;
-          border-radius: 6px;
-          transition: all 0.2s;
-        }
+        
 
         .nav-link.active {
           color: var(--primary);
-          background-color: rgba(79, 70, 229, 0.1);
+          background-color: rgba(248, 0, 0, 0.99);
         }
         
         .logo-icon {
@@ -1077,7 +1096,7 @@ export default function Dashboard() {
             flex-direction: column;
             gap: 0;
             padding: 1rem 0;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 6px -1px rgba(12, 11, 11, 0.05);
             max-height: 0;
             overflow: hidden;
             opacity: 0;

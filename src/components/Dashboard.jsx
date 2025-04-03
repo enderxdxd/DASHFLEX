@@ -14,6 +14,8 @@ import {
 } from "chart.js";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import isBetween from "dayjs/plugin/isBetween";
+dayjs.extend(isBetween);
 
 const NavBar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

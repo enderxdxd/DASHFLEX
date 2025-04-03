@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { collection, onSnapshot, addDoc, updateDoc, doc } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import { Bar } from "react-chartjs-2";
@@ -99,6 +99,9 @@ export default function Metas() {
   }, [unidade, navigate]);
 
   // Função para cadastrar nova meta
+  function parseBRNumber(str) {
+    return Number(str.replace(/\./g, "").replace(",", "."));
+  }
   const handleAddMeta = async (e) => {
     e.preventDefault();
     setError("");
@@ -107,9 +110,11 @@ export default function Metas() {
       return;
     }
     try {
+      // Converte o input para número, tratando o formato brasileiro
+      const metaValor = parseBRNumber(newMeta);
       await addDoc(collection(db, "faturamento", unidade.toLowerCase(), "metas"), {
         responsavel: newResponsavel.trim(),
-        meta: Number(newMeta),
+        meta: metaValor,
         createdAt: dayjs().toISOString(),
       });
       setSuccessMessage("Meta adicionada com sucesso!");
@@ -146,6 +151,20 @@ export default function Metas() {
     } catch (err) {
       setError("Erro ao atualizar meta");
       console.error(err);
+    }
+  };
+
+  // Função para excluir meta
+  const handleDeleteMeta = async (id) => {
+    if (window.confirm("Tem certeza que deseja excluir esta meta?")) {
+      try {
+        await deleteDoc(doc(db, "faturamento", unidade.toLowerCase(), "metas", id));
+        setSuccessMessage("Meta excluída com sucesso!");
+        setTimeout(() => setSuccessMessage(""), 3000);
+      } catch (err) {
+        setError("Erro ao excluir meta");
+        console.error(err);
+      }
     }
   };
 
@@ -270,6 +289,152 @@ export default function Metas() {
             {error || successMessage}
           </div>
         )}
+        <section className="metas-list">
+  <div className="section-header">
+    <h2>Metas Cadastradas</h2>
+    <span className="total-metas">{metas.length} metas registradas</span>
+  </div>
+
+  <div className="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Responsável</th>
+          <th>Meta (R$)</th>
+          <th>Vendas (R$)</th>
+          <th>% Meta</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+      {metas.map((m) => {
+  // Filtra as vendas deste responsável (comparação case-insensitive)
+  const vendasResponsavel = vendas.filter(
+    (v) =>
+      v.responsavel &&
+      v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase()
+  );
+  // Soma os valores das vendas
+  const totalVendas = vendasResponsavel.reduce(
+    (acc, v) => acc + (Number(v.valor) || 0),
+    0
+  );
+  
+  // Converte m.meta para número e trata caso seja inválido ou zero
+  const metaValor = Number(m.meta) || 0;
+  // Calcula a porcentagem completa
+  const computedPercent = metaValor > 0 ? (totalVendas / metaValor) * 100 : 0;
+  
+  // Se passou de 100%, calcula o excedente
+  const excedente = computedPercent > 100 ? computedPercent - 100 : 0;
+
+  return (
+    <tr key={m.id}>
+      <td>
+        {editingId === m.id ? (
+          <div className="edit-input-wrapper">
+            <input
+              type="text"
+              value={editResponsavel}
+              onChange={(e) => setEditResponsavel(e.target.value)}
+              className="edit-input"
+            />
+          </div>
+        ) : (
+          <div className="user-info">
+            <div className="user-avatar">
+              {m.responsavel[0].toUpperCase()}
+            </div>
+            {m.responsavel}
+          </div>
+        )}
+      </td>
+      <td>
+        {editingId === m.id ? (
+          <div className="edit-input-wrapper">
+            <input
+              type="number"
+              value={editMeta}
+              onChange={(e) => setEditMeta(e.target.value)}
+              className="edit-input"
+            />
+          </div>
+        ) : (
+          <div className="meta-value">
+            {metaValor.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })}
+          </div>
+        )}
+      </td>
+      <td>
+        <div className="meta-value">
+          {totalVendas.toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+          })}
+        </div>
+      </td>
+      <td>
+        <div className="meta-percentage">
+          {metaValor
+            ? `${computedPercent.toFixed(2)}%` +
+              (excedente > 0 ? ` (+${excedente.toFixed(2)}%)` : "")
+            : "N/A"}
+        </div>
+      </td>
+      <td className="actions">
+        {editingId === m.id ? (
+          <div className="action-buttons">
+            <button
+              className="success-button"
+              onClick={() => handleUpdateMeta(m.id)}
+            >
+              <svg viewBox="0 0 24 24">
+                <path d="M21 7l-9 9-3-3-3 3 6 6 12-12zM5 13l3 3 5-5-3-3-5 5z" />
+              </svg>
+            </button>
+            <button
+              className="cancel-button"
+              onClick={() => setEditingId(null)}
+            >
+              <svg viewBox="0 0 24 24">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              className="edit-button"
+              onClick={() => handleEditMeta(m)}
+            >
+              <svg viewBox="0 0 24 24">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+              </svg>
+            </button>
+            <button 
+              className="delete-button"
+              onClick={() => handleDeleteMeta(m.id)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                <path d="M3 6v18h18v-18h-18zm5 14c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm4-18v2h-20v-2h5.711c.9 0 1.631-1.099 1.631-2h5.315c0 .901.73 2 1.631 2h5.712z"/>
+              </svg>
+            </button>
+          </>
+        )}
+      </td>
+    </tr>
+  );
+})}
+
+      </tbody>
+    </table>
+  </div>
+</section>
+
+
   
         <section className="product-filter-section">
           <button
@@ -373,102 +538,99 @@ export default function Metas() {
           </div>
         </section>
   
-        <section className="metas-list">
-          <div className="section-header">
-            <h2>Metas Cadastradas</h2>
-            <span className="total-metas">{metas.length} metas registradas</span>
-          </div>
-          
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Responsável</th>
-                  <th>Meta</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {metas.map((m) => (
-                  <tr key={m.id}>
-                    <td>
-                      {editingId === m.id ? (
-                        <div className="edit-input-wrapper">
-                          <input
-                            type="text"
-                            value={editResponsavel}
-                            onChange={(e) => setEditResponsavel(e.target.value)}
-                            className="edit-input"
-                          />
-                        </div>
-                      ) : (
-                        <div className="user-info">
-                          <div className="user-avatar">
-                            {m.responsavel[0].toUpperCase()}
-                          </div>
-                          {m.responsavel}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      {editingId === m.id ? (
-                        <div className="edit-input-wrapper">
-                          <input
-                            type="number"
-                            value={editMeta}
-                            onChange={(e) => setEditMeta(e.target.value)}
-                            className="edit-input"
-                          />
-                        </div>
-                      ) : (
-                        <div className="meta-value">
-                          {Number(m.meta).toLocaleString('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL',
-                          })}
-                        </div>
-                      )}
-                    </td>
-                    <td className="actions">
-                      {editingId === m.id ? (
-                        <div className="action-buttons">
-                          <button
-                            className="save-button"
-                            onClick={() => handleUpdateMeta(m.id)}
-                          >
-                            <svg viewBox="0 0 24 24">
-                              <path d="M21 7l-9 9-3-3-3 3 6 6 12-12zM5 13l3 3 5-5-3-3-5 5z" />
-                            </svg>
-                          </button>
-                          <button
-                            className="cancel-button"
-                            onClick={() => setEditingId(null)}
-                          >
-                            <svg viewBox="0 0 24 24">
-                              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                            </svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          className="edit-button"
-                          onClick={() => handleEditMeta(m)}
-                        >
-                          <svg viewBox="0 0 24 24">
-                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                          </svg>
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        
       </main>
   
       <style jsx>{`
+          .delete-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            background-color: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+    }
+
+        .delete-button svg {
+          width: 1.25rem;
+          height: 1.25rem;
+          fill: #dc2626;
+          transition: fill 0.2s ease;
+        }
+
+    /* Hover State */
+    .delete-button:hover {
+      background-color: #fee2e2;
+      border-color: #fca5a5;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(220, 38, 38, 0.1);
+    }
+
+    /* Active State */
+    .delete-button:active {
+      background-color: #fecaca;
+      transform: translateY(0);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Focus State */
+    .delete-button:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.3);
+    }
+
+    /* Loading State */
+    .delete-button.loading {
+      pointer-events: none;
+      opacity: 0.8;
+    }
+
+    .delete-button.loading::after {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #fff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    /* Disabled State */
+    .delete-button:disabled {
+      background-color: #f3f4f6;
+      border-color: #e5e7eb;
+      color: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .delete-button:disabled svg {
+      fill: #9ca3af;
+    }
+
+    /* Icon Only Variation */
+    .delete-button.icon-only {
+      padding: 0.5rem;
+      border-radius: 50%;
+    }
+
+    .delete-button.icon-only svg {
+      margin: 0;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
         .metas-container {
           max-width: 1440px;
           margin: 0 auto;

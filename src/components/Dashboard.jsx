@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
@@ -12,8 +12,19 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import ReactDatePicker from "react-datepicker";
+import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+
+const NavBar = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { unidade } = useParams();
+  return (
+    <nav className="nav-bar">
+      <Link to={`/metas/${unidade}`} className="nav-link">Metas</Link>
+      <Link to = "/unidade" className="nav-link">Unidade</Link>
+    </nav>
+  );
+};
 
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
@@ -41,7 +52,7 @@ export default function Dashboard() {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [metas, setMetas] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const handleDrop = (e) => {
     e.preventDefault();
@@ -188,12 +199,18 @@ export default function Dashboard() {
 
     // Filtro por data (usando o intervalo selecionado)
     let condData = true;
-    if (startDate && endDate) {
-      // Converte a data da venda para Date
-      const saleDate = dayjs(dataVenda, "YYYY-MM-DD").toDate();
-      condData = saleDate >= startDate && saleDate <= endDate;
+    if (startDate && endDate && dataVenda) {
+      const saleDate = dayjs(dataVenda, "YYYY-MM-DD");
+      condData = saleDate.isBetween(dayjs(startDate), dayjs(endDate), "day", "[]");
     }
-    return condResponsavel && condProduto && condData;
+    const condSearch = searchTerm
+      ? Object.values(v).some(
+          (val) =>
+            val &&
+            val.toString().toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : true;
+    return condResponsavel && condProduto && condData && condSearch;
   });
 
   const somaPorResponsavel = vendasFiltradas.reduce((acc, v) => {
@@ -231,99 +248,174 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      {/* Header Moderno */}
+      <NavBar />
       <header className="dashboard-header">
         <div className="header-content">
           <div className="header-title">
-            <h1>{unidade.toUpperCase()} Dashboard</h1>
-            <p className="last-update">Última atualização: {new Date().toLocaleString('pt-BR')}</p>
+            <h1>Dashboard - {unidade.toUpperCase()}</h1>
+            <p className="last-update">
+              Última atualização: {new Date().toLocaleString("pt-BR")}
+            </p>
           </div>
-          <div className="header-stats">
-            <div className="stat-card primary">
-              <div className="stat-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 1V23" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M17 5H9.5C8.57174 5 7.6815 5.36875 7.02513 6.02513C6.36875 6.6815 6 7.57174 6 8.5C6 9.42826 6.36875 10.3185 7.02513 10.9749C7.6815 11.6313 8.57174 12 9.5 12H14.5C15.4283 12 16.3185 12.3687 16.9749 13.0251C17.6313 13.6815 18 14.5717 18 15.5C18 16.4283 17.6313 17.3185 16.9749 17.9749C16.3185 18.6313 15.4283 19 14.5 19H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          
+        </div>
+        <div className="header-stats">
+          <div className="stat-card primary">
+            <div className="stat-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 1V23"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M17 5H9.5C8.57174 5 7.6815 5.36875 7.02513 6.02513C6.36875 6.6815 6 7.57174 6 8.5C6 9.42826 6.36875 10.3185 7.02513 10.9749C7.6815 11.6313 8.57174 12 9.5 12H14.5C15.4283 12 16.3185 12.3687 16.9749 13.0251C17.6313 13.6815 18 14.5717 18 15.5C18 16.4283 17.6313 17.3185 16.9749 17.9749C16.3185 18.6313 15.4283 19 14.5 19H6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <div className="stat-info">
+              <span>Total Faturado</span>
+              <strong>
+                {totalFaturado.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </strong>
+              <div className="stat-trend up">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 19V5M5 12L12 5L19 12"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
-              </div>
-              <div className="stat-info">
-                <span>Total Faturado</span>
-                <strong>
-                  {totalFaturado.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </strong>
-                <div className="stat-trend up">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 19V5M5 12L12 5L19 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <span>12%</span>
-                </div>
+                <span>12%</span>
               </div>
             </div>
-            
-            <div className="stat-card secondary">
-              <div className="stat-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 21V12H15V21M3 7H21V11H3V7ZM5 11V21H19V11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </div>
+          
+          <div className="stat-card secondary">
+            <div className="stat-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M9 21V12H15V21M3 7H21V11H3V7ZM5 11V21H19V11"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <div className="stat-info">
+              <span>Vendas (mês)</span>
+              <strong>{vendas.length}</strong>
+              <div className="stat-trend up">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 19V5M5 12L12 5L19 12"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
-              </div>
-              <div className="stat-info">
-                <span>Vendas (mês)</span>
-                <strong>{vendas.length}</strong>
-                <div className="stat-trend up">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 19V5M5 12L12 5L19 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <span>8%</span>
-                </div>
+                <span>8%</span>
               </div>
             </div>
-            
-            <div className="stat-card tertiary">
-              <div className="stat-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M8 14C8 14 9.5 16 12 16C14.5 16 16 14 16 14M12 8V14M12 14V14.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </div>
+          
+          <div className="stat-card tertiary">
+            <div className="stat-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M8 14C8 14 9.5 16 12 16C14.5 16 16 14 16 14M12 8V14M12 14V14.01"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <div className="stat-info">
+              <span>Média/Venda</span>
+              <strong>
+                {(totalFaturado / (vendas.length || 1)).toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </strong>
+              <div className="stat-trend down">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 5V19M19 12L12 19L5 12"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
-              </div>
-              <div className="stat-info">
-                <span>Média/Venda</span>
-                <strong>
-                  {(totalFaturado / (vendas.length || 1)).toLocaleString(
-                    "pt-BR",
-                    {
-                      style: "currency",
-                      currency: "BRL",
-                    }
-                  )}
-                </strong>
-                <div className="stat-trend down">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 5V19M19 12L12 19L5 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  <span>3%</span>
-                </div>
+                <span>3%</span>
               </div>
             </div>
           </div>
         </div>
       </header>
   
-      {/* Seção de Upload Modernizada */}
-      <section className="upload-section">
+      <section className="card upload-section">
         <div className="section-header">
           <h2>Importar Novo Relatório</h2>
           <p>Adicione um novo arquivo Excel para atualizar os dados do dashboard</p>
         </div>
-        <div className="upload-area" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
-          <div className={`upload-content ${file ? 'has-file' : ''}`}>
+        <div
+          className="upload-area"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+              setFile(e.dataTransfer.files[0]);
+              setError("");
+            }
+          }}
+        >
+          <div className={`upload-content ${file ? "has-file" : ""}`}>
             <div className="upload-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M17 8L12 3L7 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M17 8L12 3L7 8"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M12 3V15"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </div>
             <div className="upload-text">
@@ -356,7 +448,11 @@ export default function Dashboard() {
           </div>
           {file && (
             <div className="upload-actions">
-              <button className="cancel-button" onClick={() => setFile(null)} disabled={uploading}>
+              <button
+                className="cancel-button"
+                onClick={() => setFile(null)}
+                disabled={uploading}
+              >
                 Cancelar
               </button>
               <button
@@ -372,8 +468,20 @@ export default function Dashboard() {
                 ) : (
                   <>
                     <span className="upload-icon">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                     </span>
                     Enviar Arquivo
@@ -382,28 +490,57 @@ export default function Dashboard() {
               </button>
             </div>
           )}
+          {error && (
+            <div className="alert error">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 8V12V8ZM12 16H12.01H12ZM21 12C21 13.1819 20.7672 14.3522 20.3149 15.4442C19.8626 16.5361 19.1997 17.5282 18.364 18.364C17.5282 19.1997 16.5361 19.8626 15.4442 20.3149C14.3522 20.7672 13.1819 21 12 21C10.8181 21 9.64778 20.7672 8.55585 20.3149C7.46392 19.8626 6.47177 19.1997 5.63604 18.364C4.80031 17.5282 4.13738 16.5361 3.68508 15.4442C3.23279 14.3522 3 13.1819 3 12C3 9.61305 3.94821 7.32387 5.63604 5.63604C7.32387 3.94821 9.61305 3 12 3C14.3869 3 16.6761 3.94821 18.364 5.63604C20.0518 7.32387 21 9.61305 21 12Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span>{error}</span>
+            </div>
+          )}
+          {successMessage && (
+            <div className="alert success">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M22 11.08V12C21.9988 14.1564 21.3005 16.2547 20.0093 17.9818C18.7182 19.709 16.9033 20.9725 14.8354 21.5839C12.7674 22.1953 10.5573 22.1219 8.53447 21.3746C6.51168 20.6273 4.78465 19.2461 3.61096 17.4371C2.43727 15.628 1.87979 13.4881 2.02168 11.3363C2.16356 9.18455 2.99721 7.13631 4.39828 5.49706C5.79935 3.85781 7.69279 2.71537 9.79619 2.24013C11.8996 1.7649 14.1003 1.98232 16.07 2.85999"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M22 4L12 14.01L9 11.01"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span>{successMessage}</span>
+            </div>
+          )}
         </div>
-        {error && (
-          <div className="alert error">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 8V12V8ZM12 16H12.01H12ZM21 12C21 13.1819 20.7672 14.3522 20.3149 15.4442C19.8626 16.5361 19.1997 17.5282 18.364 18.364C17.5282 19.1997 16.5361 19.8626 15.4442 20.3149C14.3522 20.7672 13.1819 21 12 21C10.8181 21 9.64778 20.7672 8.55585 20.3149C7.46392 19.8626 6.47177 19.1997 5.63604 18.364C4.80031 17.5282 4.13738 16.5361 3.68508 15.4442C3.23279 14.3522 3 13.1819 3 12C3 9.61305 3.94821 7.32387 5.63604 5.63604C7.32387 3.94821 9.61305 3 12 3C14.3869 3 16.6761 3.94821 18.364 5.63604C20.0518 7.32387 21 9.61305 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span>{error}</span>
-          </div>
-        )}
-        {successMessage && (
-          <div className="alert success">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22 11.08V12C21.9988 14.1564 21.3005 16.2547 20.0093 17.9818C18.7182 19.709 16.9033 20.9725 14.8354 21.5839C12.7674 22.1953 10.5573 22.1219 8.53447 21.3746C6.51168 20.6273 4.78465 19.2461 3.61096 17.4371C2.43727 15.628 1.87979 13.4881 2.02168 11.3363C2.16356 9.18455 2.99721 7.13631 4.39828 5.49706C5.79935 3.85781 7.69279 2.71537 9.79619 2.24013C11.8996 1.7649 14.1003 1.98232 16.07 2.85999" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M22 4L12 14.01L9 11.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span>{successMessage}</span>
-          </div>
-        )}
       </section>
   
-      {/* Seção de Filtros Modernizada */}  
-      <section className="filters-section">
+      <section className="card filters-section">
         <div className="section-header">
           <h2>Filtros e Controles</h2>
           <p>Personalize a visualização dos dados conforme suas necessidades</p>
@@ -426,8 +563,14 @@ export default function Dashboard() {
                   ))}
                 </select>
                 <div className="select-arrow">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M6 9L12 15L18 9"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </div>
               </div>
@@ -448,27 +591,65 @@ export default function Dashboard() {
                   ))}
                 </select>
                 <div className="select-arrow">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M6 9L12 15L18 9"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </div>
               </div>
             </div>
             
+            <div className="filter-group">
+              <label>Data (Texto)</label>
+              <input
+                type="text"
+                placeholder="Filtrar por data..."
+                value={filtroData}
+                onChange={(e) => setFiltroData(e.target.value)}
+              />
+            </div>
+            
             <div className="filter-group date-range">
               <label>Intervalo de Datas</label>
-              <div className="date-range-display" onClick={() => setShowDatePicker(!showDatePicker)}>
-                {startDate ? startDate.toLocaleDateString('pt-BR') : 'Data inicial'} 
-                <span>a</span> 
-                {endDate ? endDate.toLocaleDateString('pt-BR') : 'Data final'}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M8 2V5M16 2V5M3.5 9.09H20.5M21 8.5V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V8.5C3 5.5 4.5 3.5 8 3.5H16C19.5 3.5 21 5.5 21 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M15.6947 13.7H15.7037M15.6947 16.7H15.7037M11.9955 13.7H12.0045M11.9955 16.7H12.0045M8.29431 13.7H8.30329M8.29431 16.7H8.30329" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <div
+                className="date-range-display"
+                onClick={() => setShowDatePicker(!showDatePicker)}
+              >
+                {startDate ? startDate.toLocaleDateString("pt-BR") : "Data inicial"}{" "}
+                <span>a</span>{" "}
+                {endDate ? endDate.toLocaleDateString("pt-BR") : "Data final"}
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M8 2V5M16 2V5M3.5 9.09H20.5M21 8.5V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V8.5C3 5.5 4.5 3.5 8 3.5H16C19.5 3.5 21 5.5 21 8.5Z"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeMiterlimit="10"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M15.6947 13.7H15.7037M15.6947 16.7H15.7037M11.9955 13.7H12.0045M11.9955 16.7H12.0045M8.29431 13.7H8.30329M8.29431 16.7H8.30329"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </div>
               {showDatePicker && (
                 <div className="date-picker-popup">
-                  <ReactDatePicker
+                  <DatePicker
                     selected={startDate}
                     onChange={(dates) => {
                       const [start, end] = dates;
@@ -488,23 +669,24 @@ export default function Dashboard() {
               )}
             </div>
             
-            <button className="reset-filters" onClick={() => {
-              setFiltroResponsavel('');
-              setFiltroProduto('');
-              setStartDate(null);
-              setEndDate(null);
-            }}>
-              Limpar Filtros
-            </button>
+            <div className="filter-group search-filter">
+              <label>Pesquisar</label>
+              <input
+                type="text"
+                placeholder="Digite para pesquisar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
           
           <div className="filter-stats-card">
             <div className="stats-header">
               <h3>Estatísticas Filtradas</h3>
               <div className="stats-period">
-                {startDate && endDate ? (
-                  `${startDate.toLocaleDateString('pt-BR')} - ${endDate.toLocaleDateString('pt-BR')}`
-                ) : 'Período completo'}
+                {startDate && endDate
+                  ? `${startDate.toLocaleDateString("pt-BR")} - ${endDate.toLocaleDateString("pt-BR")}`
+                  : "Período completo"}
               </div>
             </div>
             <div className="stats-grid">
@@ -535,7 +717,6 @@ export default function Dashboard() {
         </div>
       </section>
   
-      {/* Conteúdo Principal */}
       {loading ? (
         <div className="loading-indicator">
           <div className="spinner"></div>
@@ -543,8 +724,7 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          {/* Seção de Gráficos */}
-          <section className="chart-section">
+          <section className="card chart-section">
             <div className="section-header">
               <div className="section-title">
                 <h2>Performance por Responsável</h2>
@@ -556,13 +736,22 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="chart-actions">
-                <button className={`chart-action ${chartTimeRange === 'week' ? 'active' : ''}`} onClick={() => setChartTimeRange('week')}>
+                <button
+                  className={`chart-action ${chartTimeRange === "week" ? "active" : ""}`}
+                  onClick={() => setChartTimeRange("week")}
+                >
                   Semana
                 </button>
-                <button className={`chart-action ${chartTimeRange === 'month' ? 'active' : ''}`} onClick={() => setChartTimeRange('month')}>
+                <button
+                  className={`chart-action ${chartTimeRange === "month" ? "active" : ""}`}
+                  onClick={() => setChartTimeRange("month")}
+                >
                   Mês
                 </button>
-                <button className={`chart-action ${chartTimeRange === 'year' ? 'active' : ''}`} onClick={() => setChartTimeRange('year')}>
+                <button
+                  className={`chart-action ${chartTimeRange === "year" ? "active" : ""}`}
+                  onClick={() => setChartTimeRange("year")}
+                >
                   Ano
                 </button>
               </div>
@@ -576,48 +765,42 @@ export default function Dashboard() {
                   plugins: {
                     legend: { display: false },
                     tooltip: {
-                      backgroundColor: '#1E293B',
-                      titleColor: '#F8FAFC',
-                      bodyColor: '#F8FAFC',
-                      borderColor: '#334155',
+                      backgroundColor: "#1E293B",
+                      titleColor: "#F8FAFC",
+                      bodyColor: "#F8FAFC",
+                      borderColor: "#334155",
                       borderWidth: 1,
                       padding: 12,
                       cornerRadius: 8,
                       displayColors: true,
                       callbacks: {
-                        label: function (context) {
-                          return `R$ ${context.raw.toFixed(2).replace('.', ',')}`;
-                        },
+                        label: (context) =>
+                          `R$ ${context.raw.toFixed(2).replace(".", ",")}`,
                       },
                     },
                   },
                   scales: {
                     y: {
                       beginAtZero: true,
-                      grid: { 
-                        color: '#E2E8F0',
+                      grid: {
+                        color: "#E2E8F0",
                         borderDash: [4, 4],
-                        drawBorder: false
+                        drawBorder: false,
                       },
                       ticks: {
-                        color: '#64748B',
-                        callback: function (value) {
-                          return `R$ ${value.toLocaleString('pt-BR')}`;
-                        },
+                        color: "#64748B",
+                        callback: (value) =>
+                          `R$ ${value.toLocaleString("pt-BR")}`,
                       },
                     },
-                    x: {
-                      grid: { display: false },
-                      ticks: { color: '#64748B' },
-                    },
+                    x: { grid: { display: false }, ticks: { color: "#64748B" } },
                   },
                 }}
               />
             </div>
           </section>
   
-          {/* Seção de Tabela Modernizada */}
-          <section className="sales-section">
+          <section className="card table-section">
             <div className="section-header">
               <div className="section-title">
                 <h2>Detalhes das Vendas</h2>
@@ -627,10 +810,28 @@ export default function Dashboard() {
               </div>
               <div className="table-actions">
                 <button className="export-button">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M7 10L12 15L17 10"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M12 15V3"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                   Exportar
                 </button>
@@ -638,30 +839,30 @@ export default function Dashboard() {
             </div>
             
             <div className="table-container">
-              <table>
+              <table className="data-table">
                 <thead>
                   <tr>
-                    <th className="sortable" onClick={() => handleSort('dataFormatada')}>
-                      Data {sortConfig.key === 'dataFormatada' && (
+                    <th className="sortable" onClick={() => handleSort("dataFormatada")}>
+                      Data {sortConfig.key === "dataFormatada" && (
                         <span className="sort-icon">
-                          {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                          {sortConfig.direction === "ascending" ? "↑" : "↓"}
                         </span>
                       )}
                     </th>
                     <th>Produto</th>
                     <th>Matrícula</th>
                     <th>Nome</th>
-                    <th className="sortable" onClick={() => handleSort('responsavel')}>
-                      Responsável {sortConfig.key === 'responsavel' && (
+                    <th className="sortable" onClick={() => handleSort("responsavel")}>
+                      Responsável {sortConfig.key === "responsavel" && (
                         <span className="sort-icon">
-                          {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                          {sortConfig.direction === "ascending" ? "↑" : "↓"}
                         </span>
                       )}
                     </th>
-                    <th className="sortable numeric" onClick={() => handleSort('valor')}>
-                      Valor {sortConfig.key === 'valor' && (
+                    <th className="sortable numeric" onClick={() => handleSort("valor")}>
+                      Valor {sortConfig.key === "valor" && (
                         <span className="sort-icon">
-                          {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                          {sortConfig.direction === "ascending" ? "↑" : "↓"}
                         </span>
                       )}
                     </th>
@@ -669,63 +870,44 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {vendasFiltradas.length > 0 ? (
-                    vendasFiltradas
-                      .sort((a, b) => {
-                        if (sortConfig.key) {
-                          if (a[sortConfig.key] < b[sortConfig.key]) {
-                            return sortConfig.direction === 'ascending' ? -1 : 1;
-                          }
-                          if (a[sortConfig.key] > b[sortConfig.key]) {
-                            return sortConfig.direction === 'ascending' ? 1 : -1;
-                          }
-                          return 0;
-                        }
-                        return 0;
-                      })
-                      .map((venda, index) => (
-                        <tr key={index}>
-                          <td data-label="Data">
-                            {dayjs(venda.dataFormatada).format("DD/MM/YYYY")}
-                          </td>
-                          <td data-label="Produto">
-                            <span className="product-badge">{venda.produto}</span>
-                          </td>
-                          <td data-label="Matrícula">{venda.matricula}</td>
-                          <td data-label="Nome">{venda.nome}</td>
-                          <td data-label="Responsável">
-                            <div className="responsible-cell">
-                              <span className="avatar">{venda.responsavel.charAt(0)}</span>
-                              {venda.responsavel}
-                            </div>
-                          </td>
-                          <td data-label="Valor" className="currency">
-                            <span className={`value ${Number(venda.valor) > 5000 ? 'highlight' : ''}`}>
-                              {Number(venda.valor).toLocaleString("pt-BR", {
-                                style: "currency",
-                                currency: "BRL",
-                              })}
-                            </span>
-                          </td>
-                          <td data-label="Pagamento">
-                            <span className={`payment-method ${venda.formaPagamento.toLowerCase()}`}>
-                              {venda.formaPagamento}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                  {paginatedVendas.length > 0 ? (
+                    paginatedVendas.map((venda, index) => (
+                      <tr key={index}>
+                        <td data-label="Data">{dayjs(venda.dataFormatada).format("DD/MM/YYYY")}</td>
+                        <td data-label="Produto">
+                          <span className="product-badge">{venda.produto}</span>
+                        </td>
+                        <td data-label="Matrícula">{venda.matricula}</td>
+                        <td data-label="Nome">{venda.nome}</td>
+                        <td data-label="Responsável">
+                          <div className="responsible-cell">
+                            <span className="avatar">{venda.responsavel.charAt(0)}</span>
+                            {venda.responsavel}
+                          </div>
+                        </td>
+                        <td data-label="Valor" className="currency">
+                          <span className={`value ${Number(venda.valor) > 5000 ? "highlight" : ""}`}>
+                            {Number(venda.valor).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </span>
+                        </td>
+                        <td data-label="Pagamento">{venda.formaPagamento}</td>
+                      </tr>
+                    ))
                   ) : (
                     <tr className="no-results">
                       <td colSpan="7">
                         <div className="empty-state">
-                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
                             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             <path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
                           <p>Nenhuma venda encontrada com os filtros atuais</p>
                           <button onClick={() => {
-                            setFiltroResponsavel('');
-                            setFiltroProduto('');
+                            setFiltroResponsavel("");
+                            setFiltroProduto("");
                             setStartDate(null);
                             setEndDate(null);
                           }} className="reset-button">
@@ -738,36 +920,27 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
-            
-            {vendasFiltradas.length > 0 && (
-              <div className="table-footer">
-                <div className="rows-count">
-                  Mostrando 1-{Math.min(vendasFiltradas.length, 10)} de {vendasFiltradas.length} resultados
-                </div>
-                <div className="pagination">
-                  <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
-                  {Array.from({ length: Math.ceil(vendasFiltradas.length / itemsPerPage) }, (_, i) => (
-                    <button 
-                      key={i} 
-                      className={currentPage === i + 1 ? 'active' : ''}
-                      onClick={() => setCurrentPage(i + 1)}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+            {vendasFiltradas.length > itemsPerPage && (
+              <div className="pagination">
+                <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+                {Array.from({ length: Math.ceil(vendasFiltradas.length / itemsPerPage) }, (_, i) => (
                   <button 
-                    disabled={currentPage === Math.ceil(vendasFiltradas.length / itemsPerPage)} 
-                    onClick={() => setCurrentPage(currentPage + 1)}
+                    key={i} 
+                    className={currentPage === i + 1 ? "active" : ""}
+                    onClick={() => setCurrentPage(i + 1)}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    {i + 1}
                   </button>
-                </div>
+                ))}
+                <button disabled={currentPage === Math.ceil(vendasFiltradas.length / itemsPerPage)} onClick={() => setCurrentPage(currentPage + 1)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
               </div>
             )}
           </section>
@@ -798,6 +971,132 @@ export default function Dashboard() {
           --gray-700: #334155;
           --gray-800: #1E293B;
           --gray-900: #0F172A;
+        }
+        navbar {
+          background: white;
+          padding: 1rem 2rem;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .nav-logo {
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: var(--primary);
+          text-decoration: none;
+        }
+
+        .nav-links {
+          display: flex;
+          gap: 1.5rem;
+        }
+
+        .nav-link {
+          color: var(--gray-500);
+          text-decoration: none;
+          font-weight: 500;
+          padding: 0.5rem;
+          border-radius: 6px;
+          transition: all 0.2s;
+        }
+
+        .nav-link.active {
+          color: var(--primary);
+          background-color: rgba(79, 70, 229, 0.1);
+        }
+        
+        .logo-icon {
+          width: 32px;
+          height: 32px;
+          stroke-width: 1.5;
+        }
+        
+        .nav-links {
+          display: flex;
+          gap: 2rem;
+          align-items: center;
+          transition: all 0.3s ease;
+        }
+        
+        .nav-link {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: var(--gray-600);
+          font-weight: 500;
+          padding: 0.5rem;
+          border-radius: 6px;
+          transition: all 0.2s ease;
+          text-decoration: none;
+        }
+        
+        .nav-link:hover {
+          background: var(--gray-50);
+          color: var(--primary);
+        }
+        
+        .nav-link:hover .nav-icon {
+          stroke: var(--primary);
+        }
+        
+        .nav-icon {
+          width: 20px;
+          height: 20px;
+          stroke: var(--gray-600);
+          stroke-width: 1.75;
+          transition: stroke 0.2s ease;
+        }
+        
+        .menu-toggle {
+          display: none;
+          background: none;
+          border: none;
+          padding: 0.5rem;
+          cursor: pointer;
+          color: var(--gray-600);
+        }
+        
+        .menu-toggle svg {
+          width: 24px;
+          height: 24px;
+        }
+        
+        @media (max-width: 768px) {
+          .navbar-container {
+            padding: 1rem;
+          }
+          
+          .nav-links {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            flex-direction: column;
+            gap: 0;
+            padding: 1rem 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+          }
+          
+          .nav-links.active {
+            max-height: 500px;
+            opacity: 1;
+          }
+          
+          .nav-link {
+            width: 100%;
+            padding: 1rem 2rem;
+            border-radius: 0;
+          }
+          
+          .menu-toggle {
+            display: block;
+          }
         }
         
         .dashboard-container {

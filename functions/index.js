@@ -179,5 +179,5 @@ app.post("/", (req, res) => {
 
 exports.uploadXLS = functions
   .region("southamerica-east1")
-  .runWith({ timeoutSeconds: 120, memory: "1GB" })
+  .runWith({ timeoutSeconds: 480, memory: "1GB" })
   .https.onRequest(app);

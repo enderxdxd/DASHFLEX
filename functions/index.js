@@ -103,7 +103,11 @@ app.post("/", (req, res) => {
         const formaPagamento = (row["Forma Pagamento"] || "").trim();
         const condicaoPagamento = (row["Condicao Pagamento"] || "").trim();
         // Para o valor, removemos "R$" e substituímos vírgula por ponto, se necessário.
-        const valorStr = (row["Valor"] || "").replace("R$", "").replace(",", ".").trim();
+        const valorStr = (row["Valor"] || "")
+          .replace("R$", "")
+          .replace(/\./g, "")
+          .replace(",", ".")
+          .trim();
         const valor = Number(valorStr) || 0;
         const empresa = (row["Empresa"] || "").trim();
 

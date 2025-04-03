@@ -182,15 +182,13 @@ export default function Metas() {
         type: "bar",
         label: "Vendas Realizadas",
         data: dadosGrafico.map((d) => d.vendas),
-        backgroundColor: dadosGrafico.map((d) =>
-          d.vendas >= d.meta ? "#10B981" : "#F59E0B"
-        ),
+        backgroundColor: "#10B981", // verde para todas as barras
         borderRadius: 4,
       },
       {
         label: "Meta",
         data: dadosGrafico.map((d) => d.meta),
-        backgroundColor: "#F59E0B",
+        backgroundColor: "#F59E0B", // laranja para todas as barras
         borderRadius: 4,
       },
     ],

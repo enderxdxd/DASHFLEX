@@ -22,6 +22,9 @@ const NavBar = () => {
     <nav className="nav-bar">
       <Link to={`/dashboard/${unidade}`} className="nav-link">Dashboard</Link>
       <Link to="/unidade" className="nav-link">Unidade</Link>
+      <Link to={`/add-sale/${unidade}`} className="nav-link">
+        Adicionar Venda
+      </Link>
     </nav>
   );
 };

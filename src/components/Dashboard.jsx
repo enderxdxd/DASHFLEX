@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collectionGroup, collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
+import isBetween from "dayjs/plugin/isBetween";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -14,20 +15,24 @@ import {
 } from "chart.js";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import isBetween from "dayjs/plugin/isBetween";
 dayjs.extend(isBetween);
 
 const NavBar = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { unidade } = useParams();
   return (
     <nav className="nav-bar">
-      <Link to={`/metas/${unidade}`} className="nav-link">Metas</Link>
-      <Link to = "/unidade" className="nav-link">Unidade</Link>
+      <Link to={`/metas/${unidade}`} className="nav-link">
+        Metas
+      </Link>
+      <Link to="/unidade" className="nav-link">
+        Unidade
+      </Link>
+      <Link to={`/add-sale/${unidade}`} className="nav-link">
+        Adicionar Venda
+      </Link>
     </nav>
   );
 };
-
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
@@ -35,91 +40,126 @@ export default function Dashboard() {
   const { unidade } = useParams();
   const navigate = useNavigate();
 
+  // Estados gerais
   const [vendas, setVendas] = useState([]);
-  const [filtroResponsavel, setFiltroResponsavel] = useState("");
-  const [filtroProduto, setFiltroProduto] = useState("");
-  const [filtroData, setFiltroData] = useState("");
-  const [file, setFile] = useState(null);
+  const [metas, setMetas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [totalFaturado, setTotalFaturado] = useState(0);
-  const [responsaveis, setResponsaveis] = useState([]);
-  const [produtos, setProdutos] = useState([]);
+
+  // Estados para filtros, datas e pesquisa
+  const [filtroResponsavel, setFiltroResponsavel] = useState("");
+  const [filtroProduto, setFiltroProduto] = useState("");
+  const [filtroData, setFiltroData] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [chartTimeRange, setChartTimeRange] = useState('month');
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+
+  // Estados para upload de arquivo
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  // Estados para ordenação, paginação e gráficos
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "ascending" });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [searchTerm, setSearchTerm] = useState("");
+  const [chartTimeRange, setChartTimeRange] = useState("month");
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-      setError("");
-    }
-  };
+  // Estados para extrair responsáveis e produtos das vendas
+  const [responsaveis, setResponsaveis] = useState([]);
+  const [produtos, setProdutos] = useState([]);
 
-  const handleSort = (key) => {
-    let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
-  
-  // Função para paginação - adicione isso antes do return
-  
-
-
-  // Busca dados do Firestore com realtime updates
+  // Redireciona se a unidade não estiver definida
   useEffect(() => {
     if (!unidade) {
       navigate("/login");
       return;
     }
-  
-    const fetchData = async () => {
+  }, [unidade, navigate]);
+
+  // Busca as metas da unidade atual (para obter os responsáveis oficiais)
+  useEffect(() => {
+    if (!unidade) return;
+    const metasRef = collection(db, "faturamento", unidade.toLowerCase(), "metas");
+    const unsubscribeMetas = onSnapshot(
+      metasRef,
+      (snapshot) => {
+        const metasData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setMetas(metasData);
+      },
+      (err) => {
+        console.error("Erro ao carregar metas:", err);
+        setError("Falha ao carregar metas.");
+      }
+    );
+    return () => unsubscribeMetas();
+  }, [unidade]);
+
+  // Busca todas as vendas de todas as unidades usando collectionGroup
+  useEffect(() => {
+    const fetchVendas = async () => {
       try {
         setLoading(true);
-        // Consulta todas as vendas da unidade (você pode usar filtros por data se desejar)
-        const vendasRef = collection(db, "faturamento", unidade.toLowerCase(), "vendas");
-        const unsubscribe = onSnapshot(vendasRef, (snapshot) => {
-          let todasVendas = [];
-          let responsaveisSet = new Set();
-          let produtosSet = new Set();
-          let faturamentoTotal = 0;
+        const vendasQuery = collectionGroup(db, "vendas");
+        const unsubscribe = onSnapshot(
+          vendasQuery,
+          (snapshot) => {
+            // Monta a lista de responsáveis oficiais com base nas metas
+            const responsaveisOficiais = metas.map((m) =>
+              m.responsavel.trim().toLowerCase()
+            );
   
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            todasVendas.push(data);
-            if (data.responsavel) responsaveisSet.add(data.responsavel);
-            if (data.produto) produtosSet.add(data.produto);
-            faturamentoTotal += Number(data.valor) || 0;
-          });
+            // Log apenas das vendas cujo responsável esteja nas metas
+            snapshot.forEach((doc) => {
+              const data = doc.data();
+              const resp = (data.responsavel || "").trim().toLowerCase();
+              if (responsaveisOficiais.includes(resp)) {
+                console.log("Documento encontrado (responsável oficial):", data);
+              }
+            });
   
-          setVendas(todasVendas);
-          setResponsaveis(Array.from(responsaveisSet).sort());
-          setProdutos(Array.from(produtosSet).sort());
-          setTotalFaturado(faturamentoTotal);
-          setError("");
-        });
+            let todasVendas = [];
+            let responsaveisSet = new Set();
+            let produtosSet = new Set();
+            let faturamentoTotal = 0;
   
+            snapshot.forEach((doc) => {
+              const data = doc.data();
+              todasVendas.push(data);
+              if (data.responsavel) responsaveisSet.add(data.responsavel);
+              if (data.produto) produtosSet.add(data.produto);
+              faturamentoTotal += Number(data.valor) || 0;
+            });
+  
+            setVendas(todasVendas);
+            setResponsaveis(Array.from(responsaveisSet).sort());
+            setProdutos(Array.from(produtosSet).sort());
+            setTotalFaturado(faturamentoTotal);
+            setError("");
+          },
+          (err) => {
+            console.error("Erro ao carregar vendas:", err);
+            setError("Falha ao carregar dados. Tente novamente mais tarde.");
+          }
+        );
         return () => unsubscribe();
       } catch (err) {
-        console.error("Erro ao carregar vendas:", err);
-        setError("Falha ao carregar dados. Tente novamente mais tarde.");
+        console.error("Erro no fetch de vendas:", err);
+        setError("Falha ao carregar dados.");
       } finally {
         setLoading(false);
       }
     };
   
-    fetchData();
-  }, [unidade, navigate]);
+    // Adicionamos "metas" como dependência, pois ela é usada para filtrar os logs.
+    fetchVendas();
+  }, [metas]);
+  
 
   // Upload do arquivo XLS
   const handleUpload = async () => {
@@ -130,8 +170,8 @@ export default function Dashboard() {
       }
 
       // Verificação de extensão
-      const fileExt = file.name.split('.').pop().toLowerCase();
-      if (!['xls', 'xlsx'].includes(fileExt)) {
+      const fileExt = file.name.split(".").pop().toLowerCase();
+      if (!["xls", "xlsx"].includes(fileExt)) {
         setError("Apenas arquivos .xls ou .xlsx são permitidos");
         return;
       }
@@ -141,10 +181,9 @@ export default function Dashboard() {
       setSuccessMessage("");
 
       const formData = new FormData();
-      formData.append("file", file); // O campo 'file' deve ser o mesmo do backend
+      formData.append("file", file);
       formData.append("unidade", unidade);
 
-      // Log para debug
       console.log("Enviando arquivo:", {
         name: file.name,
         size: file.size,
@@ -176,7 +215,8 @@ export default function Dashboard() {
       console.error("Erro no upload:", error);
       let errorMessage = "Erro ao enviar arquivo";
       if (error.message.includes("Nenhum arquivo foi recebido")) {
-        errorMessage = "O servidor não recebeu o arquivo. Verifique o console para mais detalhes";
+        errorMessage =
+          "O servidor não recebeu o arquivo. Verifique o console para mais detalhes";
       } else {
         errorMessage = error.message;
       }
@@ -186,25 +226,33 @@ export default function Dashboard() {
     }
   };
 
-  // Filtros e processamento de dados para exibição
-  const vendasFiltradas = vendas.filter((v) => {
-    const responsavel = v.responsavel || "";
-    const produto = v.produto || "";
-    const dataVenda = v.dataFormatada || ""; // Espera o formato "YYYY-MM-DD"
+  // Cria a lista de responsáveis oficiais (das metas) para a unidade atual
+  const responsaveisOficiais = metas.map((m) =>
+    m.responsavel.trim().toLowerCase()
+  );
 
+  // Filtra as vendas considerando todas as vendas registradas em qualquer unidade,
+  // mas inclui apenas aquelas cujo responsável (normalizado) esteja cadastrado nas metas da unidade atual.
+  const vendasFiltradas = vendas.filter((v) => {
+    const responsavel = (v.responsavel || "").trim();
+    const produto = (v.produto || "").trim();
+    const dataVenda = v.dataFormatada || ""; // formato "YYYY-MM-DD"
+
+    // Filtro por responsável (texto digitado)
     const condResponsavel = filtroResponsavel
       ? responsavel.toLowerCase().includes(filtroResponsavel.toLowerCase())
       : true;
+    // Filtro por produto
     const condProduto = filtroProduto
       ? produto.toLowerCase().includes(filtroProduto.toLowerCase())
       : true;
-
-    // Filtro por data (usando o intervalo selecionado)
+    // Filtro por intervalo de datas
     let condData = true;
     if (startDate && endDate && dataVenda) {
       const saleDate = dayjs(dataVenda, "YYYY-MM-DD");
       condData = saleDate.isBetween(dayjs(startDate), dayjs(endDate), "day", "[]");
     }
+    // Filtro por pesquisa geral
     const condSearch = searchTerm
       ? Object.values(v).some(
           (val) =>
@@ -212,11 +260,37 @@ export default function Dashboard() {
             val.toString().toLowerCase().includes(searchTerm.toLowerCase())
         )
       : true;
-    return condResponsavel && condProduto && condData && condSearch;
+    // Condição para incluir apenas vendas cujo responsável esteja nas metas da unidade atual
+    const condMeta =
+      responsaveisOficiais.length > 0
+        ? responsaveisOficiais.includes(responsavel.toLowerCase())
+        : true;
+
+    return condResponsavel && condProduto && condData && condSearch && condMeta;
   });
 
+  // Ordenação das vendas filtradas
+  const vendasOrdenadas = sortConfig.key
+    ? [...vendasFiltradas].sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === "ascending" ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === "ascending" ? 1 : -1;
+        }
+        return 0;
+      })
+    : vendasFiltradas;
+
+  // Paginação
+  const paginatedVendas = vendasOrdenadas.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Soma das vendas por responsável para exibição no gráfico
   const somaPorResponsavel = vendasFiltradas.reduce((acc, v) => {
-    const key = v.responsavel || "Desconhecido";
+    const key = v.responsavel ? v.responsavel.trim().toLowerCase() : "desconhecido";
     const valor = Number(v.valor) || 0;
     acc[key] = (acc[key] || 0) + valor;
     return acc;
@@ -235,19 +309,23 @@ export default function Dashboard() {
     ],
   };
 
-  const totalFiltrado = vendasFiltradas.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
-  const mediaPorVenda = vendasFiltradas.length > 0
-    ? totalFiltrado / vendasFiltradas.length
-    : 0;
+  const totalFiltrado = vendasFiltradas.reduce(
+    (sum, v) => sum + (Number(v.valor) || 0),
+    0
+  );
+  const mediaPorVenda =
+    vendasFiltradas.length > 0 ? totalFiltrado / vendasFiltradas.length : 0;
 
   if (!unidade) return <div>Redirecionando...</div>;
 
-  const paginatedVendas = vendasFiltradas.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-  
-
+  // Função de ordenação única (já utilizada acima)
+  const handleSort = (key) => {
+    let direction = "ascending";
+    if (sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
   return (
     <div className="dashboard-container">
       <NavBar />
@@ -284,7 +362,7 @@ export default function Dashboard() {
             <div className="stat-info">
               <span>Total Faturado</span>
               <strong>
-                {totalFaturado.toLocaleString("pt-BR", {
+                {totalFiltrado.toLocaleString("pt-BR", {
                   style: "currency",
                   currency: "BRL",
                 })}

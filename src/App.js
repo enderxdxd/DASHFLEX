@@ -5,6 +5,7 @@ import UnidadeSelector from "./components/UnidadeSelector";
 import Dashboard from "./components/Dashboard";
 import Metas from "./components/Metas";
 import PrivateRoute from "./auth/PrivateRoute";
+import AddSale from "./components/AddSale";
 
 export default function App() {
   return (
@@ -22,11 +23,20 @@ export default function App() {
             </PrivateRoute>
           }
         />
+
         <Route
           path="/metas/:unidade"
           element={
             <PrivateRoute>
               <Metas />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/add-sale/:unidade"
+          element={
+            <PrivateRoute>
+              <AddSale />
             </PrivateRoute>
           }
         />

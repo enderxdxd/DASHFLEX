@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { collectionGroup, collection, onSnapshot } from "firebase/firestore";
+import { collectionGroup, collection, onSnapshot,getDocs, writeBatch } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
@@ -70,6 +70,31 @@ export default function Dashboard() {
   // Estados para extrair responsáveis e produtos das vendas
   const [responsaveis, setResponsaveis] = useState([]);
   const [produtos, setProdutos] = useState([]);
+  async function deleteAllDocumentsFromSubcollection(unidade, subcollectionName) {
+    const subcolRef = collection(db, "faturamento", unidade.toLowerCase(), subcollectionName);
+    const snapshot = await getDocs(subcolRef);
+  
+    if (snapshot.empty) {
+      console.log(`Nenhum documento encontrado na subcoleção "${subcollectionName}"`);
+      return;
+    }
+  
+    const batch = writeBatch(db);
+    snapshot.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+  
+    await batch.commit();
+    console.log(`Todos os documentos da subcoleção "${subcollectionName}" foram excluídos.`);
+  }
+  
+  // Função que exclui os dados da unidade (neste exemplo, a subcoleção "vendas")
+  // Se desejar excluir outras subcoleções, como "metas", adicione outra chamada à função.
+    async function deleteAllUnitData(unidade) {
+    await deleteAllDocumentsFromSubcollection(unidade, "vendas");
+    // Exemplo: para excluir também as metas, descomente a linha abaixo
+    // await deleteAllDocumentsFromSubcollection(unidade, "metas");
+  }
 
   // Redireciona se a unidade não estiver definida
   useEffect(() => {
@@ -326,6 +351,7 @@ export default function Dashboard() {
     }
     setSortConfig({ key, direction });
   };
+  
   return (
     <div className="dashboard-container">
       <NavBar />
@@ -396,7 +422,7 @@ export default function Dashboard() {
             </div>
             <div className="stat-info">
               <span>Vendas (mês)</span>
-              <strong>{vendas.length}</strong>
+              <strong>{vendasFiltradas.length}</strong>
               <div className="stat-trend up">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                   <path
@@ -889,32 +915,46 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="table-actions">
-                <button className="export-button">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M7 10L12 15L17 10"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M12 15V3"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Exportar
-                </button>
+              <button 
+              className="delete-button"
+              onClick={() => {
+                if (window.confirm('Tem certeza que deseja deletar todas as vendas?')) {
+                  deleteAllDocumentsFromSubcollection(unidade, "vendas");
+                }
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M3 6H5H21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M10 11V17"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M14 11V17"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Deletar
+            </button>
               </div>
             </div>
             
@@ -1002,24 +1042,57 @@ export default function Dashboard() {
             </div>
             {vendasFiltradas.length > itemsPerPage && (
               <div className="pagination">
-                <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                <button 
+                  disabled={currentPage === 1} 
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                >
+                  {/* Ícone anterior */}
                 </button>
-                {Array.from({ length: Math.ceil(vendasFiltradas.length / itemsPerPage) }, (_, i) => (
-                  <button 
-                    key={i} 
-                    className={currentPage === i + 1 ? "active" : ""}
-                    onClick={() => setCurrentPage(i + 1)}
-                  >
-                    {i + 1}
+
+                {/* Primeira página */}
+                {currentPage > 2 && <button onClick={() => setCurrentPage(1)}>1</button>}
+                
+                {/* Indicador de páginas anteriores */}
+                {currentPage > 3 && <span className="ellipsis">...</span>}
+                
+                {/* Páginas visíveis */}
+                {Array.from({ length: Math.ceil(vendasFiltradas.length / itemsPerPage) }, (_, i) => {
+                  const page = i + 1;
+                  const maxVisible = 5; // Número máximo de páginas visíveis
+                  const start = Math.max(1, currentPage - Math.floor(maxVisible/2));
+                  const end = Math.min(start + maxVisible - 1, Math.ceil(vendasFiltradas.length / itemsPerPage));
+
+                  if (page >= start && page <= end) {
+                    return (
+                      <button 
+                        key={i} 
+                        className={currentPage === page ? "active" : ""}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </button>
+                    );
+                  }
+                  return null;
+                })}
+
+                {/* Indicador de próximas páginas */}
+                {currentPage < Math.ceil(vendasFiltradas.length / itemsPerPage) - 2 && (
+                  <span className="ellipsis">...</span>
+                )}
+
+                {/* Última página */}
+                {currentPage < Math.ceil(vendasFiltradas.length / itemsPerPage) - 1 && (
+                  <button onClick={() => setCurrentPage(Math.ceil(vendasFiltradas.length / itemsPerPage))}>
+                    {Math.ceil(vendasFiltradas.length / itemsPerPage)}
                   </button>
-                ))}
-                <button disabled={currentPage === Math.ceil(vendasFiltradas.length / itemsPerPage)} onClick={() => setCurrentPage(currentPage + 1)}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                )}
+
+                <button 
+                  disabled={currentPage === Math.ceil(vendasFiltradas.length / itemsPerPage)} 
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                >
+                  {/* Ícone próximo */}
                 </button>
               </div>
             )}
@@ -1761,7 +1834,7 @@ export default function Dashboard() {
           margin-bottom: 1rem;
         }
         
-        .export-button {
+        .delete-button {
           display: flex;
           align-items: center;
           gap: 0.5rem;
@@ -1776,7 +1849,7 @@ export default function Dashboard() {
           transition: all 0.2s;
         }
         
-        .export-button:hover {
+        .delete-button:hover {
           background-color: var(--gray-100);
           border-color: var(--gray-400);
         }
@@ -1952,37 +2025,40 @@ export default function Dashboard() {
         .pagination {
           display: flex;
           gap: 0.5rem;
-        }
-        
-        .pagination button {
-          display: flex;
           align-items: center;
           justify-content: center;
-          width: 32px;
-          height: 32px;
-          background-color: white;
-          color: var(--gray-700);
-          border: 1px solid var(--gray-300);
+          margin-top: 1.5rem;
+        }
+
+        .pagination button {
+          padding: 0.5rem 0.75rem;
+          border: 1px solid #e2e8f0;
           border-radius: 6px;
-          font-size: 0.875rem;
+          background: white;
+          color: #64748b;
           cursor: pointer;
           transition: all 0.2s;
         }
-        
+
         .pagination button:hover:not(:disabled) {
-          background-color: var(--gray-100);
-          border-color: var(--gray-400);
+          background: #f1f5f9;
+          border-color: #cbd5e1;
         }
-        
+
+        .pagination button.active {
+          background: #6366f1;
+          color: white;
+          border-color: #6366f1;
+        }
+
         .pagination button:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
-        
-        .pagination button.active {
-          background-color: var(--primary);
-          color: white;
-          border-color: var(--primary);
+
+        .ellipsis {
+          padding: 0 0.5rem;
+          color: #94a3b8;
         }
         
         /* Loading Indicator */
@@ -2044,6 +2120,80 @@ export default function Dashboard() {
           
           th, td {
             white-space: nowrap;
+          }
+        }
+        .filter-group {
+          position: relative;
+          margin-bottom: 1rem;
+        }
+
+        .filter-group label {
+          display: block;
+          font-size: 0.875rem;
+          color: #475569;
+          font-weight: 500;
+          margin-bottom: 0.5rem;
+        }
+
+        .filter-group input {
+          width: 70%;
+          padding: 0.625rem 1rem;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          font-size: 0.875rem;
+          color: #1e293b;
+          transition: all 0.2s ease;
+          background-color: white;
+        }
+
+        .filter-group input:focus {
+          outline: none;
+          border-color: #6366f1;
+          box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+        }
+
+        .filter-group input::placeholder {
+          color: #94a3b8;
+          opacity: 1;
+        }
+
+        /* Estilo específico para o campo de pesquisa */
+        .search-filter input {
+          padding-left: 2.5rem;
+          background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>');
+          background-repeat: no-repeat;
+          background-position: 1rem center;
+          background-size: 1rem;
+        }
+
+        /* Estilo específico para o campo de data */
+        .filter-group:has(input[type="text"][placeholder*="data"]) input {
+          padding-right: 2.5rem;
+          background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>');
+          background-repeat: no-repeat;
+          background-position: right 1rem center;
+          background-size: 1rem;
+        }
+
+        /* Hover states */
+        .filter-group input:hover {
+          border-color: #94a3b8;
+        }
+
+        /* Responsividade */
+        @media (max-width: 640px) {
+          .filter-group {
+            margin-bottom: 0.75rem;
+          }
+          
+          .filter-group input {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8125rem;
+          }
+          
+          .search-filter input {
+            padding-left: 2.25rem;
+            background-position: 0.75rem center;
           }
         }
       `}</style>

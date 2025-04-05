@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc,collectionGroup } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import { Bar } from "react-chartjs-2";
@@ -69,37 +69,53 @@ export default function Metas() {
       navigate("/login");
       return;
     }
+  
+    // Carrega as metas da unidade atual
     const metasRef = collection(db, "faturamento", unidade.toLowerCase(), "metas");
     const unsubscribeMetas = onSnapshot(metasRef, (snapshot) => {
-      const metasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const metasData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
       setMetas(metasData);
     });
-
-    const vendasRef = collection(db, "faturamento", unidade.toLowerCase(), "vendas");
-    const unsubscribeVendas = onSnapshot(vendasRef, (snapshot) => {
-      const vendasData = snapshot.docs.map(doc => doc.data());
-      setVendas(vendasData);
-      setLoading(false);
-      // Extrai produtos únicos das vendas
-      const prodSet = new Set();
-      vendasData.forEach((v) => {
-        if (v.produto) {
-          prodSet.add(v.produto.trim());
+  
+    // Usa collectionGroup para puxar vendas de todas as unidades
+    const vendasQuery = collectionGroup(db, "vendas");
+    const unsubscribeVendas = onSnapshot(
+      vendasQuery,
+      (snapshot) => {
+        const vendasData = snapshot.docs.map((doc) => doc.data());
+        setVendas(vendasData);
+        setLoading(false);
+  
+        // Extrai produtos únicos das vendas
+        const prodSet = new Set();
+        vendasData.forEach((v) => {
+          if (v.produto) {
+            prodSet.add(v.produto.trim());
+          }
+        });
+        const prodArray = Array.from(prodSet).sort();
+        setProdutos(prodArray);
+  
+        // Se não há seleção persistida, seleciona todos os produtos
+        if (!localStorage.getItem("produtosSelecionados") || produtosSelecionados.length === 0) {
+          setProdutosSelecionados(prodArray);
         }
-      });
-      const prodArray = Array.from(prodSet).sort();
-      setProdutos(prodArray);
-      // Se não há seleção persistida, seleciona todos os produtos
-      if (!localStorage.getItem("produtosSelecionados") || produtosSelecionados.length === 0) {
-        setProdutosSelecionados(prodArray);
+      },
+      (err) => {
+        console.error("Erro ao carregar vendas:", err);
+        setError("Falha ao carregar dados. Tente novamente mais tarde.");
       }
-    });
-
+    );
+  
     return () => {
       unsubscribeMetas();
       unsubscribeVendas();
     };
   }, [unidade, navigate]);
+  
 
   // Função para cadastrar nova meta
   function parseBRNumber(str) {

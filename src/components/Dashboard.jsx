@@ -56,6 +56,7 @@ export default function Dashboard() {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [filtroNome, setFiltroNome] = useState("");
 
   // Estados para upload de arquivo
   const [file, setFile] = useState(null);
@@ -261,6 +262,7 @@ export default function Dashboard() {
   const vendasFiltradas = vendas.filter((v) => {
     const responsavel = (v.responsavel || "").trim();
     const produto = (v.produto || "").trim();
+    const nome = (v.nome || "").trim(); // campo "nome" da venda
     const dataVenda = v.dataFormatada || ""; // formato "YYYY-MM-DD"
 
     // Filtro por responsável (texto digitado)
@@ -272,6 +274,9 @@ export default function Dashboard() {
       ? produto.toLowerCase().includes(filtroProduto.toLowerCase())
       : true;
     // Filtro por intervalo de datas
+    const condNome = filtroNome
+    ? nome.toLowerCase().includes(filtroNome.toLowerCase())
+    : true;
     let condData = true;
     if (startDate && endDate && dataVenda) {
       const saleDate = dayjs(dataVenda, "YYYY-MM-DD");
@@ -291,7 +296,7 @@ export default function Dashboard() {
         ? responsaveisOficiais.includes(responsavel.toLowerCase())
         : true;
 
-    return condResponsavel && condProduto && condData && condSearch && condMeta;
+    return condResponsavel && condProduto && condData && condSearch && condMeta && condNome;
   });
 
   // Ordenação das vendas filtradas
@@ -908,12 +913,23 @@ export default function Dashboard() {
   
           <section className="card table-section">
             <div className="section-header">
-              <div className="section-title">
+            <div className="section-title">
                 <h2>Detalhes das Vendas</h2>
                 <div className="results-count">
                   <span>{vendasFiltradas.length}</span> resultados encontrados
                 </div>
+                {/* Novo campo de filtro para Nome */}
+                <div className="filter-by-name" style={{ marginTop: "1rem" }}>
+                  <input 
+                    type="text"
+                    placeholder="Filtrar por Nome..."
+                    value={filtroNome}
+                    onChange={(e) => setFiltroNome(e.target.value)}
+                    className="modern-input"
+                  />
+                </div>
               </div>
+
               <div className="table-actions">
               <button 
               className="delete-button"
@@ -986,7 +1002,13 @@ export default function Dashboard() {
                         </span>
                       )}
                     </th>
-                    <th>Pagamento</th>
+                    <th className="sortable numeric" onClick={() => handleSort("empresa")}>
+                      Empresa {sortConfig.key === "empresa" && (
+                        <span className="sort-icon">
+                          {sortConfig.direction === "ascending" ? "↑" : "↓"}
+                        </span>
+                      )}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1013,7 +1035,7 @@ export default function Dashboard() {
                             })}
                           </span>
                         </td>
-                        <td data-label="Pagamento">{venda.formaPagamento}</td>
+                        <td data-label="Pagamento">{venda.empresa}</td>
                       </tr>
                     ))
                   ) : (
@@ -1751,7 +1773,53 @@ export default function Dashboard() {
           justify-content: space-between;
           margin-bottom: 1rem;
         }
-        
+        .filter-by-name {
+          order: 2;
+          flex: 1;
+          max-width: 200px;
+          margin-top: 0 !important;
+
+          .modern-input {
+            width: 50%;
+            padding: 0.75rem 1.25rem 0.75rem 2.5rem;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%2394a3b8"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 4h-2.5l-1-1h-5l-1 1H6v2h12V7zm0 12H6V9h12v10z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: 1rem center;
+            background-size: 18px;
+          }
+        }
+
+        @media (min-width: 768px) {
+          flex-wrap: nowrap;
+          gap: 2rem;
+
+          h2 {
+            order: 1;
+            flex: none;
+          }
+
+          .results-count {
+            order: 3;
+            width: auto;
+            margin-top: 0;
+          }
+
+          .filter-by-name {
+            order: 2;
+            flex: 1;
+            max-width: 400px;
+            margin-left: auto;
+          }
+        }
+
+        @media (max-width: 767px) {
+          .filter-by-name {
+            max-width: 100%;
+            order: 2;
+            width: 100%;
+          }
+        }
+  }
         .chart-legend {
           display: flex;
           gap: 1rem;

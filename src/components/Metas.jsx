@@ -260,19 +260,26 @@ export default function Metas() {
               Metas de Vendas - {unidade.toUpperCase()}
             </h1>
             <form onSubmit={handleAddMeta} className="meta-form">
-              <div className="form-group">
-                <div className="input-group">
-                  <input
-                    type="text"
-                    placeholder="Nome do Responsável"
-                    value={newResponsavel}
-                    onChange={(e) => setNewResponsavel(e.target.value)}
-                    className="modern-input"
-                  />
-                  <svg xmlns="http://www.w3.org/2000/svg" className="input-icon" viewBox="0 0 24 24">
-                    <path d="M12 14v8H4a8 8 0 0 1 8-8zm0-1c-3.315 0-6-2.685-6-6s2.685-6 6-6 6 2.685 6 6-2.685 6-6 6z" />
-                  </svg>
-                </div>
+            <div className="form-group">
+          <div className="input-group">
+            <select
+              value={newResponsavel}
+              onChange={(e) => setNewResponsavel(e.target.value)}
+              className="modern-input"
+            >
+              <option value="">Selecione o Responsável</option>
+              {metas.map((meta) => (
+                <option key={meta.id} value={meta.responsavel}>
+                  {meta.responsavel}
+                </option>
+              ))}
+            </select>
+            <svg xmlns="http://www.w3.org/2000/svg" className="input-icon" viewBox="0 0 24 24">
+              <path d="M12 14v8H4a8 8 0 0 1 8-8zm0-1c-3.315 0-6-2.685-6-6s2.685-6 6-6 6 2.685 6 6-2.685 6-6 6z" />
+            </svg>
+          </div>
+
+
                 
                 <div className="input-group">
                   <input
@@ -308,7 +315,7 @@ export default function Metas() {
             {error || successMessage}
           </div>
         )}
-        <section className="metas-list">
+  <section className="metas-list">
   <div className="section-header">
     <h2>Metas Cadastradas</h2>
     <span className="total-metas">{metas.length} metas registradas</span>
@@ -734,42 +741,75 @@ export default function Metas() {
         .meta-form {
           .form-group {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.5rem;
-            max-width: 800px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            max-width: 900px;
             margin: 0 auto;
+            padding: 1.5rem;
+            background: #f8fafc;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
           }
-  
+
           .input-group {
             position: relative;
+            margin-bottom: 1rem;
+            
+            &:last-child {
+              margin-bottom: 0;
+            }
           }
-  
+
+          label {
+            display: block;
+            margin-bottom: 0.75rem;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: #334155;
+          }
+
           .modern-input {
             width: 100%;
-            padding: 1rem 1.5rem 1rem 3rem;
+            padding: 1.125rem 1.5rem 1.125rem 3.5rem;
             border: 2px solid #e2e8f0;
             border-radius: 12px;
             font-size: 1rem;
-            transition: all 0.3s ease;
+            color: #1e293b;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             background: white;
-  
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+            &:hover {
+              border-color: #cbd5e1;
+            }
+
             &:focus {
               border-color: #3b82f6;
               box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
               outline: none;
             }
+
+            &::placeholder {
+              color: #94a3b8;
+              opacity: 1;
+            }
           }
-  
+
           .input-icon {
             position: absolute;
-            left: 1rem;
+            left: 1.25rem;
             top: 50%;
             transform: translateY(-50%);
-            width: 24px;
-            height: 24px;
-            fill: #94a3b8;
+            width: 20px;
+            height: 20px;
+            color: #94a3b8;
+            transition: color 0.2s ease;
+            
+            .modern-input:focus + & {
+              color: #3b82f6;
+            }
           }
-  
+
           .input-currency {
             position: absolute;
             right: 1.5rem;
@@ -777,6 +817,33 @@ export default function Metas() {
             transform: translateY(-50%);
             color: #64748b;
             font-weight: 500;
+            font-size: 0.9375rem;
+            pointer-events: none;
+          }
+
+          /* Efeito para quando o input tem valor */
+          .modern-input:not(:placeholder-shown) {
+            background-color: #f8fafc;
+            border-color: #e2e8f0;
+          }
+
+          /* Responsividade */
+          @media (max-width: 640px) {
+            .form-group {
+              grid-template-columns: 1fr;
+              gap: 1.5rem;
+              padding: 1.25rem;
+            }
+
+            .modern-input {
+              padding: 1rem 1.25rem 1rem 3rem;
+            }
+
+            .input-icon {
+              left: 1rem;
+              width: 18px;
+              height: 18px;
+            }
           }
         }
   

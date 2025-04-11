@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { collectionGroup, collection, onSnapshot,getDocs, writeBatch } from "firebase/firestore";
+import { collectionGroup, collection, onSnapshot,getDocs, writeBatch,updateDoc,doc } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
@@ -58,6 +58,10 @@ export default function Dashboard() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [filtroNome, setFiltroNome] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
+  const [editingId, setEditingId] = useState(null);
+  const [editedVenda, setEditedVenda] = useState({});
+  const [produtosSelecionados, setProdutosSelecionados] = useState([]);
+
 
 
   // Estados para upload de arquivo
@@ -137,30 +141,40 @@ export default function Dashboard() {
         const unsubscribe = onSnapshot(
           vendasQuery,
           (snapshot) => {
-            // Monta a lista de responsáveis oficiais com base nas metas
-            const responsaveisOficiais = metas.map((m) =>
-              m.responsavel.trim().toLowerCase()
-            );
-  
-            // Log apenas das vendas cujo responsável esteja nas metas
-
-  
-            let todasVendas = [];
-            let responsaveisSet = new Set();
-            let produtosSet = new Set();
-            let faturamentoTotal = 0;
-  
-            snapshot.forEach((doc) => {
-              const data = doc.data();
-              todasVendas.push(data);
-              if (data.responsavel) responsaveisSet.add(data.responsavel);
-              if (data.produto) produtosSet.add(data.produto);
-              faturamentoTotal += Number(data.valor) || 0;
+            // Mapeia cada documento para incluir o id (doc.id) e os dados (doc.data())
+            const vendasData = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+            // Atualiza o estado de vendas com o array que contém os id's
+            setVendas(vendasData);
+            setLoading(false);
+            
+            // Obtém os produtos únicos das vendas
+            const prodSet = new Set();
+            vendasData.forEach((v) => {
+              if (v.produto) {
+                prodSet.add(v.produto.trim());
+              }
             });
-  
-            setVendas(todasVendas);
+            const prodArray = Array.from(prodSet).sort();
+            setProdutos(prodArray);
+            
+            // Se não houver seleção de produtos persistida, seleciona todos os produtos
+            if (!localStorage.getItem("produtosSelecionados") || produtosSelecionados.length === 0) {
+              setProdutosSelecionados(prodArray);
+            }
+            
+            // Obtém os responsáveis únicos e calcula o total faturado
+            const responsaveisSet = new Set();
+            let faturamentoTotal = 0;
+            vendasData.forEach((v) => {
+              if (v.responsavel) {
+                responsaveisSet.add(v.responsavel);
+              }
+              faturamentoTotal += Number(v.valor) || 0;
+            });
             setResponsaveis(Array.from(responsaveisSet).sort());
-            setProdutos(Array.from(produtosSet).sort());
             setTotalFaturado(faturamentoTotal);
             setError("");
           },
@@ -178,9 +192,9 @@ export default function Dashboard() {
       }
     };
   
-    // Adicionamos "metas" como dependência, pois ela é usada para filtrar os logs.
     fetchVendas();
   }, [metas]);
+  
   
 
   // Upload do arquivo XLS
@@ -359,8 +373,75 @@ export default function Dashboard() {
     }
     setSortConfig({ key, direction });
   };
-  console.log("selectedMonth:", selectedMonth);
-  console.log("Media por venda:", mediaPorVenda);
+  const filteredSalesForChart = vendas.filter((v) => {
+    // Certifique-se de que v.dataFormatada está no formato "YYYY-MM-DD"
+    const saleDate = dayjs(v.dataFormatada, "YYYY-MM-DD");
+    if (chartTimeRange === "week") {
+      // Filtra para as vendas da mesma semana que a data atual
+      return saleDate.isSame(dayjs(), "week");
+    } else if (chartTimeRange === "month") {
+      // Filtra para as vendas do mesmo mês que a data atual
+      return saleDate.isSame(dayjs(), "month");
+    } else if (chartTimeRange === "year") {
+      // Filtra para as vendas do mesmo ano que a data atual
+      return saleDate.isSame(dayjs(), "year");
+    }
+    // Caso algum outro valor venha, traz todas
+    return true;
+  });
+  
+  // Calcula a soma das vendas por responsável para os dados filtrados
+  const somaPorResponsavelChart = filteredSalesForChart.reduce((acc, v) => {
+    // Usa o nome do responsável em minúsculas para unificar as chaves
+    const key = v.responsavel ? v.responsavel.trim().toLowerCase() : "desconhecido";
+    const valor = Number(v.valor) || 0;
+    acc[key] = (acc[key] || 0) + valor;
+    return acc;
+  }, {});
+  
+  const chartDataUpdated = {
+    labels: Object.keys(somaPorResponsavelChart),
+    datasets: [
+      {
+        type: "bar",
+        label: "Vendas Realizadas",
+        data: Object.values(somaPorResponsavelChart),
+        backgroundColor: "rgba(54, 162, 235, 0.7)",
+        borderRadius: 4,
+      },
+    ],
+  };
+  const handleSaveVenda = async (id) => {
+    try {
+      // Cria um objeto com os dados editados removendo as entradas undefined
+      const sanitizedData = Object.fromEntries(
+        Object.entries(editedVenda).filter(([key, value]) => value !== undefined)
+      );
+      if (!id) {
+        throw new Error("ID da venda não encontrado.");
+      }
+      if (!unidade) {
+        throw new Error("Unidade não definida.");
+      }
+      // Atualiza o documento no Firestore
+      await updateDoc(
+        doc(db, "faturamento", unidade.toLowerCase(), "vendas", id),
+        sanitizedData
+      );
+      // Encerra o modo edição e limpa os dados editados
+      setEditingId(null);
+      setEditedVenda({});
+      // Exibe a mensagem de sucesso e limpa após 3 segundos
+      setSuccessMessage("Atualizado com sucesso!");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (error) {
+      console.error("Erro ao salvar a venda atualizada:", error);
+      // Opcional: você pode definir uma mensagem de erro aqui se desejar
+    }
+  };
+  
+  
+  
 
   return (
     <div className="dashboard-container">
@@ -855,80 +936,81 @@ export default function Dashboard() {
       ) : (
         <>
           <section className="card chart-section">
-            <div className="section-header">
-              <div className="section-title">
-                <h2>Performance por Responsável</h2>
-                <div className="chart-legend">
-                  <div className="legend-item">
-                    <span className="legend-color primary"></span>
-                    <span>Valor Total</span>
-                  </div>
-                </div>
-              </div>
-              <div className="chart-actions">
-                <button
-                  className={`chart-action ${chartTimeRange === "week" ? "active" : ""}`}
-                  onClick={() => setChartTimeRange("week")}
-                >
-                  Semana
-                </button>
-                <button
-                  className={`chart-action ${chartTimeRange === "month" ? "active" : ""}`}
-                  onClick={() => setChartTimeRange("month")}
-                >
-                  Mês
-                </button>
-                <button
-                  className={`chart-action ${chartTimeRange === "year" ? "active" : ""}`}
-                  onClick={() => setChartTimeRange("year")}
-                >
-                  Ano
-                </button>
-              </div>
-            </div>
-            <div className="chart-wrapper">
-              <Bar
-                data={chartData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                      backgroundColor: "#1E293B",
-                      titleColor: "#F8FAFC",
-                      bodyColor: "#F8FAFC",
-                      borderColor: "#334155",
-                      borderWidth: 1,
-                      padding: 12,
-                      cornerRadius: 8,
-                      displayColors: true,
-                      callbacks: {
-                        label: (context) =>
-                          `R$ ${context.raw.toFixed(2).replace(".", ",")}`,
-                      },
-                    },
-                  },
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      grid: {
-                        color: "#E2E8F0",
-                        borderDash: [4, 4],
-                        drawBorder: false,
-                      },
-                      ticks: {
-                        color: "#64748B",
-                        callback: (value) =>
-                          `R$ ${value.toLocaleString("pt-BR")}`,
-                      },
-                    },
-                    x: { grid: { display: false }, ticks: { color: "#64748B" } },
-                  },
-                }}
-              />
-            </div>
-          </section>
+  <div className="section-header">
+    <div className="section-title">
+      <h2>Performance por Responsável</h2>
+      <div className="chart-legend">
+        <div className="legend-item">
+          <span className="legend-color primary"></span>
+          <span>Valor Total</span>
+        </div>
+      </div>
+    </div>
+    <div className="chart-actions">
+      <button
+        className={`chart-action ${chartTimeRange === "week" ? "active" : ""}`}
+        onClick={() => setChartTimeRange("week")}
+      >
+        Semana
+      </button>
+      <button
+        className={`chart-action ${chartTimeRange === "month" ? "active" : ""}`}
+        onClick={() => setChartTimeRange("month")}
+      >
+        Mês
+      </button>
+      <button
+        className={`chart-action ${chartTimeRange === "year" ? "active" : ""}`}
+        onClick={() => setChartTimeRange("year")}
+      >
+        Ano
+      </button>
+    </div>
+  </div>
+  <div className="chart-wrapper">
+    <Bar
+      data={chartDataUpdated}
+      options={{
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#1E293B",
+            titleColor: "#F8FAFC",
+            bodyColor: "#F8FAFC",
+            borderColor: "#334155",
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8,
+            displayColors: true,
+            callbacks: {
+              label: (context) =>
+                `R$ ${context.raw.toFixed(2).replace(".", ",")}`,
+            },
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: "#E2E8F0",
+              borderDash: [4, 4],
+              drawBorder: false,
+            },
+            ticks: {
+              color: "#64748B",
+              callback: (value) =>
+                `R$ ${value.toLocaleString("pt-BR")}`,
+            },
+          },
+          x: { grid: { display: false }, ticks: { color: "#64748B" } },
+        },
+      }}
+    />
+  </div>
+</section>
+      
         
   
           <section className="card table-section">
@@ -995,93 +1077,322 @@ export default function Dashboard() {
             </div>
             
             <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th className="sortable" onClick={() => handleSort("dataFormatada")}>
-                      Data {sortConfig.key === "dataFormatada" && (
-                        <span className="sort-icon">
-                          {sortConfig.direction === "ascending" ? "↑" : "↓"}
-                        </span>
-                      )}
-                    </th>
-                    <th>Produto</th>
-                    <th>Matrícula</th>
-                    <th>Nome</th>
-                    <th className="sortable" onClick={() => handleSort("responsavel")}>
-                      Responsável {sortConfig.key === "responsavel" && (
-                        <span className="sort-icon">
-                          {sortConfig.direction === "ascending" ? "↑" : "↓"}
-                        </span>
-                      )}
-                    </th>
-                    <th className="sortable numeric" onClick={() => handleSort("valor")}>
-                      Valor {sortConfig.key === "valor" && (
-                        <span className="sort-icon">
-                          {sortConfig.direction === "ascending" ? "↑" : "↓"}
-                        </span>
-                      )}
-                    </th>
-                    <th className="sortable numeric" onClick={() => handleSort("empresa")}>
-                      Empresa {sortConfig.key === "empresa" && (
-                        <span className="sort-icon">
-                          {sortConfig.direction === "ascending" ? "↑" : "↓"}
-                        </span>
-                      )}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedVendas.length > 0 ? (
-                    paginatedVendas.map((venda, index) => (
-                      <tr key={index}>
-                        <td data-label="Data">{dayjs(venda.dataFormatada).format("DD/MM/YYYY")}</td>
-                        <td data-label="Produto">
-                          <span className="product-badge">{venda.produto}</span>
-                        </td>
-                        <td data-label="Matrícula">{venda.matricula}</td>
-                        <td data-label="Nome">{venda.nome}</td>
-                        <td data-label="Responsável">
-                          <div className="responsible-cell">
-                            <span className="avatar">{venda.responsavel.charAt(0)}</span>
-                            {venda.responsavel}
-                          </div>
-                        </td>
-                        <td data-label="Valor" className="currency">
-                          <span className={`value ${Number(venda.valor) > 5000 ? "highlight" : ""}`}>
-                            {Number(venda.valor).toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })}
-                          </span>
-                        </td>
-                        <td data-label="Pagamento">{venda.empresa}</td>
-                      </tr>
-                    ))
+    <table className="data-table">
+      <thead>
+        <tr>
+          <th className="sortable" onClick={() => handleSort("dataFormatada")}>
+            Data {sortConfig.key === "dataFormatada" && (
+              <span className="sort-icon">
+                {sortConfig.direction === "ascending" ? "↑" : "↓"}
+              </span>
+            )}
+          </th>
+          <th>Produto</th>
+          <th>Matrícula</th>
+          <th>Nome</th>
+          <th className="sortable" onClick={() => handleSort("responsavel")}>
+            Responsável {sortConfig.key === "responsavel" && (
+              <span className="sort-icon">
+                {sortConfig.direction === "ascending" ? "↑" : "↓"}
+              </span>
+            )}
+          </th>
+          <th className="sortable numeric" onClick={() => handleSort("valor")}>
+            Valor {sortConfig.key === "valor" && (
+              <span className="sort-icon">
+                {sortConfig.direction === "ascending" ? "↑" : "↓"}
+              </span>
+            )}
+          </th>
+          <th className="sortable numeric" onClick={() => handleSort("empresa")}>
+            Empresa {sortConfig.key === "empresa" && (
+              <span className="sort-icon">
+                {sortConfig.direction === "ascending" ? "↑" : "↓"}
+              </span>
+            )}
+          </th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {paginatedVendas.length > 0 ? (
+          paginatedVendas.map((venda, index) => {
+            // Verifica se o registro atual está em modo de edição
+            const isEditing = venda.id === editingId;
+            return (
+              <tr key={venda.id || index}>
+                <td data-label="Data">
+                  {isEditing ? (
+                    <input
+                      type="date"
+                      value={editedVenda.dataFormatada || venda.dataFormatada}
+                      onChange={(e) =>
+                        setEditedVenda({
+                          ...editedVenda,
+                          dataFormatada: e.target.value,
+                        })
+                      }
+                      className="edit-input"
+                    />
                   ) : (
-                    <tr className="no-results">
-                      <td colSpan="7">
-                        <div className="empty-state">
-                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            <path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          <p>Nenhuma venda encontrada com os filtros atuais</p>
-                          <button onClick={() => {
-                            setFiltroResponsavel("");
-                            setFiltroProduto("");
-                            setStartDate(null);
-                            setEndDate(null);
-                          }} className="reset-button">
-                            Limpar filtros
+                    dayjs(venda.dataFormatada).format("DD/MM/YYYY")
+                  )}
+                </td>
+                <td data-label="Produto">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedVenda.produto || venda.produto}
+                      onChange={(e) =>
+                        setEditedVenda({
+                          ...editedVenda,
+                          produto: e.target.value,
+                        })
+                      }
+                      className="edit-input"
+                    />
+                  ) : (
+                    <span className="product-badge">{venda.produto}</span>
+                  )}
+                </td>
+                <td data-label="Matrícula">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedVenda.matricula || venda.matricula}
+                      onChange={(e) =>
+                        setEditedVenda({
+                          ...editedVenda,
+                          matricula: e.target.value,
+                        })
+                      }
+                      className="edit-input"
+                    />
+                  ) : (
+                    venda.matricula
+                  )}
+                </td>
+                <td data-label="Nome">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedVenda.nome || venda.nome}
+                      onChange={(e) =>
+                        setEditedVenda({
+                          ...editedVenda,
+                          nome: e.target.value,
+                        })
+                      }
+                      className="edit-input"
+                    />
+                  ) : (
+                    venda.nome
+                  )}
+                </td>
+                <td data-label="Responsável">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedVenda.responsavel || venda.responsavel}
+                      onChange={(e) =>
+                        setEditedVenda({
+                          ...editedVenda,
+                          responsavel: e.target.value,
+                        })
+                      }
+                      className="edit-input"
+                    />
+                  ) : (
+                    <div className="responsible-cell">
+                      {successMessage && (
+                        <div className="success-message">
+                          <div className="success-message-icon">
+                            <svg 
+                              xmlns="http://www.w3.org/2000/svg" 
+                              width="20" 
+                              height="20" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                          </div>
+                          <div className="success-message-content">
+                            {successMessage}
+                          </div>
+                          <button 
+                            className="success-message-close"
+                            onClick={() => setSuccessMessage("")}
+                            aria-label="Fechar mensagem"
+                          >
+                            <svg 
+                              xmlns="http://www.w3.org/2000/svg" 
+                              width="16" 
+                              height="16" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            >
+                              <line x1="18" y1="6" x2="6" y2="18"></line>
+                              <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
                           </button>
                         </div>
-                      </td>
-                    </tr>
+                      )}
+                      <span className="avatar">{venda.responsavel.charAt(0)}</span>
+                      {venda.responsavel}
+                    </div>
                   )}
-                </tbody>
-              </table>
-            </div>
+                </td>
+                <td data-label="Valor" className="currency">
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      value={editedVenda.valor || venda.valor}
+                      onChange={(e) =>
+                        setEditedVenda({
+                          ...editedVenda,
+                          valor: e.target.value,
+                        })
+                      }
+                      className="edit-input"
+                    />
+                  ) : (
+                    <span className={`value ${Number(venda.valor) > 5000 ? "highlight" : ""}`}>
+                      {Number(venda.valor).toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  )}
+                </td>
+                <td data-label="Empresa">
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editedVenda.empresa || venda.empresa}
+                      onChange={(e) =>
+                        setEditedVenda({
+                          ...editedVenda,
+                          empresa: e.target.value,
+                        })
+                      }
+                      className="edit-input"
+                    />
+                  ) : (
+                    venda.empresa
+                  )}
+                </td>
+                <td data-label="Ações">
+                  {isEditing ? (
+                    <>
+                      <button 
+                        className="success-button" 
+                        onClick={() => handleSaveVenda(venda.id)}
+                      >
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round"
+                        >
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                        Salvar
+                      </button>
+                      <button
+                        className="cancel-button"
+                        onClick={() => {
+                          setEditingId(null);
+                          setEditedVenda({});
+                        }}
+                      >
+                        Cancelar
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="edit-button"
+                      onClick={() => {
+                        setEditingId(venda.id);
+                        setEditedVenda(venda);
+                      }}
+                    >
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        width="16" 
+                        height="16" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      >
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                      </svg>
+                      Editar
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })
+        ) : (
+          <tr className="no-results">
+            <td colSpan="8">
+              <div className="empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <p>Nenhuma venda encontrada com os filtros atuais</p>
+                <button
+                  onClick={() => {
+                    setFiltroResponsavel("");
+                    setFiltroProduto("");
+                    setStartDate(null);
+                    setEndDate(null);
+                  }}
+                  className="reset-button"
+                >
+                  Limpar filtros
+                </button>
+              </div>
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+
+
             {vendasFiltradas.length > itemsPerPage && (
               <div className="pagination">
                 <button 
@@ -1167,7 +1478,130 @@ export default function Dashboard() {
           --gray-800: #1E293B;
           --gray-900: #0F172A;
         }
-        .nav-bar {
+         .success-message {
+            padding: 12px 24px;
+            background-color: #10B981; /* cor verde base */
+            background: linear-gradient(135deg, #10B981, #059669);
+            color: white;
+            border-radius: 6px;
+            text-align: center;
+            margin: 16px 0;
+            opacity: 1;
+            transition: all 0.5s ease-out;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-weight: 500;
+            max-width: 100%;
+            animation: slideIn 0.5s ease-out;
+            position: relative;
+            border-left: 4px solid #059669;
+          }
+
+          @keyframes slideIn {
+            from {
+              transform: translateY(-10px);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+
+          .success-message.hide {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+
+          .success-message-icon {
+            flex-shrink: 0;
+          }
+
+          .success-message-content {
+            flex-grow: 1;
+          }
+
+          .success-message-close {
+            background: transparent;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 18px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+            padding: 0;
+            margin-left: 5px;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .success-message-close:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
+          }
+
+        .edit-button {
+          background-color: #4a90e2;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          padding: 8px 16px;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+          .success-button {
+            background-color: #34c759;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+
+          .success-button:hover {
+            background-color: #2db14f;
+          }
+
+          .success-button:focus {
+            outline: 2px solid #8ae9a2;
+            outline-offset: 2px;
+          }
+
+          .success-button:active {
+            background-color: #27a047;
+          }
+
+        .edit-button:hover {
+          background-color: #3a7bc8;
+        }
+
+        .edit-button:focus {
+          outline: 2px solid #7ab3ff;
+          outline-offset: 2px;
+        }
+
+        .edit-button:active {
+          background-color: #2d6cb9;
+        }
+                .nav-bar {
           display: flex;
           gap: 1.5rem;
           padding: 1rem 2rem;
@@ -2283,6 +2717,7 @@ export default function Dashboard() {
             padding-left: 2.25rem;
             background-position: 0.75rem center;
           }
+          
         }
       `}</style>
     </div>

@@ -57,6 +57,8 @@ export default function Dashboard() {
   const [endDate, setEndDate] = useState(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [filtroNome, setFiltroNome] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
+
 
   // Estados para upload de arquivo
   const [file, setFile] = useState(null);
@@ -141,13 +143,7 @@ export default function Dashboard() {
             );
   
             // Log apenas das vendas cujo responsável esteja nas metas
-            snapshot.forEach((doc) => {
-              const data = doc.data();
-              const resp = (data.responsavel || "").trim().toLowerCase();
-              if (responsaveisOficiais.includes(resp)) {
-                console.log("Documento encontrado (responsável oficial):", data);
-              }
-            });
+
   
             let todasVendas = [];
             let responsaveisSet = new Set();
@@ -262,27 +258,26 @@ export default function Dashboard() {
   const vendasFiltradas = vendas.filter((v) => {
     const responsavel = (v.responsavel || "").trim();
     const produto = (v.produto || "").trim();
-    const nome = (v.nome || "").trim(); // campo "nome" da venda
+    const nome = (v.nome || "").trim();
     const dataVenda = v.dataFormatada || ""; // formato "YYYY-MM-DD"
-
-    // Filtro por responsável (texto digitado)
+  
+    // Condições dos outros filtros:
     const condResponsavel = filtroResponsavel
       ? responsavel.toLowerCase().includes(filtroResponsavel.toLowerCase())
       : true;
-    // Filtro por produto
     const condProduto = filtroProduto
       ? produto.toLowerCase().includes(filtroProduto.toLowerCase())
       : true;
-    // Filtro por intervalo de datas
     const condNome = filtroNome
-    ? nome.toLowerCase().includes(filtroNome.toLowerCase())
-    : true;
+      ? nome.toLowerCase().includes(filtroNome.toLowerCase())
+      : true;
+    
     let condData = true;
     if (startDate && endDate && dataVenda) {
       const saleDate = dayjs(dataVenda, "YYYY-MM-DD");
       condData = saleDate.isBetween(dayjs(startDate), dayjs(endDate), "day", "[]");
     }
-    // Filtro por pesquisa geral
+    
     const condSearch = searchTerm
       ? Object.values(v).some(
           (val) =>
@@ -290,14 +285,22 @@ export default function Dashboard() {
             val.toString().toLowerCase().includes(searchTerm.toLowerCase())
         )
       : true;
-    // Condição para incluir apenas vendas cujo responsável esteja nas metas da unidade atual
+    
+    // Condição para filtrar por responsáveis oficiais (metas)
     const condMeta =
       responsaveisOficiais.length > 0
         ? responsaveisOficiais.includes(responsavel.toLowerCase())
         : true;
-
-    return condResponsavel && condProduto && condData && condSearch && condMeta && condNome;
+  
+    // Nova condição: filtrar pelo mês selecionado.
+    const condMes = selectedMonth
+      ? dayjs(dataVenda, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth
+      : true;
+    
+  
+    return condResponsavel && condProduto && condNome && condData && condSearch && condMeta && condMes;
   });
+  
 
   // Ordenação das vendas filtradas
   const vendasOrdenadas = sortConfig.key
@@ -356,7 +359,9 @@ export default function Dashboard() {
     }
     setSortConfig({ key, direction });
   };
-  
+  console.log("selectedMonth:", selectedMonth);
+  console.log("Media por venda:", mediaPorVenda);
+
   return (
     <div className="dashboard-container">
       <NavBar />
@@ -367,6 +372,15 @@ export default function Dashboard() {
             <p className="last-update">
               Última atualização: {new Date().toLocaleString("pt-BR")}
             </p>
+          </div>
+          <div className="filter-group month-filter" style={{ marginTop: "1rem" }}>
+            <label>Filtrar por Mês</label>
+            <input 
+              type="month"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="modern-input"
+            />
           </div>
           
         </div>
@@ -465,10 +479,12 @@ export default function Dashboard() {
             <div className="stat-info">
               <span>Média/Venda</span>
               <strong>
-                {(totalFaturado / (vendas.length || 1)).toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
+                {vendasFiltradas.length > 0
+                  ? mediaPorVenda.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })
+                  : "R$ 0,00"}
               </strong>
               <div className="stat-trend down">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
@@ -816,13 +832,16 @@ export default function Dashboard() {
               </div>
               <div className="stat-item">
                 <div className="stat-value">
-                  {mediaPorVenda.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
+                  {vendasFiltradas.length > 0
+                    ? mediaPorVenda.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })
+                    : "R$ 0,00"}
                 </div>
                 <div className="stat-label">Média por Venda</div>
               </div>
+
             </div>
           </div>
         </div>
@@ -910,6 +929,7 @@ export default function Dashboard() {
               />
             </div>
           </section>
+        
   
           <section className="card table-section">
             <div className="section-header">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { collection, onSnapshot, addDoc, updateDoc, doc, deleteDoc,collectionGroup } from "firebase/firestore";
+import { collection, collectionGroup, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import { Bar } from "react-chartjs-2";
@@ -22,9 +22,7 @@ const NavBar = () => {
     <nav className="nav-bar">
       <Link to={`/dashboard/${unidade}`} className="nav-link">Dashboard</Link>
       <Link to="/unidade" className="nav-link">Unidade</Link>
-      <Link to={`/add-sale/${unidade}`} className="nav-link">
-        Adicionar Venda
-      </Link>
+      <Link to={`/add-sale/${unidade}`} className="nav-link">Adicionar Venda</Link>
     </nav>
   );
 };
@@ -36,6 +34,7 @@ export default function Metas() {
   // Estados para cadastro/edição de meta
   const [newResponsavel, setNewResponsavel] = useState("");
   const [newMeta, setNewMeta] = useState("");
+  const [metaPeriodo, setMetaPeriodo] = useState(dayjs().format("YYYY-MM")); // Período da meta
   const [editingId, setEditingId] = useState(null);
   const [editResponsavel, setEditResponsavel] = useState("");
   const [editMeta, setEditMeta] = useState("");
@@ -49,27 +48,40 @@ export default function Metas() {
   const [metas, setMetas] = useState([]);
   const [vendas, setVendas] = useState([]);
 
-  // Estados para o filtro interativo de produtos
+  // Estados para filtro de produtos (e persistência no localStorage)
   const [produtos, setProdutos] = useState([]);
-  // Carrega a seleção do localStorage ou inicia com uma lista vazia
   const [produtosSelecionados, setProdutosSelecionados] = useState(() => {
     const stored = localStorage.getItem("produtosSelecionados");
     return stored ? JSON.parse(stored) : [];
   });
   const [showProductFilter, setShowProductFilter] = useState(false);
 
-  // Persistência da seleção no localStorage
+  // Outros estados para filtros, se necessário
+  const [filtroNome, setFiltroNome] = useState("");
+  const [filtroResponsavel, setFiltroResponsavel] = useState("");
+  const [filtroProduto, setFiltroProduto] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
+
+  // Estado para selecionar o mês/ano para a visualização dos dados
+  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
+
+  // Persistência da seleção de produtos
   useEffect(() => {
     localStorage.setItem("produtosSelecionados", JSON.stringify(produtosSelecionados));
   }, [produtosSelecionados]);
 
-  // Busca metas e vendas do Firestore
+  // Redireciona se a unidade não estiver definida
   useEffect(() => {
     if (!unidade) {
       navigate("/login");
       return;
     }
-  
+  }, [unidade, navigate]);
+
+  // Busca metas e vendas do Firestore
+  useEffect(() => {
     // Carrega as metas da unidade atual
     const metasRef = collection(db, "faturamento", unidade.toLowerCase(), "metas");
     const unsubscribeMetas = onSnapshot(metasRef, (snapshot) => {
@@ -79,7 +91,7 @@ export default function Metas() {
       }));
       setMetas(metasData);
     });
-  
+
     // Usa collectionGroup para puxar vendas de todas as unidades
     const vendasQuery = collectionGroup(db, "vendas");
     const unsubscribeVendas = onSnapshot(
@@ -88,7 +100,7 @@ export default function Metas() {
         const vendasData = snapshot.docs.map((doc) => doc.data());
         setVendas(vendasData);
         setLoading(false);
-  
+
         // Extrai produtos únicos das vendas
         const prodSet = new Set();
         vendasData.forEach((v) => {
@@ -98,7 +110,7 @@ export default function Metas() {
         });
         const prodArray = Array.from(prodSet).sort();
         setProdutos(prodArray);
-  
+
         // Se não há seleção persistida, seleciona todos os produtos
         if (!localStorage.getItem("produtosSelecionados") || produtosSelecionados.length === 0) {
           setProdutosSelecionados(prodArray);
@@ -109,15 +121,14 @@ export default function Metas() {
         setError("Falha ao carregar dados. Tente novamente mais tarde.");
       }
     );
-  
+
     return () => {
       unsubscribeMetas();
       unsubscribeVendas();
     };
   }, [unidade, navigate]);
-  
 
-  // Função para cadastrar nova meta
+  // Função para cadastrar nova meta com período
   function parseBRNumber(str) {
     return Number(str.replace(/\./g, "").replace(",", "."));
   }
@@ -129,11 +140,11 @@ export default function Metas() {
       return;
     }
     try {
-      // Converte o input para número, tratando o formato brasileiro
       const metaValor = parseBRNumber(newMeta);
       await addDoc(collection(db, "faturamento", unidade.toLowerCase(), "metas"), {
         responsavel: newResponsavel.trim(),
         meta: metaValor,
+        periodo: metaPeriodo, // Armazena o período da meta (ex: "2025-04")
         createdAt: dayjs().toISOString(),
       });
       setSuccessMessage("Meta adicionada com sucesso!");
@@ -146,14 +157,12 @@ export default function Metas() {
     }
   };
 
-  // Função para iniciar edição de meta
   const handleEditMeta = (meta) => {
     setEditingId(meta.id);
     setEditResponsavel(meta.responsavel);
     setEditMeta(meta.meta.toString());
   };
 
-  // Função para atualizar a meta editada
   const handleUpdateMeta = async (id) => {
     if (!editResponsavel || !editMeta) {
       setError("Preencha todos os campos");
@@ -173,7 +182,6 @@ export default function Metas() {
     }
   };
 
-  // Função para excluir meta
   const handleDeleteMeta = async (id) => {
     if (window.confirm("Tem certeza que deseja excluir esta meta?")) {
       try {
@@ -187,13 +195,18 @@ export default function Metas() {
     }
   };
 
-  // Filtra as vendas para o cálculo da meta: somente vendas cujo produto esteja selecionado
+  // Filtra as vendas para o cálculo das metas: somente vendas cujo produto esteja selecionado
+  // E filtradas pelo período selecionado (usando selectedMonth)
   const vendasParaMeta = vendas.filter((v) => {
     if (!v.produto) return false;
-    return produtosSelecionados.includes(v.produto.trim());
+    const condProduto = produtosSelecionados.includes(v.produto.trim());
+    const condMes = selectedMonth
+      ? dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth
+      : true;
+    return condProduto && condMes;
   });
 
-  // Calcula a soma das vendas por responsável (somente das vendas filtradas)
+  // Calcula a soma das vendas por responsável (para as vendas filtradas por período)
   const somaPorResponsavel = vendasParaMeta.reduce((acc, v) => {
     const key = v.responsavel || "Desconhecido";
     const valor = Number(v.valor) || 0;
@@ -201,10 +214,12 @@ export default function Metas() {
     return acc;
   }, {});
 
-  // Monta os dados para o gráfico: para cada responsável, usa a meta cadastrada (se existir)
+  // Monta os dados do gráfico: para cada responsável, pega a meta cadastrada para o período selecionado
   const dadosGrafico = Object.keys(somaPorResponsavel).map((nome) => {
     const metaObj = metas.find(
-      (m) => m.responsavel.trim().toLowerCase() === nome.trim().toLowerCase()
+      (m) =>
+        m.responsavel.trim().toLowerCase() === nome.trim().toLowerCase() &&
+        m.periodo === selectedMonth
     );
     return {
       nome,
@@ -220,19 +235,19 @@ export default function Metas() {
         type: "bar",
         label: "Vendas Realizadas",
         data: dadosGrafico.map((d) => d.vendas),
-        backgroundColor: "#10B981", // verde para todas as barras
+        backgroundColor: "#10B981",
         borderRadius: 4,
       },
       {
         label: "Meta",
         data: dadosGrafico.map((d) => d.meta),
-        backgroundColor: "#F59E0B", // laranja para todas as barras
+        backgroundColor: "#F59E0B",
         borderRadius: 4,
       },
     ],
   };
 
-  // Paginação (exemplo para a lista de vendas)
+  // Paginação para a lista de vendas (caso seja necessário)
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const paginatedVendas = vendas.slice(
@@ -240,68 +255,78 @@ export default function Metas() {
     currentPage * itemsPerPage
   );
 
-  const totalFiltrado = vendas.reduce(
+  // Calcula a média das vendas filtradas para o período (mês)
+  const totalFiltrado = vendasParaMeta.reduce(
     (sum, v) => sum + (Number(v.valor) || 0),
     0
   );
   const mediaPorVenda =
-    vendas.length > 0 ? totalFiltrado / vendas.length : 0;
+    vendasParaMeta.length > 0 ? totalFiltrado / vendasParaMeta.length : 0;
 
   if (!unidade) return <div>Redirecionando...</div>;
 
   return (
     <div className="metas-container">
       <NavBar />
+      
       <main className="metas-content">
-        <header className="metas-header">
-          <div className="header-content">
-            <h1>
-              <span className="decorative-line"></span>
-              Metas de Vendas - {unidade.toUpperCase()}
-            </h1>
-            <form onSubmit={handleAddMeta} className="meta-form">
-            <div className="form-group">
-          <div className="input-group">
-            <select
-              value={newResponsavel}
-              onChange={(e) => setNewResponsavel(e.target.value)}
-              className="modern-input"
-            >
-              <option value="">Selecione o Responsável</option>
-              {metas.map((meta) => (
-                <option key={meta.id} value={meta.responsavel}>
-                  {meta.responsavel}
-                </option>
-              ))}
-            </select>
-            <svg xmlns="http://www.w3.org/2000/svg" className="input-icon" viewBox="0 0 24 24">
-              <path d="M12 14v8H4a8 8 0 0 1 8-8zm0-1c-3.315 0-6-2.685-6-6s2.685-6 6-6 6 2.685 6 6-2.685 6-6 6z" />
-            </svg>
-          </div>
+      <header className="metas-header">
+  <div className="header-content">
+    <h1>
+      <span className="decorative-line"></span>
+      Metas de Vendas - {unidade.toUpperCase()}
+    </h1>
+    <form onSubmit={handleAddMeta} className="meta-form">
+      <div className="form-group">
+        {/* Campo para selecionar o Responsável */}
+        <div className="input-group">
+  <input
+    type="text"
+    list="responsaveisList"
+    placeholder="Selecione ou digite o Responsável"
+    value={newResponsavel}
+    onChange={(e) => setNewResponsavel(e.target.value)}
+    className="modern-input"
+  />
+  <datalist id="responsaveisList">
+    {metas.map((meta) => (
+      <option key={meta.id} value={meta.responsavel} />
+    ))}
+  </datalist>
+</div>
 
 
-                
-                <div className="input-group">
-                  <input
-                    type="number"
-                    placeholder="Valor da Meta"
-                    value={newMeta}
-                    onChange={(e) => setNewMeta(e.target.value)}
-                    className="modern-input"
-                  />
-                  <span className="input-currency">R$</span>
-                </div>
-  
-                <button type="submit" className="primary-button">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="button-icon" viewBox="0 0 24 24">
-                    <path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z" />
-                  </svg>
-                  Adicionar Meta
-                </button>
-              </div>
-            </form>
-          </div>
-        </header>
+        {/* Campo para digitar o valor da meta */}
+        <div className="input-group currency-input">
+          <input
+            type="number"
+            placeholder="Valor da Meta"
+            value={newMeta}
+            onChange={(e) => setNewMeta(e.target.value)}
+            className="modern-input"
+          />
+        </div>
+
+        {/* Campo para selecionar o período da meta */}
+        <div className="input-group">
+          <input 
+            type="month"
+            value={metaPeriodo}
+            onChange={(e) => setMetaPeriodo(e.target.value)}
+            className="modern-input"
+          />
+        </div>
+
+        <button type="submit" className="primary-button">
+          <svg xmlns="http://www.w3.org/2000/svg" className="button-icon" viewBox="0 0 24 24">
+            <path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z" />
+          </svg>
+          Adicionar Meta
+        </button>
+      </div>
+    </form>
+  </div>
+</header>
   
         {(error || successMessage) && (
           <div className={`alert ${error ? 'error' : 'success'}`}>
@@ -319,6 +344,16 @@ export default function Metas() {
   <div className="section-header">
     <h2>Metas Cadastradas</h2>
     <span className="total-metas">{metas.length} metas registradas</span>
+    {/* Campo para selecionar o período (mês/ano) */}
+    <div className="filter-group month-filter" style={{ marginTop: "1rem" }}>
+      <label>Selecione o Período:</label>
+      <input 
+        type="month"
+        value={selectedMonth}
+        onChange={(e) => setSelectedMonth(e.target.value)}
+        className="modern-input"
+      />
+    </div>
   </div>
 
   <div className="table-wrapper">
@@ -333,106 +368,68 @@ export default function Metas() {
         </tr>
       </thead>
       <tbody>
-      {metas.map((m) => {
-  // Filtra as vendas deste responsável (comparação case-insensitive)
-  const vendasResponsavel = vendas.filter(
-    (v) =>
-      v.responsavel &&
-      v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase()
-  );
-  // Soma os valores das vendas
-  const totalVendas = vendasResponsavel.reduce(
-    (acc, v) => acc + (Number(v.valor) || 0),
-    0
-  );
-  
-  // Converte m.meta para número e trata caso seja inválido ou zero
-  const metaValor = Number(m.meta) || 0;
-  // Calcula a porcentagem completa
-  const computedPercent = metaValor > 0 ? (totalVendas / metaValor) * 100 : 0;
-  
-  // Se passou de 100%, calcula o excedente
-  const excedente = computedPercent > 100 ? computedPercent - 100 : 0;
+      {metas
+    .filter((m) => m.periodo === selectedMonth) // Aqui está o filtro principal
+    .map((m) => {
+      // Filtra as vendas deste responsável *e* do mês selecionado
+      const vendasResponsavel = vendas.filter((v) => {
+        const respVenda = (v.responsavel || "").trim().toLowerCase();
+        const metaResp = (m.responsavel || "").trim().toLowerCase();
+        // Filtra o responsável
+        const condResponsavel = respVenda === metaResp;
+        // Filtra o mês (comparando dataFormatada "YYYY-MM-DD" com selectedMonth "YYYY-MM")
+        const condMes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth;
+        return condResponsavel && condMes;
+      });
 
-  return (
-    <tr key={m.id}>
-      <td>
-        {editingId === m.id ? (
-          <div className="edit-input-wrapper">
-            <input
-              type="text"
-              value={editResponsavel}
-              onChange={(e) => setEditResponsavel(e.target.value)}
-              className="edit-input"
-            />
-          </div>
-        ) : (
-          <div className="user-info">
-            <div className="user-avatar">
-              {m.responsavel[0].toUpperCase()}
-            </div>
-            {m.responsavel}
-          </div>
-        )}
-      </td>
-      <td>
-        {editingId === m.id ? (
-          <div className="edit-input-wrapper">
-            <input
-              type="number"
-              value={editMeta}
-              onChange={(e) => setEditMeta(e.target.value)}
-              className="edit-input"
-            />
-          </div>
-        ) : (
-          <div className="meta-value">
+      const totalVendas = vendasResponsavel.reduce(
+        (acc, v) => acc + (Number(v.valor) || 0),
+        0
+      );
+      const metaValor = Number(m.meta) || 0;
+      const computedPercent = metaValor > 0 ? (totalVendas / metaValor) * 100 : 0;
+      const excedente = computedPercent > 100 ? computedPercent - 100 : 0;
+
+      return (
+        <tr key={m.id}>
+          <td>{m.responsavel}</td>
+          <td>
             {metaValor.toLocaleString("pt-BR", {
               style: "currency",
               currency: "BRL",
             })}
-          </div>
-        )}
-      </td>
-      <td>
-        <div className="meta-value">
-          {totalVendas.toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-          })}
-        </div>
-      </td>
-      <td>
-        <div className="meta-percentage">
-          {metaValor
-            ? `${computedPercent.toFixed(2)}%` +
-              (excedente > 0 ? ` (+${excedente.toFixed(2)}%)` : "")
-            : "N/A"}
-        </div>
-      </td>
-      <td className="actions">
-        {editingId === m.id ? (
-          <div className="action-buttons">
-            <button
-              className="success-button"
-              onClick={() => handleUpdateMeta(m.id)}
-            >
-              <svg viewBox="0 0 24 24">
-                <path d="M21 7l-9 9-3-3-3 3 6 6 12-12zM5 13l3 3 5-5-3-3-5 5z" />
-              </svg>
-            </button>
-            <button
-              className="cancel-button"
-              onClick={() => setEditingId(null)}
-            >
-              <svg viewBox="0 0 24 24">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-              </svg>
-            </button>
-          </div>
-        ) : (
-          <>
-            <button
+          </td>
+          <td>
+            {totalVendas.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })}
+          </td>
+          <td>
+            {metaValor
+              ? `${computedPercent.toFixed(2)}%` +
+                (excedente > 0 ? ` (+${excedente.toFixed(2)}%)` : "")
+              : "N/A"}
+          </td>
+          <td className="actions">
+            {editingId === m.id ? (
+              <div className="action-buttons">
+                <button
+                  className="success-button"
+                  onClick={() => handleUpdateMeta(m.id)}
+                >
+                  {/* Ícone de confirmação */}
+                </button>
+                <button
+                  className="cancel-button"
+                  onClick={() => setEditingId(null)}
+                >
+                  {/* Ícone de cancelamento */}
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
               className="edit-button"
               onClick={() => handleEditMeta(m)}
             >
@@ -448,17 +445,17 @@ export default function Metas() {
                 <path d="M3 6v18h18v-18h-18zm5 14c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm4-18v2h-20v-2h5.711c.9 0 1.631-1.099 1.631-2h5.315c0 .901.73 2 1.631 2h5.712z"/>
               </svg>
             </button>
-          </>
-        )}
-      </td>
-    </tr>
-  );
-})}
+              </>
+            )}
+          </td>
+        </tr>
+      );
+    })}
+</tbody>  
+          </table>
+        </div>
+      </section>
 
-      </tbody>
-    </table>
-  </div>
-</section>
 
 
   
@@ -657,194 +654,361 @@ export default function Metas() {
         transform: rotate(360deg);
       }
     }
-        .metas-container {
-          max-width: 1440px;
-          margin: 0 auto;
-          padding: 2rem 1.5rem;
-          font-family: 'Inter', system-ui, sans-serif;
-          background: #f8fafc;
-          min-height: 100vh;
-        }
+    .metas-container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #f8fafc;
+    }
   
-        .nav-bar {
-          display: flex;
-          gap: 1.5rem;
-          padding: 1rem 2rem;
-          background: linear-gradient(135deg, #1e293b,rgb(61, 111, 228));
-          border-radius: 16px;
-          margin-bottom: 2rem;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
+    .nav-bar {
+      display: flex;
+      gap: 1.5rem;
+      padding: 1rem 2rem;
+      background: linear-gradient(135deg, #1e293b,rgb(61, 111, 228));
+      border-radius: 16px;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
   
-        .nav-link {
-          color: #94a3b8;
-          font-weight: 500;
-          padding: 0.75rem 1.25rem;
-          border-radius: 8px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          position: relative;
-          
-          &:hover {
-            color: #e2e8f0;
-            background: rgba(255,255,255,0.05);
-          }
-          
-          &::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: #3b82f6;
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-          }
-          
-          &:hover::after {
-            transform: scaleX(1);
-          }
-        }
+    .nav-link {
+      color: #94a3b8;
+      font-weight: 500;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      
+      &:hover {
+        color: #e2e8f0;
+        background: rgba(255,255,255,0.05);
+      }
+      
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #3b82f6;
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+      }
+      
+      &:hover::after {
+        transform: scaleX(1);
+      }
+    }
   
+        /* Estilos Gerais - Atualizados */
+        .metas-content {
+          padding: 2rem;
+          flex: 1;
+        }
+
+        /* Cabeçalho - Estilo Mais Clean */
         .metas-header {
-          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-          border-radius: 24px;
-          margin-bottom: 3rem;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.05);
-          overflow: hidden;
-          position: relative;
-          
-          .header-content {
-            padding: 4rem 2rem;
-            position: relative;
-            z-index: 1;
-          }
-  
-          h1 {
-            color: #0f172a;
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 2.5rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-          }
-  
-          .decorative-line {
-            width: 4px;
-            height: 2.5rem;
-            background: #3b82f6;
-            border-radius: 2px;
-          }
-        }
-  
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+        padding: 1.75rem 2rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid #e2e8f0;
+      }
+
+      .metas-header {
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+      padding: 1.75rem 2rem;
+      margin-bottom: 1.5rem;
+      border: 1px solid #e2e8f0;
+      }
+      .header-content h1 {
+      display: flex;
+      align-items: center;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 1.5rem;
+      margin-top: 0;
+    }
+
+      .decorative-line {
+      display: inline-block;
+      width: 4px;
+      height: 24px;
+      background-color: #3b82f6;
+      margin-right: 12px;
+      border-radius: 2px;
+    }
+
         .meta-form {
+        margin-top: 1rem;
+      }
+
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
           .form-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 1.5rem;
-            background: #f8fafc;
-            border-radius: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+          display: grid;
+          grid-template-columns: 2fr 1fr 1fr auto;
+          gap: 1rem;
+          align-items: center;
           }
 
+          /* Improved Input Groups with Better Spacing */
           .input-group {
-            position: relative;
-            margin-bottom: 1rem;
-            
-            &:last-child {
-              margin-bottom: 0;
-            }
-          }
+          position: relative;
+        }
 
-          label {
-            display: block;
-            margin-bottom: 0.75rem;
-            font-size: 0.9375rem;
+          .input-group label {
+            font-size: 0.85rem;
+            color: #64748b;
             font-weight: 500;
-            color: #334155;
+            margin-left: 0.2rem;
+            transition: color 0.2s ease;
           }
 
+          .input-group:focus-within label {
+            color: #3b82f6;
+          }
+
+          /* Enhanced Modern Inputs */
           .modern-input {
             width: 100%;
-            padding: 1.125rem 1.5rem 1.125rem 3.5rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            font-size: 1rem;
+            height: 45px;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
             color: #1e293b;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: white;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-
-            &:hover {
-              border-color: #cbd5e1;
-            }
-
-            &:focus {
-              border-color: #3b82f6;
-              box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
-              outline: none;
-            }
-
-            &::placeholder {
-              color: #94a3b8;
-              opacity: 1;
-            }
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            transition: all 0.2s ease;
           }
 
-          .input-icon {
-            position: absolute;
-            left: 1.25rem;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 20px;
-            height: 20px;
-            color: #94a3b8;
-            transition: color 0.2s ease;
-            
-            .modern-input:focus + & {
-              color: #3b82f6;
-            }
+          .modern-input:hover {
+            border-color: #cbd5e0;
+            background-color: #fff;
           }
 
-          .input-currency {
+          .modern-input:focus {
+          outline: none;
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+          background-color: #fff;
+        }
+
+          /* Polished Select Input */
+          select.modern-input {
+          appearance: none;
+          background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2364748b'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+          background-repeat: no-repeat;
+          background-position: right 1rem center;
+          background-size: 16px;
+          padding-right: 2.5rem;
+          cursor: pointer;
+        }
+
+          .input-group select.modern-input:hover {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%233b82f6'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+          }
+
+          /* Enhanced Currency Input */
+          .currency-input {
+            position: relative;
+          }
+
+          .currency-input::before {
+            content: 'R$';
             position: absolute;
-            right: 1.5rem;
+            left: 1rem;
             top: 50%;
             transform: translateY(-50%);
             color: #64748b;
             font-weight: 500;
-            font-size: 0.9375rem;
+            font-size: 0.95rem;
             pointer-events: none;
           }
+          
+          .currency-input input {
+          padding-left: 2.5rem;
+        }
 
-          /* Efeito para quando o input tem valor */
-          .modern-input:not(:placeholder-shown) {
-            background-color: #f8fafc;
-            border-color: #e2e8f0;
+          .currency-input:focus-within::before {
+            color: #3b82f6;
           }
 
-          /* Responsividade */
-          @media (max-width: 640px) {
+          .input-group input[type="number"] {
+            padding-left: 2.4rem;
+          }
+
+          input[type="number"]::-webkit-outer-spin-button,
+          input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+          }
+          input[type="number"] {
+            -moz-appearance: textfield;
+          }
+          .input-group input[type="number"] {
+            -moz-appearance: textfield;
+          }
+
+          /* Enhanced Month Input */
+          .input-group input[type="month"] {
+            padding: 0.65rem 0.8rem;
+            cursor: pointer;
+          }
+
+          /* Modern Sleek Button */
+          .primary-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          height: 45px;
+          padding: 0 1.25rem;
+          background-color: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 0.95rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+          min-width: 160px;
+        }
+          .primary-button:hover {
+          background-color: #2563eb;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+          .primary-button:active {
+            background-color: #1d4ed8;
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+          }
+
+          .primary-button .button-icon {
+            width: 16px;
+            height: 16px;
+            fill: white;
+          }
+
+          /* Enhanced Period Display */
+          .period-display {
+            padding: 0.65rem 0.85rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background-color: #f8fafc;
+            color: #1e293b;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+          }
+
+          /* Header Styles */
+          .metas-header {
+            padding: 1.5rem 1.75rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+          }
+
+          .header-content h1 {
+            display: flex;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 1.25rem;
+          }
+
+          .decorative-line {
+            display: inline-block;
+            width: 3px;
+            height: 24px;
+            background-color: #3b82f6;
+            margin-right: 10px;
+            border-radius: 2px;
+          }
+
+          /* Improved Responsiveness */
+          @media (max-width: 992px) {
             .form-group {
-              grid-template-columns: 1fr;
-              gap: 1.5rem;
+              grid-template-columns: 1.5fr 1fr 1fr;
+              gap: 0.75rem;
+            }
+            
+            .primary-button {
+              grid-column: 1 / -1;
+              margin-top: 0.5rem;
+            }
+          }
+
+          @media (max-width: 768px) {
+            .metas-header {
               padding: 1.25rem;
             }
-
-            .modern-input {
-              padding: 1rem 1.25rem 1rem 3rem;
+            
+            .form-group {
+              grid-template-columns: 1fr 1fr;
             }
-
-            .input-icon {
-              left: 1rem;
-              width: 18px;
-              height: 18px;
+            
+            .input-group:first-child {
+              grid-column: 1 / -1;
             }
           }
+
+          @media (max-width: 576px) {
+            .form-group {
+              grid-template-columns: 1fr;
+              gap: 0.75rem;
+            }
+            
+            .header-content h1 {
+              font-size: 1.35rem;
+            }
+            
+            .primary-button {
+              width: 100%;
+              margin-top: 0.5rem;
+            }
+          }
+
+          /* Optional: Subtle Form Field Animation */
+          @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+            70% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+          }
+
+          .input-group:focus-within .modern-input {
+            animation: pulse 1.5s;
+          }
+
+        /* Acessibilidade - Foco Visível */
+        .modern-input:focus-visible, 
+        .primary-button:focus-visible {
+          outline: 2px solid #2b6cb0;
+          outline-offset: 1px;
+        }
+
+        /* Efeitos de foco acessível */
+        .modern-input:focus-visible, 
+        .primary-button:focus-visible {
+          outline: 2px solid #2b6cb0;
+          outline-offset: 2px;
         }
   
         .primary-button {

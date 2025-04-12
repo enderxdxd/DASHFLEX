@@ -215,37 +215,49 @@ export default function Metas() {
   }, {});
 
   // Monta os dados do gráfico: para cada responsável, pega a meta cadastrada para o período selecionado
-  const dadosGrafico = Object.keys(somaPorResponsavel).map((nome) => {
-    const metaObj = metas.find(
-      (m) =>
-        m.responsavel.trim().toLowerCase() === nome.trim().toLowerCase() &&
-        m.periodo === selectedMonth
-    );
-    return {
-      nome,
-      vendas: somaPorResponsavel[nome],
-      meta: metaObj ? Number(metaObj.meta) : 0,
-    };
+  const metasDoPeriodo = metas.filter((m) => m.periodo === selectedMonth);
+
+// Para cada meta do período, pega as vendas do consultor correspondente filtradas pelo mês
+const dadosGrafico = metasDoPeriodo.map((meta) => {
+  const vendasResponsavel = vendas.filter((v) => {
+    // Padroniza os nomes para comparação case-insensitive
+    const respVenda = (v.responsavel || "").trim().toLowerCase();
+    const metaResp = (meta.responsavel || "").trim().toLowerCase();
+    // Filtra também por período: converte a data da venda para "YYYY-MM"
+    const condMes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth;
+    return respVenda === metaResp && condMes;
   });
 
-  const chartData = {
-    labels: dadosGrafico.map((d) => d.nome),
-    datasets: [
-      {
-        type: "bar",
-        label: "Vendas Realizadas",
-        data: dadosGrafico.map((d) => d.vendas),
-        backgroundColor: "#10B981",
-        borderRadius: 4,
-      },
-      {
-        label: "Meta",
-        data: dadosGrafico.map((d) => d.meta),
-        backgroundColor: "#F59E0B",
-        borderRadius: 4,
-      },
-    ],
+  const totalVendas = vendasResponsavel.reduce(
+    (acc, v) => acc + (Number(v.valor) || 0),
+    0
+  );
+
+  return {
+    nome: meta.responsavel,
+    vendas: totalVendas,
+    meta: Number(meta.meta) || 0,
   };
+});
+
+const chartData = {
+  labels: dadosGrafico.map((d) => d.nome),
+  datasets: [
+    {
+      type: "bar",
+      label: "Vendas Realizadas",
+      data: dadosGrafico.map((d) => d.vendas),
+      backgroundColor: "#10B981",
+      borderRadius: 4,
+    },
+    {
+      label: "Meta",
+      data: dadosGrafico.map((d) => d.meta),
+      backgroundColor: "#F59E0B",
+      borderRadius: 4,
+    },
+  ],
+};
 
   // Paginação para a lista de vendas (caso seja necessário)
   const [currentPage, setCurrentPage] = useState(1);
@@ -344,7 +356,7 @@ export default function Metas() {
   <div className="section-header">
     <h2>Metas Cadastradas</h2>
     <span className="total-metas">{metas.length} metas registradas</span>
-    {/* Campo para selecionar o período (mês/ano) */}
+    {/* Campo para selecionar o período se necessário */}
     <div className="filter-group month-filter" style={{ marginTop: "1rem" }}>
       <label>Selecione o Período:</label>
       <input 
@@ -355,7 +367,6 @@ export default function Metas() {
       />
     </div>
   </div>
-
   <div className="table-wrapper">
     <table>
       <thead>
@@ -364,97 +375,113 @@ export default function Metas() {
           <th>Meta (R$)</th>
           <th>Vendas (R$)</th>
           <th>% Meta</th>
+          <th>Comissão</th>
           <th>Ações</th>
         </tr>
       </thead>
       <tbody>
-      {metas
-    .filter((m) => m.periodo === selectedMonth) // Aqui está o filtro principal
-    .map((m) => {
-      // Filtra as vendas deste responsável *e* do mês selecionado
-      const vendasResponsavel = vendas.filter((v) => {
-        const respVenda = (v.responsavel || "").trim().toLowerCase();
-        const metaResp = (m.responsavel || "").trim().toLowerCase();
-        // Filtra o responsável
-        const condResponsavel = respVenda === metaResp;
-        // Filtra o mês (comparando dataFormatada "YYYY-MM-DD" com selectedMonth "YYYY-MM")
-        const condMes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth;
-        return condResponsavel && condMes;
-      });
+        {metas
+          .filter((m) => m.periodo === selectedMonth) // Só exibe metas do período selecionado
+          .map((m) => {
+            // Filtra as vendas deste responsável para o período selecionado
+            const vendasResponsavel = vendas.filter((v) => {
+              const respVenda = (v.responsavel || "").trim().toLowerCase();
+              const metaResp = (m.responsavel || "").trim().toLowerCase();
+              // Filtra também pelo mês: extrai "YYYY-MM" da data da venda
+              const condMes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth;
+              return respVenda === metaResp && condMes;
+            });
+  
+            // Soma os valores das vendas filtradas
+            const totalVendas = vendasResponsavel.reduce(
+              (acc, v) => acc + (Number(v.valor) || 0),
+              0
+            );
+  
+            const metaValor = Number(m.meta) || 0;
+            const computedPercent = metaValor > 0 ? (totalVendas / metaValor) * 100 : 0;
+            const excedente = computedPercent > 100 ? computedPercent - 100 : 0;
+  
+            
+            const taxaSemMeta = 0.0084;
+            const taxaComMeta = 0.0087;
+            const comissao =
+              totalVendas >= metaValor
+                ? totalVendas * taxaComMeta
+                : totalVendas * taxaSemMeta;
+  
+            return (
+              <tr key={m.id}>
+                <td>{m.responsavel}</td>
+                <td>
+                  {metaValor.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </td>
+                <td>
+                  {totalVendas.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </td>
+                <td>
+                  {metaValor
+                    ? `${computedPercent.toFixed(2)}%` +
+                      (excedente > 0 ? ` (+${excedente.toFixed(2)}%)` : "")
+                    : "N/A"}
+                </td>
+                <td>
+                  {comissao.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </td>
+                <td className="actions">
+                  {editingId === m.id ? (
+                    <div className="action-buttons">
+                      <button
+                        className="success-button"
+                        onClick={() => handleUpdateMeta(m.id)}
+                      >
+                        {/* Ícone de confirmação */}
+                      </button>
+                      <button
+                        className="cancel-button"
+                        onClick={() => setEditingId(null)}
+                      >
+                        {/* Ícone de cancelamento */}
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        className="edit-button"
+                        onClick={() => handleEditMeta(m)}
+                      >
+                        <svg viewBox="0 0 24 24">
+                          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                        </svg>
+                      </button>
+                      <button 
+                        className="delete-button"
+                        onClick={() => handleDeleteMeta(m.id)}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                          <path d="M3 6v18h18v-18h-18zm5 14c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm4-18v2h-20v-2h5.711c.9 0 1.631-1.099 1.631-2h5.315c0 .901.73 2 1.631 2h5.712z"/>
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+      </tbody>
+    </table>
+  </div>
+</section>
 
-      const totalVendas = vendasResponsavel.reduce(
-        (acc, v) => acc + (Number(v.valor) || 0),
-        0
-      );
-      const metaValor = Number(m.meta) || 0;
-      const computedPercent = metaValor > 0 ? (totalVendas / metaValor) * 100 : 0;
-      const excedente = computedPercent > 100 ? computedPercent - 100 : 0;
-
-      return (
-        <tr key={m.id}>
-          <td>{m.responsavel}</td>
-          <td>
-            {metaValor.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
-          </td>
-          <td>
-            {totalVendas.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
-          </td>
-          <td>
-            {metaValor
-              ? `${computedPercent.toFixed(2)}%` +
-                (excedente > 0 ? ` (+${excedente.toFixed(2)}%)` : "")
-              : "N/A"}
-          </td>
-          <td className="actions">
-            {editingId === m.id ? (
-              <div className="action-buttons">
-                <button
-                  className="success-button"
-                  onClick={() => handleUpdateMeta(m.id)}
-                >
-                  {/* Ícone de confirmação */}
-                </button>
-                <button
-                  className="cancel-button"
-                  onClick={() => setEditingId(null)}
-                >
-                  {/* Ícone de cancelamento */}
-                </button>
-              </div>
-            ) : (
-              <>
-                <button
-              className="edit-button"
-              onClick={() => handleEditMeta(m)}
-            >
-              <svg viewBox="0 0 24 24">
-                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-              </svg>
-            </button>
-            <button 
-              className="delete-button"
-              onClick={() => handleDeleteMeta(m.id)}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
-                <path d="M3 6v18h18v-18h-18zm5 14c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm4-18v2h-20v-2h5.711c.9 0 1.631-1.099 1.631-2h5.315c0 .901.73 2 1.631 2h5.712z"/>
-              </svg>
-            </button>
-              </>
-            )}
-          </td>
-        </tr>
-      );
-    })}
-</tbody>  
-          </table>
-        </div>
-      </section>
 
 
 

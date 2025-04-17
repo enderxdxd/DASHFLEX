@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { collection, collectionGroup, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from "firebase/firestore";
+import { collection, collectionGroup, onSnapshot, addDoc, updateDoc, doc, deleteDoc,getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import { Bar } from "react-chartjs-2";
@@ -23,6 +23,7 @@ const NavBar = () => {
       <Link to={`/dashboard/${unidade}`} className="nav-link">Dashboard</Link>
       <Link to="/unidade" className="nav-link">Unidade</Link>
       <Link to={`/add-sale/${unidade}`} className="nav-link">Adicionar Venda</Link>
+      <Link to={`/config-remuneracao/${unidade}`} className="nav-link">Config. Remuneração</Link>
     </nav>
   );
 };
@@ -38,6 +39,9 @@ export default function Metas() {
   const [editingId, setEditingId] = useState(null);
   const [editResponsavel, setEditResponsavel] = useState("");
   const [editMeta, setEditMeta] = useState("");
+  const [configRem, setConfigRem] = useState(null);
+  const [newRemType, setNewRemType] = useState("comissao"); 
+  const [editRemType, setEditRemType] = useState("comissao");
 
   // Estados para mensagens e carregamento
   const [error, setError] = useState("");
@@ -56,21 +60,40 @@ export default function Metas() {
   });
   const [showProductFilter, setShowProductFilter] = useState(false);
 
-  // Outros estados para filtros, se necessário
-  const [filtroNome, setFiltroNome] = useState("");
-  const [filtroResponsavel, setFiltroResponsavel] = useState("");
-  const [filtroProduto, setFiltroProduto] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
 
-  // Estado para selecionar o mês/ano para a visualização dos dados
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
 
   // Persistência da seleção de produtos
   useEffect(() => {
     localStorage.setItem("produtosSelecionados", JSON.stringify(produtosSelecionados));
   }, [produtosSelecionados]);
+  
+  useEffect(() => {
+    async function loadConfig() {
+      const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", "premiacao");
+      const snap = await getDoc(ref);
+      if (snap.exists()) setConfigRem(snap.data());
+      else setConfigRem({ premiacao: [] });
+    }
+    loadConfig();
+  }, [unidade]);
+
+  const calcularRemuneracao = (meta, vendas, tipo) => {
+    const metaValor = Number(meta) || 0;
+    
+    if (tipo === "comissao") {
+      const taxaSem = 0.03;
+      const taxaCom = 0.05;
+      return vendas >= metaValor ? vendas * taxaCom : vendas * taxaSem;
+    } else {
+      const percentual = metaValor > 0 ? (vendas / metaValor) * 100 : 0;
+      const faixa = (configRem?.premiacao || [])
+        .filter(f => f.percentual <= percentual)
+        .sort((a,b) => a.percentual - b.percentual)
+        .pop();
+      return faixa?.premio || 0;
+    }
+  };
 
   // Redireciona se a unidade não estiver definida
   useEffect(() => {
@@ -143,8 +166,9 @@ export default function Metas() {
       const metaValor = parseBRNumber(newMeta);
       await addDoc(collection(db, "faturamento", unidade.toLowerCase(), "metas"), {
         responsavel: newResponsavel.trim(),
-        meta: metaValor,
-        periodo: metaPeriodo, // Armazena o período da meta (ex: "2025-04")
+        periodo: metaPeriodo, 
+        remuneracaoType: newRemType,
+        meta: Number(newMeta),
         createdAt: dayjs().toISOString(),
       });
       setSuccessMessage("Meta adicionada com sucesso!");
@@ -161,10 +185,12 @@ export default function Metas() {
     setEditingId(meta.id);
     setEditResponsavel(meta.responsavel);
     setEditMeta(meta.meta.toString());
+    setEditRemType(meta.remuneracaoType || "comissao");
   };
+  
 
   const handleUpdateMeta = async (id) => {
-    if (!editResponsavel || !editMeta) {
+    if (!editResponsavel || !editMeta || !editRemType) {
       setError("Preencha todos os campos");
       return;
     }
@@ -172,6 +198,7 @@ export default function Metas() {
       await updateDoc(doc(db, "faturamento", unidade.toLowerCase(), "metas", id), {
         responsavel: editResponsavel.trim(),
         meta: Number(editMeta),
+        remuneracaoType: editRemType,
       });
       setSuccessMessage("Meta atualizada com sucesso!");
       setEditingId(null);
@@ -275,6 +302,8 @@ const chartData = {
   const mediaPorVenda =
     vendasParaMeta.length > 0 ? totalFiltrado / vendasParaMeta.length : 0;
 
+  
+
   if (!unidade) return <div>Redirecionando...</div>;
 
   return (
@@ -283,29 +312,29 @@ const chartData = {
       
       <main className="metas-content">
       <header className="metas-header">
-  <div className="header-content">
-    <h1>
-      <span className="decorative-line"></span>
-      Metas de Vendas - {unidade.toUpperCase()}
-    </h1>
-    <form onSubmit={handleAddMeta} className="meta-form">
-      <div className="form-group">
-        {/* Campo para selecionar o Responsável */}
-        <div className="input-group">
-  <input
-    type="text"
-    list="responsaveisList"
-    placeholder="Selecione ou digite o Responsável"
-    value={newResponsavel}
-    onChange={(e) => setNewResponsavel(e.target.value)}
-    className="modern-input"
-  />
-  <datalist id="responsaveisList">
-    {metas.map((meta) => (
-      <option key={meta.id} value={meta.responsavel} />
-    ))}
-  </datalist>
-</div>
+      <div className="header-content">
+        <h1>
+          <span className="decorative-line"></span>
+          Metas de Vendas - {unidade.toUpperCase()}
+        </h1>
+        <form onSubmit={handleAddMeta} className="meta-form">
+          <div className="form-group">
+            {/* Campo para selecionar o Responsável */}
+            <div className="input-group">
+              <input
+                type="text"
+                list="responsaveisList"
+                placeholder="Selecione ou digite o Responsável"
+                value={newResponsavel}
+                onChange={(e) => setNewResponsavel(e.target.value)}
+                className="modern-input"
+              />
+              <datalist id="responsaveisList">
+                {metas.map((meta) => (
+                  <option key={meta.id} value={meta.responsavel} />
+                ))}
+              </datalist>
+            </div>
 
 
         {/* Campo para digitar o valor da meta */}
@@ -328,6 +357,28 @@ const chartData = {
             className="modern-input"
           />
         </div>
+        {/* Tipo de Remuneração */}
+          <div className="input-group">
+            <label>
+              <input
+                type="radio"
+                name="tipo"
+                value="comissao"
+                checked={newRemType === "comissao"}
+                onChange={() => setNewRemType("comissao")}
+              /> Comissão
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="tipo"
+                value="premiacao"
+                checked={newRemType === "premiacao"}
+                onChange={() => setNewRemType("premiacao")}
+              /> Premiação
+            </label>
+          </div>
+
 
         <button type="submit" className="primary-button">
           <svg xmlns="http://www.w3.org/2000/svg" className="button-icon" viewBox="0 0 24 24">
@@ -352,14 +403,13 @@ const chartData = {
             {error || successMessage}
           </div>
         )}
-  <section className="metas-list">
+ <section className="metas-list">
   <div className="section-header">
     <h2>Metas Cadastradas</h2>
     <span className="total-metas">{metas.length} metas registradas</span>
-    {/* Campo para selecionar o período se necessário */}
     <div className="filter-group month-filter" style={{ marginTop: "1rem" }}>
       <label>Selecione o Período:</label>
-      <input 
+      <input
         type="month"
         value={selectedMonth}
         onChange={(e) => setSelectedMonth(e.target.value)}
@@ -367,49 +417,64 @@ const chartData = {
       />
     </div>
   </div>
+
   <div className="table-wrapper">
-    <table>
+    <table className="data-table">
       <thead>
         <tr>
           <th>Responsável</th>
           <th>Meta (R$)</th>
           <th>Vendas (R$)</th>
           <th>% Meta</th>
-          <th>Comissão</th>
+          <th>Remuneração (R$)</th>
+          <th>Tipo</th>
           <th>Ações</th>
         </tr>
       </thead>
       <tbody>
         {metas
-          .filter((m) => m.periodo === selectedMonth) // Só exibe metas do período selecionado
+          .filter((m) => m.periodo === selectedMonth)
           .map((m) => {
-            // Filtra as vendas deste responsável para o período selecionado
+            const isEditing = editingId === m.id;
+
+            // --- Filtrar e somar vendas do consultor no mês selecionado ---
             const vendasResponsavel = vendas.filter((v) => {
               const respVenda = (v.responsavel || "").trim().toLowerCase();
-              const metaResp = (m.responsavel || "").trim().toLowerCase();
-              // Filtra também pelo mês: extrai "YYYY-MM" da data da venda
-              const condMes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth;
+              const metaResp  = (m.responsavel || "").trim().toLowerCase();
+              const condMes   = dayjs(v.dataFormatada, "YYYY-MM-DD")
+                                  .format("YYYY-MM") === selectedMonth;
               return respVenda === metaResp && condMes;
             });
-  
-            // Soma os valores das vendas filtradas
-            const totalVendas = vendasResponsavel.reduce(
-              (acc, v) => acc + (Number(v.valor) || 0),
-              0
-            );
-  
+            const totalVendas = vendasResponsavel
+              .reduce((acc, v) => acc + (Number(v.valor) || 0), 0);
+
+            // --- Cálculo de % meta e excedente ---
             const metaValor = Number(m.meta) || 0;
-            const computedPercent = metaValor > 0 ? (totalVendas / metaValor) * 100 : 0;
-            const excedente = computedPercent > 100 ? computedPercent - 100 : 0;
-  
-            
-            const taxaSemMeta = 0.0084;
-            const taxaComMeta = 0.0087;
-            const comissao =
-              totalVendas >= metaValor
-                ? totalVendas * taxaComMeta
-                : totalVendas * taxaSemMeta;
-  
+            const computedPercent = metaValor > 0
+              ? (totalVendas / metaValor) * 100
+              : 0;
+            const excedente = computedPercent > 100
+              ? computedPercent - 100
+              : 0;
+
+            // --- Lógica de remuneração ---
+            let remuneracaoVal = 0;
+            if (m.remuneracaoType === "comissao") {
+              const taxaSem = 0.012;
+              const taxaCom = 0.015;
+              remuneracaoVal = totalVendas >= metaValor
+                ? totalVendas * taxaCom
+                : totalVendas * taxaSem;
+            } else {
+              // usa configRem.premiacao para escolher faixa
+              const percentual = computedPercent;
+              const faixa = (configRem?.premiacao || [])
+                .filter((f) => f.percentual <= percentual)
+                .sort((a, b) => a.percentual - b.percentual)
+                .pop();
+              remuneracaoVal = faixa?.premio || 0;
+            }
+
             return (
               <tr key={m.id}>
                 <td>{m.responsavel}</td>
@@ -432,25 +497,55 @@ const chartData = {
                     : "N/A"}
                 </td>
                 <td>
-                  {comissao.toLocaleString("pt-BR", {
+                  {remuneracaoVal.toLocaleString("pt-BR", {
                     style: "currency",
                     currency: "BRL",
                   })}
                 </td>
+                <td>
+                  {isEditing ? (
+                    <div className="input-group tipo-group">
+                      <label>
+                        <input
+                          type="radio"
+                          name={`tipo-${m.id}`}
+                          value="comissao"
+                          checked={editRemType === "comissao"}
+                          onChange={() => setEditRemType("comissao")}
+                        />{" "}
+                        Comissão
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name={`tipo-${m.id}`}
+                          value="premiacao"
+                          checked={editRemType === "premiacao"}
+                          onChange={() => setEditRemType("premiacao")}
+                        />{" "}
+                        Premiação
+                      </label>
+                    </div>
+                  ) : (
+                    m.remuneracaoType === "comissao"
+                      ? "Comissão"
+                      : "Premiação"
+                  )}
+                </td>
                 <td className="actions">
-                  {editingId === m.id ? (
+                  {isEditing ? (
                     <div className="action-buttons">
                       <button
                         className="success-button"
                         onClick={() => handleUpdateMeta(m.id)}
                       >
-                        {/* Ícone de confirmação */}
+                        ✓
                       </button>
                       <button
                         className="cancel-button"
                         onClick={() => setEditingId(null)}
                       >
-                        {/* Ícone de cancelamento */}
+                        ✕
                       </button>
                     </div>
                   ) : (
@@ -481,6 +576,7 @@ const chartData = {
     </table>
   </div>
 </section>
+
 
 
 

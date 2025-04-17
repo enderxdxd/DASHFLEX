@@ -6,6 +6,7 @@ import Dashboard from "./components/Dashboard";
 import Metas from "./components/Metas";
 import PrivateRoute from "./auth/PrivateRoute";
 import AddSale from "./components/AddSale";
+import ConfigRemuneracao from "./components/ConfigRemuneracao";
 
 export default function App() {
   return (
@@ -40,6 +41,14 @@ export default function App() {
             </PrivateRoute>
           }
         />
+        <Route
+          path="/config-remuneracao/:unidade"
+          element={
+            <PrivateRoute>
+              <ConfigRemuneracao />
+            </PrivateRoute>
+          }
+        />  
         <Route path="*" element={<Login />} />
       </Routes>
     </BrowserRouter>

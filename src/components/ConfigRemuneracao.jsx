@@ -82,7 +82,7 @@ export default function ConfigRemuneracao() {
       prize += incBefore;
     }
     // acima de 100%
-    for (let p = cutoff + step, prize = arr[arr.length - 1].premio + incAfter; p <= 170; p += step) {
+    for (let p = cutoff + step, prize = arr[arr.length - 1].premio + incAfter; p <= 200; p += step) {
       arr.push({ percentual: p, premio: prize });
       prize += incAfter;
     }

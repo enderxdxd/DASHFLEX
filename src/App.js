@@ -1,20 +1,21 @@
 // App.jsx
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Login from "./components/Login";
-import UnidadeSelector from "./components/UnidadeSelector";
-import Dashboard from "./components/Dashboard";
-import Metas from "./components/Metas";
+import Login from "./pages/Login";
+import UnidadeSelector from "./pages/UnidadeSelector";
+import Dashboard from "./pages/Dashboard";
+import Metas from "./pages/Metas";
 import PrivateRoute from "./auth/PrivateRoute";
-import AddSale from "./components/AddSale";
-import ConfigRemuneracao from "./components/ConfigRemuneracao";
+import AddSale from "./pages/AddSale";
+import ConfigRemuneracao from "./pages/ConfigRemuneracao";
+import "./styles/variables.css";
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<Login/>} />
         {/* A rota de seleção de unidade é pública para que o usuário possa escolher sua unidade */}
-        <Route path="/unidade" element={<UnidadeSelector />} />
+        <Route path="/unidade" element={<UnidadeSelector/>} />
         {/* Rotas protegidas */}
         <Route
           path="/dashboard/:unidade"

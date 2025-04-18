@@ -35,7 +35,8 @@ export default function Metas() {
   // Estados para cadastro/edição de meta
   const [newResponsavel, setNewResponsavel] = useState("");
   const [newMeta, setNewMeta] = useState("");
-  const [metaPeriodo, setMetaPeriodo] = useState(dayjs().format("YYYY-MM")); // Período da meta
+  const [metaPeriodo, setMetaPeriodo] = useState(dayjs().format("YYYY-MM"));
+  const [editPeriodo, setEditPeriodo]     = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editResponsavel, setEditResponsavel] = useState("");
   const [editMeta, setEditMeta] = useState("");
@@ -183,31 +184,42 @@ export default function Metas() {
 
   const handleEditMeta = (meta) => {
     setEditingId(meta.id);
+    setEditPeriodo(meta.periodo);            
     setEditResponsavel(meta.responsavel);
     setEditMeta(meta.meta.toString());
     setEditRemType(meta.remuneracaoType || "comissao");
   };
   
 
-  const handleUpdateMeta = async (id) => {
-    if (!editResponsavel || !editMeta || !editRemType) {
-      setError("Preencha todos os campos");
+  // salvar linha editada
+const handleSaveEditedMeta = async (id) => {
+  try {
+    if (!editResponsavel || !editMeta || !editRemType || !editPeriodo) {
+      setError("Preencha todos os campos de edição.");
       return;
     }
-    try {
-      await updateDoc(doc(db, "faturamento", unidade.toLowerCase(), "metas", id), {
-        responsavel: editResponsavel.trim(),
-        meta: Number(editMeta),
-        remuneracaoType: editRemType,
-      });
-      setSuccessMessage("Meta atualizada com sucesso!");
-      setEditingId(null);
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      setError("Erro ao atualizar meta");
-      console.error(err);
-    }
-  };
+    const ref = doc(
+      db,
+      "faturamento",
+      unidade.toLowerCase(),
+      "metas",
+      id
+    );
+    await updateDoc(ref, {
+      periodo: editPeriodo,
+      responsavel: editResponsavel.trim(),
+      meta: Number(editMeta),
+      remuneracaoType: editRemType,
+    });
+    setSuccessMessage("Meta atualizada com sucesso!");
+    setEditingId(null);
+    setTimeout(() => setSuccessMessage(""), 3000);
+  } catch (err) {
+    console.error("Erro ao salvar meta editada:", err);
+    setError("Falha ao atualizar meta.");
+  }
+};
+
 
   const handleDeleteMeta = async (id) => {
     if (window.confirm("Tem certeza que deseja excluir esta meta?")) {
@@ -266,21 +278,25 @@ const dadosGrafico = metasDoPeriodo.map((meta) => {
     meta: Number(meta.meta) || 0,
   };
 });
+const dadosGraficoOrdenados = [...dadosGrafico].sort((a, b) =>
+  a.nome.trim().localeCompare(b.nome.trim(), "pt", { sensitivity: "base" })
+);
 
 const chartData = {
-  labels: dadosGrafico.map((d) => d.nome),
+  labels: dadosGraficoOrdenados.map((d) => d.nome),
   datasets: [
     {
       type: "bar",
-      label: "Vendas Realizadas",
-      data: dadosGrafico.map((d) => d.vendas),
-      backgroundColor: "#10B981",
+      label: "Meta",
+      data: dadosGraficoOrdenados.map((d) => d.meta),
+      backgroundColor: "#10B981",  // verde
       borderRadius: 4,
     },
     {
-      label: "Meta",
-      data: dadosGrafico.map((d) => d.meta),
-      backgroundColor: "#F59E0B",
+      type: "bar",
+      label: "Realizado",
+      data: dadosGraficoOrdenados.map((d) => d.vendas),
+      backgroundColor: "#3B82F6",  // azul
       borderRadius: 4,
     },
   ],
@@ -301,6 +317,10 @@ const chartData = {
   );
   const mediaPorVenda =
     vendasParaMeta.length > 0 ? totalFiltrado / vendasParaMeta.length : 0;
+
+  const responsaveisUnicos = Array.from(
+    new Set(metas.map((m) => m.responsavel.trim()))
+  );
 
   
 
@@ -330,8 +350,8 @@ const chartData = {
                 className="modern-input"
               />
               <datalist id="responsaveisList">
-                {metas.map((meta) => (
-                  <option key={meta.id} value={meta.responsavel} />
+                {responsaveisUnicos.map((nome) => (
+                  <option key={nome} value={nome} />
                 ))}
               </datalist>
             </div>
@@ -407,7 +427,7 @@ const chartData = {
             {error || successMessage}
           </div>
         )}
- <section className="metas-list">
+<section className="metas-list">
   <div className="section-header">
     <h2>Metas Cadastradas</h2>
     <span className="total-metas">{metas.length} metas registradas</span>
@@ -422,163 +442,168 @@ const chartData = {
     </div>
   </div>
 
-  <div className="table-wrapper">
-    <table className="data-table">
-      <thead>
-        <tr>
-          <th>Responsável</th>
-          <th>Meta (R$)</th>
-          <th>Vendas (R$)</th>
-          <th>% Meta</th>
-          <th>Remuneração (R$)</th>
-          <th>Tipo</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {metas
-          .filter((m) => m.periodo === selectedMonth)
-          .map((m) => {
-            const isEditing = editingId === m.id;
+  <section className="table-wrapper">
+  <table className="data-table">
+    <thead>
+      <tr>
+        <th>Período</th>
+        <th>Responsável</th>
+        <th>Meta (R$)</th>
+        <th>Vendas (R$)</th>
+        <th>% Meta</th>
+        <th>Remuneração (R$)</th>
+        <th>Tipo</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {metas
+        .filter((m) => m.periodo === selectedMonth)
+        .sort((a, b) =>
+          a.responsavel.trim().localeCompare(b.responsavel.trim(), "pt", {
+            sensitivity: "base",
+          })
+        )
+        .map((m) => {
+          const isEditing = editingId === m.id;
+          
+          // Dados da linha, editáveis ou não
+          const periodoValue = isEditing ? editPeriodo : m.periodo;
+          const responsavelValue = isEditing ? editResponsavel : m.responsavel;
+          const metaValue = isEditing ? editMeta : m.meta;
+          const remTypeValue = isEditing ? editRemType : m.remuneracaoType;
 
-            // --- Filtrar e somar vendas do consultor no mês selecionado ---
-            const vendasResponsavel = vendas.filter((v) => {
-              const respVenda = (v.responsavel || "").trim().toLowerCase();
-              const metaResp  = (m.responsavel || "").trim().toLowerCase();
-              const condMes   = dayjs(v.dataFormatada, "YYYY-MM-DD")
-                                  .format("YYYY-MM") === selectedMonth;
-              return respVenda === metaResp && condMes;
-            });
-            const totalVendas = vendasResponsavel
-              .reduce((acc, v) => acc + (Number(v.valor) || 0), 0);
+          // Cálculos idem...
+          const vendasResponsavel = vendas.filter((v) => {
+            const respVenda = (v.responsavel || "").trim().toLowerCase();
+            const metaResp  = (m.responsavel  || "").trim().toLowerCase();
+            const condMes   = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === m.periodo;
+            return respVenda === metaResp && condMes;
+          });
+          const totalVendas = vendasResponsavel.reduce((acc, v) => acc + (Number(v.valor) || 0), 0);
+          const computedPercent = metaValue > 0 ? (totalVendas / metaValue) * 100 : 0;
+          const excedente = computedPercent > 100 ? computedPercent - 100 : 0;
 
-            // --- Cálculo de % meta e excedente ---
-            const metaValor = Number(m.meta) || 0;
-            const computedPercent = metaValor > 0
-              ? (totalVendas / metaValor) * 100
-              : 0;
-            const excedente = computedPercent > 100
-              ? computedPercent - 100
-              : 0;
+          // Remuneração lógica (idem)
+          let remuneracaoVal = 0;
+          if (remTypeValue === "comissao") {
+            const taxaSem = 0.012;
+            const taxaCom = 0.015;
+            remuneracaoVal = totalVendas >= metaValue ? totalVendas * taxaCom : totalVendas * taxaSem;
+          } else {
+            const faixa = (configRem?.premiacao || [])
+              .filter((f) => f.percentual <= computedPercent)
+              .sort((a, b) => a.percentual - b.percentual)
+              .pop();
+            remuneracaoVal = faixa?.premio || 0;
+          }
 
-            // --- Lógica de remuneração ---
-            let remuneracaoVal = 0;
-            if (m.remuneracaoType === "comissao") {
-              const taxaSem = 0.012;
-              const taxaCom = 0.015;
-              remuneracaoVal = totalVendas >= metaValor
-                ? totalVendas * taxaCom
-                : totalVendas * taxaSem;
-            } else {
-              // usa configRem.premiacao para escolher faixa
-              const percentual = computedPercent;
-              const faixa = (configRem?.premiacao || [])
-                .filter((f) => f.percentual <= percentual)
-                .sort((a, b) => a.percentual - b.percentual)
-                .pop();
-              remuneracaoVal = faixa?.premio || 0;
-            }
-
-            return (
-              <tr key={m.id}>
-                <td>{m.responsavel}</td>
-                <td>
-                  {metaValor.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </td>
-                <td>
-                  {totalVendas.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </td>
-                <td>
-                  {metaValor
-                    ? `${computedPercent.toFixed(2)}%` +
-                      (excedente > 0 ? ` (+${excedente.toFixed(2)}%)` : "")
-                    : "N/A"}
-                </td>
-                <td>
-                  {remuneracaoVal.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </td>
-                <td>
-                  {isEditing ? (
-                    <div className="input-group tipo-group">
-                      <label>
-                        <input
-                          type="radio"
-                          name={`tipo-${m.id}`}
-                          value="comissao"
-                          checked={editRemType === "comissao"}
-                          onChange={() => setEditRemType("comissao")}
-                        />{" "}
-                        Comissão
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name={`tipo-${m.id}`}
-                          value="premiacao"
-                          checked={editRemType === "premiacao"}
-                          onChange={() => setEditRemType("premiacao")}
-                        />{" "}
-                        Premiação
-                      </label>
-                    </div>
-                  ) : (
-                    m.remuneracaoType === "comissao"
-                      ? "Comissão"
-                      : "Premiação"
-                  )}
-                </td>
-                <td className="actions">
-                  {isEditing ? (
-                    <div className="action-buttons">
-                      <button
-                        className="success-button"
-                        onClick={() => handleUpdateMeta(m.id)}
-                      >
-                        ✓
-                      </button>
-                      <button
-                        className="cancel-button"
-                        onClick={() => setEditingId(null)}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        className="edit-button"
-                        onClick={() => handleEditMeta(m)}
-                      >
-                        <svg viewBox="0 0 24 24">
-                          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                        </svg>
-                      </button>
-                      <button 
-                        className="delete-button"
-                        onClick={() => handleDeleteMeta(m.id)}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
-                          <path d="M3 6v18h18v-18h-18zm5 14c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm4-18v2h-20v-2h5.711c.9 0 1.631-1.099 1.631-2h5.315c0 .901.73 2 1.631 2h5.712z"/>
-                        </svg>
-                      </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-      </tbody>
-    </table>
-  </div>
+          return (
+            <tr key={m.id}>
+              <td>
+                {isEditing ? (
+                  <input
+                    type="month"
+                    value={periodoValue}
+                    onChange={(e) => setEditPeriodo(e.target.value)}
+                    className="modern-input" />
+                ) : (
+                  m.periodo
+                )}
+              </td>
+              <td>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={responsavelValue}
+                    onChange={(e) => setEditResponsavel(e.target.value)}
+                    list="responsaveisList"
+                    className="modern-input" />
+                ) : (
+                  m.responsavel
+                )}
+              </td>
+              <td>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    value={metaValue}
+                    onChange={(e) => setEditMeta(e.target.value)}
+                    className="modern-input" />
+                ) : (
+                  Number(m.meta).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                )}
+              </td>
+              <td>
+                {totalVendas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </td>
+              <td>
+                {metaValue 
+                  ? `${computedPercent.toFixed(2)}%${excedente>0?` (+${excedente.toFixed(2)}%)`:''}`
+                  : "N/A"}
+              </td>
+              <td>
+                {remuneracaoVal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </td>
+              <td>
+                {isEditing ? (
+                  <div className="input-group tipo-group">
+                    <label>
+                      <input
+                        type="radio"
+                        name={`tipo-${m.id}`}
+                        value="comissao"
+                        checked={remTypeValue === "comissao"}
+                        onChange={() => setEditRemType("comissao")} /> Comissão
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name={`tipo-${m.id}`}
+                        value="premiacao"
+                        checked={remTypeValue === "premiacao"}
+                        onChange={() => setEditRemType("premiacao")} /> Premiação
+                    </label>
+                  </div>
+                ) : (
+                  remTypeValue === "comissao" ? "Comissão" : "Premiação"
+                )}
+              </td>
+              <td className="actions">
+                {isEditing ? (
+                  <>
+                    <button
+                      className="success-button"
+                      onClick={() => handleSaveEditedMeta(m.id)}>
+                      ✓
+                    </button>
+                    <button
+                      className="cancel-button"
+                      onClick={() => setEditingId(null)}>
+                      ✕
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="edit-button"
+                      onClick={() => handleEditMeta(m)}>
+                      ✎
+                    </button>
+                    <button
+                      className="delete-button"
+                      onClick={() => handleDeleteMeta(m.id)}>
+                      🗑
+                    </button>
+                  </>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+    </tbody>
+  </table>
+</section>
 </section>
 
 
@@ -652,39 +677,35 @@ const chartData = {
             </div>
           </div>
           <div className="chart-wrapper">
-            <Bar
-              data={chartData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    backgroundColor: '#1e293b',
-                    titleColor: '#f8fafc',
-                    bodyColor: '#e2e8f0',
-                    borderColor: '#334155',
-                    borderWidth: 1,
-                    callbacks: {
-                      label: (ctx) => `R$ ${ctx.raw.toLocaleString('pt-BR')}`
-                    }
-                  }
-                },
-                scales: {
-                  y: {
-                    grid: { color: '#e2e8f0' },
-                    ticks: {
-                      color: '#64748b',
-                      callback: (value) => `R$ ${value.toLocaleString('pt-BR')}`
-                    }
+          <Bar
+            data={chartData}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  labels: {
+                    // inverte a ordem na legenda, pra bater com o gráfico
+                    filter: (_, i) => i > -1,
                   },
-                  x: {
-                    grid: { display: false },
-                    ticks: { color: '#64748b' }
-                  }
-                }
-              }}
-            />
+                },
+                tooltip: {
+                  callbacks: {
+                    label: (ctx) =>
+                      `R$ ${ctx.raw.toLocaleString("pt-BR")}`,
+                  },
+                },
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    callback: (v) => `R$ ${v.toLocaleString("pt-BR")}`,
+                  },
+                },
+              },
+            }}
+          />
           </div>
         </section>  
       </main>

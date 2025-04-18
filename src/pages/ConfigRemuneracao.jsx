@@ -90,12 +90,15 @@ export default function ConfigRemuneracao() {
   };
 
   // Manipulação manual
-  const addFaixa = () => setFaixas([...faixas, { percentual: 0, premio: 0 }]);
+  const addFaixa = () =>
+    setFaixas([...faixas, { percentual: "", premio: "" }]);
+  
   const updateFaixa = (i, field, v) => {
     const updated = [...faixas];
-    updated[i] = { ...updated[i], [field]: Number(v) };
+    updated[i] = { ...updated[i], [field]: v }; // mantém string
     setFaixas(updated);
   };
+  
   const removeFaixa = (i) => setFaixas(faixas.filter((_, idx) => idx !== i));
 
   // Salvar
@@ -103,7 +106,14 @@ export default function ConfigRemuneracao() {
     try {
       setError("");
       const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", "premiacao");
-      await setDoc(ref, { premiacao: faixas, updatedAt: dayjs().toISOString() });
+      await setDoc(ref, {
+        premiacao: faixas.map(f => ({
+          percentual: Number(f.percentual),
+          premio: Number(f.premio)
+        })),
+        updatedAt: dayjs().toISOString(),
+      });
+      
       setSuccessMessage("Configuração salva com sucesso!");
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
@@ -222,12 +232,12 @@ export default function ConfigRemuneracao() {
                     <tr key={i}>
                       <td>
                         <div className="input-with-label">
-                          <input
-                            type="number"
-                            value={f.percentual}
-                            onChange={(e) => updateFaixa(i, 'percentual', e.target.value)}
-                            className="modern-input"
-                          />
+                        <input
+                          type="number"
+                          value={f.percentual !== "" ? f.percentual : ""}
+                          onChange={(e) => updateFaixa(i, "percentual", e.target.value)}
+                          className="modern-input"
+                        />
                           <span className="input-suffix">%</span>
                         </div>
                       </td>
@@ -236,8 +246,8 @@ export default function ConfigRemuneracao() {
                           <span className="input-prefix">R$</span>
                           <input
                             type="number"
-                            value={f.premio}
-                            onChange={(e) => updateFaixa(i, 'premio', e.target.value)}
+                            value={f.premio !== "" ? f.premio : ""}
+                            onChange={(e) => updateFaixa(i, "premio", e.target.value)}
                             className="modern-input"
                           />
                         </div>

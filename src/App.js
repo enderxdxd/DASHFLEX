@@ -1,22 +1,23 @@
-// App.jsx
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+// src/App.jsx
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import UnidadeSelector from "./pages/UnidadeSelector";
 import Dashboard from "./pages/Dashboard";
 import Metas from "./pages/Metas";
-import PrivateRoute from "./auth/PrivateRoute";
 import AddSale from "./pages/AddSale";
 import ConfigRemuneracao from "./pages/ConfigRemuneracao";
+import PrivateRoute from "./auth/PrivateRoute";
 import "./styles/variables.css";
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login/>} />
-        {/* A rota de seleção de unidade é pública para que o usuário possa escolher sua unidade */}
-        <Route path="/unidade" element={<UnidadeSelector/>} />
-        {/* Rotas protegidas */}
+        {/* Páginas públicas */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/unidade" element={<UnidadeSelector />} />
+
+        {/* Páginas protegidas: login + permissão de unidade */}
         <Route
           path="/dashboard/:unidade"
           element={
@@ -25,7 +26,6 @@ export default function App() {
             </PrivateRoute>
           }
         />
-
         <Route
           path="/metas/:unidade"
           element={
@@ -49,8 +49,10 @@ export default function App() {
               <ConfigRemuneracao />
             </PrivateRoute>
           }
-        />  
-        <Route path="*" element={<Login />} />
+        />
+
+        {/* Redireciona tudo mais para login */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

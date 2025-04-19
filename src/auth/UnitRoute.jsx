@@ -1,19 +1,19 @@
-// src/auth/PrivateRoute.jsx
+// src/auth/UnitRoute.jsx
 import React, { useEffect, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
-export default function PrivateRoute({ children }) {
+export default function UnitRoute({ children }) {
   const { unidade } = useParams();
-  const auth = getAuth();
-  const [user, setUser]   = useState(null);
+  const [user, setUser] = useState(null);
   const [claims, setClaims] = useState({});
   const [loading, setLoading] = useState(true);
+  const auth = getAuth();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (u) {
-        // força refresh para garantir que pegamos os custom claims atualizados
+        // Força o refresh do token para pegar os custom claims atualizados
         const idTokenResult = await u.getIdTokenResult(true);
         setClaims(idTokenResult.claims || {});
         setUser(u);
@@ -29,20 +29,25 @@ export default function PrivateRoute({ children }) {
   if (!user)   return <Navigate to="/login" replace />;
 
   const role = claims.role || "user";
+  // se allowedUnits for array
   const allowedUnits = Array.isArray(claims.allowedUnits)
-    ? claims.allowedUnits.map(u => u.toLowerCase())
+    ? claims.allowedUnits
     : typeof claims.allowedUnits === "string"
-      ? claims.allowedUnits.split(",").map(u => u.trim().toLowerCase())
-      : [];
+    ? claims.allowedUnits.split(",").map(u => u.trim().toLowerCase())
+    : [];
 
   const unitParam = unidade?.toLowerCase();
-  const isAuthorized = role === "admin" || (unitParam && allowedUnits.includes(unitParam));
+
+  const isAuthorized =
+    role === "admin" || (unitParam && allowedUnits.includes(unitParam));
 
   if (!isAuthorized) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
         <h1>403 — Acesso negado</h1>
-        <p>Você não tem permissão para acessar a unidade “<strong>{unidade}</strong>”.</p>
+        <p>
+          Você não tem permissão para acessar a unidade “<strong>{unidade}</strong>”.
+        </p>
       </div>
     );
   }

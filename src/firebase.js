@@ -4,13 +4,13 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCtMwzWiPm5ppMSI3rPURkkGlPkO6bZxQs",
-  authDomain: "chatpos-aff1a.firebaseapp.com",
-  projectId: "chatpos-aff1a",
-  storageBucket: "chatpos-aff1a.appspot.com",
-  messagingSenderId: "840413567529",
-  appId: "1:840413567529:web:f8e90d05d3c80a4e989a38",
-  measurementId: "G-J82TTSP270"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
 
 // Inicializa o Firebase apenas uma vez

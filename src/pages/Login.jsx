@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword,getAuth,getIdTokenResult } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -10,6 +10,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const fbAuth = getAuth();
 
   const login = async () => {
     if (!email || !senha) {
@@ -19,17 +20,19 @@ export default function Login() {
 
     setLoading(true);
     setError("");
-    
+
     try {
-      await signInWithEmailAndPassword(auth, email, senha);
+      const { user } = await signInWithEmailAndPassword(auth, email, senha);
+      // força o refresh do token para que os custom claims apareçam
+      const idTokenResult = await getIdTokenResult(user, /*forceRefresh=*/ true);
       navigate("/unidade");
     } catch (e) {
       setError("Credenciais inválidas. Tente novamente.");
-      console.error("Erro no login:", e);
+      console.error(e);
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {

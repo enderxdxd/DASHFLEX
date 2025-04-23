@@ -95,7 +95,7 @@ export default function ConfigRemuneracao() {
   
   const updateFaixa = (i, field, v) => {
     const updated = [...faixas];
-    updated[i] = { ...updated[i], [field]: v }; // mantém string
+    updated[i] = { ...updated[i], [field]: v }; 
     setFaixas(updated);
   };
   

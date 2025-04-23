@@ -1,7 +1,7 @@
 const functions = require("firebase-functions/v1");
 const express = require("express");
 const cors = require("cors");
-const Busboy = require("busboy"); // Usado sem .default se a versão instalada permite
+const Busboy = require("busboy"); 
 const XLSX = require("xlsx");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
@@ -179,5 +179,5 @@ app.post("/", (req, res) => {
 
 exports.uploadXLS = functions
   .region("southamerica-east1")
-  .runWith({ timeoutSeconds: 480, memory: "1GB" })
+  .runWith({ timeoutSeconds: 540, memory: "1GB" })
   .https.onRequest(app);

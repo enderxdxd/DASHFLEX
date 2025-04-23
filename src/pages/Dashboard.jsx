@@ -35,6 +35,8 @@ const Dashboard = () => {
     handleUpload,
     file,
     setFile,
+    processedData,
+    successMessage,
     uploading,
     updateVenda,
     responsaveis,
@@ -220,6 +222,8 @@ const Dashboard = () => {
             setFile={setFile}
             handleUpload={handleUpload}
             uploading={uploading}
+            processedData={processedData} // Adicionar esta prop
+            successMessage={successMessage}
           />
         </div>
       </main>

@@ -13,7 +13,7 @@ export default function PrivateRoute({ children }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (u) {
-        // força refresh para garantir que pegamos os custom claims atualizados
+        
         const idTokenResult = await u.getIdTokenResult(true);
         setClaims(idTokenResult.claims || {});
         setUser(u);

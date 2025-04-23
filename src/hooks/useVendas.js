@@ -1,3 +1,4 @@
+// File: src/hooks/useVendas.js
 import { useState, useEffect, useMemo } from "react";
 import {
   collection,
@@ -20,6 +21,7 @@ export const useVendas = (unidade, metas = []) => {
   // Upload XLS
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [processedData, setProcessedData] = useState(null);
 
   // Filtros e seleção de período
   const [filtroResponsavel, setFiltroResponsavel] = useState("");
@@ -45,6 +47,8 @@ export const useVendas = (unidade, metas = []) => {
   const [totalCurrent, setTotalCurrent] = useState(0);
   const [totalPrevious, setTotalPrevious] = useState(0);
   const [percentChange, setPercentChange] = useState(0);
+  const [processedVendasCount, setProcessedVendasCount] = useState(0);
+
 
   // ——————————————————————————————————————————————————————————————
   // ▲ Helpers para CRUD e batch delete
@@ -76,30 +80,54 @@ export const useVendas = (unidade, metas = []) => {
 
   // ▲ Upload XLS
   const handleUpload = async () => {
-    if (!file) return setError("Selecione um arquivo antes");
-    const ext = file.name.split(".").pop().toLowerCase();
-    if (!["xls", "xlsx"].includes(ext)) return setError("Só .xls ou .xlsx");
+    // 1) Valida se tem arquivo selecionado
+    if (!file) {
+      setError("Selecione um arquivo antes de enviar");
+      return;
+    }
+  
+    // 2) Prepara o FormData com arquivo e unidade
+    const form = new FormData();
+    form.append("file", file);
+    form.append("unidade", unidade);
+  
     try {
       setUploading(true);
       setError("");
-      const form = new FormData();
-      form.append("file", file);
-      form.append("unidade", unidade);
+      
+      // 3) Chama sua Cloud Function
       const res = await fetch(
         "https://southamerica-east1-chatpos-aff1a.cloudfunctions.net/uploadXLS",
         { method: "POST", body: form }
       );
-      if (!res.ok) throw new Error(await res.text());
+  
+      // 4) Trata erro de HTTP
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Erro desconhecido no upload");
+      }
+  
+      // 5) Extrai o JSON – a função deve retornar algo como { success: true, count: 123 }
       const json = await res.json();
-      if (!json.success) throw new Error(json.error);
-      setSuccessMessage(json.message || "Processado!");
+      if (!json.success) {
+        throw new Error(json.error || "Falha no processamento");
+      }
+  
+      // 6) Atualiza estado para exibir quantas vendas vieram
+      const count = json.count ?? json.processedCount ?? 0;
+      setProcessedVendasCount(count);
+      setSuccessMessage(`Foram processadas ${json.count} vendas!`);
+  
+      // 7) Limpa o arquivo selecionado da UI
       setFile(null);
+  
     } catch (err) {
       setError(err.message);
     } finally {
       setUploading(false);
     }
   };
+  
 
   // ▲ Busca em tempo real
   useEffect(() => {

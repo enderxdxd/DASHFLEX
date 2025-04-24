@@ -8,6 +8,8 @@ import AddSale from "./pages/AddSale";
 import ConfigRemuneracao from "./pages/ConfigRemuneracao";
 import PrivateRoute from "./auth/PrivateRoute";
 import "./styles/variables.css";
+import AdminRoute from "./auth/AdminRoute";
+
 
 export default function App() {
   return (
@@ -42,11 +44,12 @@ export default function App() {
             </PrivateRoute>
           }
         />
-        <Route
-          path="/config-remuneracao/:unidade"
+        <Route path="/config-remuneracao/:unidade"
           element={
             <PrivateRoute>
-              <ConfigRemuneracao />
+              <AdminRoute>
+                <ConfigRemuneracao/>
+              </AdminRoute>
             </PrivateRoute>
           }
         />

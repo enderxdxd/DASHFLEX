@@ -1,3 +1,4 @@
+/* Tema Light (padrão) */
 :root {
   --primary: #4f46e5;
   --primary-hover: #4338ca;
@@ -18,31 +19,44 @@
   --radius: 12px;
   --radius-sm: 8px;
   --sidebar-width: 250px;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-/* CSS Reset e estilos globais */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* Tema Dark - sobrescrevendo as mesmas variáveis */
+:root.dark {
+  --primary: #6366f1;
+  --primary-hover: #818cf8;
+  --primary-light: rgba(99, 102, 241, 0.16);
+  --secondary: #94a3b8;
+  --secondary-light: rgba(71, 85, 105, 0.3);
+  --success: #34d399;
+  --success-light: rgba(16, 185, 129, 0.16);
+  --danger: #f87171;
+  --error-light: rgba(239, 68, 68, 0.16);
+  --warning: #fbbf24;
+  --warning-light: rgba(245, 158, 11, 0.16);
+  --background: #0f172a;
+  --card: #1e293b;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --border: #334155;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
-body, html {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+/* Estilos globais */
+body {
   background-color: var(--background);
   color: var(--text-primary);
-  line-height: 1.5;
-  font-size: 16px;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-button, input, select, textarea {
-  font-family: inherit;
-}
-
-a {
-  color: var(--primary);
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
+/* Transições para elementos importantes */
+button, input, select, textarea, a, 
+.sidebar, .table-section, .chart-section, 
+.card, .stat-card, .filtros-section {
+  transition: 
+    background-color 0.3s ease, 
+    border-color 0.3s ease, 
+    color 0.3s ease, 
+    box-shadow 0.3s ease;
 }

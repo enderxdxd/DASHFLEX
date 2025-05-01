@@ -1,9 +1,21 @@
+// src/pages/Metas.jsx
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { collection, collectionGroup, onSnapshot, addDoc, updateDoc, doc, deleteDoc,getDoc,setDoc } from "firebase/firestore";
+import {
+  collection,
+  collectionGroup,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  doc,
+  deleteDoc,
+  getDoc
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { db } from "../firebase";
 import dayjs from "dayjs";
+import NavBar from "../components/NavBar";
+import { usePersistedProdutos } from "../hooks/usePersistedProdutos";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -14,300 +26,301 @@ import {
   Legend,
 } from "chart.js";
 import "react-datepicker/dist/react-datepicker.css";
-import { usePersistedProdutos } from "../hooks/usePersistedProdutos";
-import NavBar from "../components/NavBar";
 
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
-
-
 
 export default function Metas() {
   const { unidade } = useParams();
   const navigate = useNavigate();
   const auth = getAuth();
-  const uid = auth.currentUser?.uid;
 
-  // Estados para cadastro/edição de meta
-  const [newResponsavel, setNewResponsavel] = useState("");
-  const [newMeta, setNewMeta] = useState("");
-  const [metaPeriodo, setMetaPeriodo] = useState(dayjs().format("YYYY-MM"));
-  const [editPeriodo, setEditPeriodo]     = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editResponsavel, setEditResponsavel] = useState("");
-  const [editMeta, setEditMeta] = useState("");
-  const [configRem, setConfigRem] = useState(null);
-  const [newRemType, setNewRemType] = useState("comissao"); 
-  const [editRemType, setEditRemType] = useState("comissao");
-
-  // Estados para mensagens e carregamento
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  // --- Estados gerais ---
   const [loading, setLoading] = useState(true);
-
-  // Estados para dados
-  const [metas, setMetas] = useState([]);
-  const [vendas, setVendas] = useState([]);
-
-  // Estados para filtro de produtos (e persistência no localStorage)
+  const [error, setError]     = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [metas, setMetas]     = useState([]);
+  const [vendas, setVendas]   = useState([]);
   const [produtos, setProdutos] = useState([]);
-  const [produtosSelecionados, setProdutosSelecionados, produtosLoaded] = usePersistedProdutos();
-  const [showProductFilter, setShowProductFilter] = useState(false);
-
-
-  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
-
-  // Persistência da seleção de produtos
-
+  const [configRem, setConfigRem] = useState({
+    premiacao: [],
+    comissaoPlanos: [],
+    metaUnidade: 0
+  });
   
+
+  // --- Filtros e persistência ---
+  const [produtosSelecionados, setProdutosSelecionados, produtosLoaded] =
+    usePersistedProdutos();
+  const [showProductFilter, setShowProductFilter] = useState(false);
+  const [selectedMonth, setSelectedMonth]         = useState(dayjs().format("YYYY-MM"));
+
+  function calcularRemuneracao(
+    metaValor,
+    vendasArr,
+    tipo,
+    unidadeBatida,
+    configRem
+  ) {
+    const {
+      comissaoPlanos = [],
+      premiacao = [],
+      taxaSem = 0.012, // taxa para produtos “não-plano”
+      taxaCom = 0.015
+    } = configRem || {};
+  
+    if (tipo === "comissao") {
+      const totalV = vendasArr.reduce((s, v) => s + Number(v.valor || 0), 0);
+  
+      return vendasArr.reduce((soma, venda) => {
+        const valorVenda = Number(venda.valor || 0);
+  
+        // 1) Se não for “plano”, usa taxa percentual
+        if (venda.produto.trim().toLowerCase() !== "plano") {
+          const taxa = totalV >= metaValor ? taxaCom : taxaSem;
+          return soma + valorVenda * taxa;
+        }
+  
+        // 2) Se for “plano”, procura intervalo nos planos configurados
+        const plano = comissaoPlanos.find(
+          (p) => valorVenda >= p.min && valorVenda <= p.max
+        );
+        if (!plano) return soma; // plano desconhecido → ignora
+  
+        // 3) Aplica valor fixo conforme meta da unidade ou individual
+        const unit = unidadeBatida
+          ? plano.metaTME
+          : totalV >= metaValor
+          ? plano.comMeta
+          : plano.semMeta;
+  
+        return soma + unit;
+      }, 0);
+    }
+  
+    // --- caso “premiação” continua inalterado ---
+    const acumulado = vendasArr.reduce((s, v) => s + Number(v.valor || 0), 0);
+    const percentual = metaValor > 0 ? (acumulado / metaValor) * 100 : 0;
+    const faixa = premiacao
+      .filter((f) => f.percentual <= percentual)
+      .sort((a, b) => a.percentual - b.percentual)
+      .pop();
+    return faixa?.premio || 0;
+  }
+  
+  
+  
+  
+  
+
+  // --- Configuração de remuneração ---
+  
+
   useEffect(() => {
     async function loadConfig() {
-      const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", "premiacao");
+      const ref = doc(db, "faturamento", unidade, "configRemuneracao", "premiacao");
       const snap = await getDoc(ref);
-      if (snap.exists()) setConfigRem(snap.data());
-      else setConfigRem({ premiacao: [] });
+      setConfigRem(snap.exists()
+        ? { premiacao: snap.data().premiacao, comissaoPlanos: snap.data().comissaoPlanos, metaUnidade: snap.data().metaUnidade }
+        : { premiacao: [], comissaoPlanos: [], metaUnidade: 0 }
+      );
     }
     loadConfig();
   }, [unidade]);
 
-  const calcularRemuneracao = (meta, vendas, tipo) => {
-    const metaValor = Number(meta) || 0;
-    
-    if (tipo === "comissao") {
-      const taxaSem = 0.03;
-      const taxaCom = 0.05;
-      return vendas >= metaValor ? vendas * taxaCom : vendas * taxaSem;
-    } else {
-      const percentual = metaValor > 0 ? (vendas / metaValor) * 100 : 0;
-      const faixa = (configRem?.premiacao || [])
-        .filter(f => f.percentual <= percentual)
-        .sort((a,b) => a.percentual - b.percentual)
-        .pop();
-      return faixa?.premio || 0;
-    }
-  };
 
-  // Redireciona se a unidade não estiver definida
-  useEffect(() => {
-    if (!unidade) {
-      navigate("/login");
-      return;
-    }
-  }, [unidade, navigate]);
+  
+  
 
-  // Busca metas e vendas do Firestore
+  // --- Carrega metas, vendas e produtos ---
   useEffect(() => {
-    // Carrega as metas da unidade atual
+    if (!unidade) return;
+    // Metas
     const metasRef = collection(db, "faturamento", unidade.toLowerCase(), "metas");
-    const unsubscribeMetas = onSnapshot(metasRef, (snapshot) => {
-      const metasData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setMetas(metasData);
-    });
-
-    // Usa collectionGroup para puxar vendas de todas as unidades
-    const vendasQuery = collectionGroup(db, "vendas");
-    const unsubscribeVendas = onSnapshot(
-      vendasQuery,
-      (snapshot) => {
-        const vendasData = snapshot.docs.map((doc) => doc.data());
-        setVendas(vendasData);
+    const unsubMetas = onSnapshot(
+      metasRef,
+      snap => setMetas(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      e => {
+        console.error(e);
+        setError("Falha ao carregar metas");
         setLoading(false);
+      }
+    );
 
-        // Extrai produtos únicos das vendas
-        const prodSet = new Set();
-        vendasData.forEach((v) => {
-          if (v.produto) {
-            prodSet.add(v.produto.trim());
-          }
-        });
-        const prodArray = Array.from(prodSet).sort();
-        setProdutos(prodArray);
-
-        // Se não há seleção persistida, seleciona todos os produtos
-        if (!localStorage.getItem("produtosSelecionados") || produtosSelecionados.length === 0) {
-          setProdutosSelecionados(prodArray);
-        }
+    // Vendas
+    const vendasQuery = collectionGroup(db, "vendas");
+    const unsubVendas = onSnapshot(
+      vendasQuery,
+      snap => {
+        const data = snap.docs.map(d => d.data());
+        setVendas(data);
+        // extrai produtos únicos
+        const setProd = new Set();
+        data.forEach(v => v.produto && setProd.add(v.produto.trim()));
+        setProdutos(Array.from(setProd).sort());
+        setLoading(false);
       },
-      (err) => {
-        console.error("Erro ao carregar vendas:", err);
-        setError("Falha ao carregar dados. Tente novamente mais tarde.");
+      e => {
+        console.error(e);
+        setError("Falha ao carregar vendas");
+        setLoading(false);
       }
     );
 
     return () => {
-      unsubscribeMetas();
-      unsubscribeVendas();
+      unsubMetas();
+      unsubVendas();
     };
-  }, [unidade, navigate]);
+  }, [unidade]);
 
-  // Função para cadastrar nova meta com período
+  // --- Filtra vendas por produto e mês ---
+  const vendasParaMeta = useMemo(() => {
+    if (!produtosLoaded) return [];
+    return vendas.filter(v => {
+      const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
+      return (
+        v.produto &&
+        produtosSelecionados.includes(v.produto.trim()) &&
+        mes === selectedMonth
+      );
+    });
+  }, [vendas, produtosSelecionados, selectedMonth, produtosLoaded]);
+
+  // --- Checa meta da unidade ---
+  const totalUnidade = useMemo(
+    () => vendasParaMeta.reduce((s, v) => s + Number(v.valor || 0), 0),
+    [vendasParaMeta]
+  );
+  
+  // metaUnidade vem do configRem.metaUnidade
+  const unidadeBatida = totalUnidade >= Number(configRem?.metaUnidade || 0);
+  
+
+  // --- Responsáveis únicos ---
+  const responsaveisUnicos = useMemo(
+    () => metas.map(m => m.responsavel.trim()),
+    [metas]
+  );
+
+  // --- CRUD de Metas ---
+  const [newResponsavel, setNewResponsavel]   = useState("");
+  const [newMeta, setNewMeta]                 = useState("");
+  const [metaPeriodo, setMetaPeriodo]         = useState(dayjs().format("YYYY-MM"));
+  const [editingId, setEditingId]             = useState(null);
+  const [editResponsavel, setEditResponsavel] = useState("");
+  const [editMeta, setEditMeta]               = useState("");
+  const [editPeriodo, setEditPeriodo]         = useState("");
+  const [newRemType, setNewRemType]           = useState("comissao");
+  const [editRemType, setEditRemType]         = useState("comissao");
+
   function parseBRNumber(str) {
     return Number(str.replace(/\./g, "").replace(",", "."));
   }
-  const handleAddMeta = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (!newResponsavel || !newMeta) {
-      setError("Preencha todos os campos");
-      return;
+
+  const handleAddMeta = async e => {
+    e.preventDefault(); setError("");
+    if (!newResponsavel || !newMeta) { setError("Preencha todos os campos"); return; }
+    try {
+      await addDoc(
+        collection(db, "faturamento", unidade.toLowerCase(), "metas"),
+        {
+          responsavel: newResponsavel.trim(),
+          periodo: metaPeriodo,
+          remuneracaoType: newRemType,
+          meta: parseBRNumber(newMeta),
+          createdAt: dayjs().toISOString(),
+        }
+      );
+      setSuccessMessage("Meta adicionada!");
+      setNewResponsavel(""); setNewMeta("");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch(err) {
+      console.error(err); setError("Erro ao adicionar meta");
+    }
+  };
+
+  const handleEditMeta = m => {
+    setEditingId(m.id);
+    setEditResponsavel(m.responsavel);
+    setEditMeta(m.meta.toString());
+    setEditPeriodo(m.periodo);
+    setEditRemType(m.remuneracaoType||"comissao");
+  };
+
+  const handleSaveEditedMeta = async id => {
+    if (!editResponsavel||!editMeta||!editPeriodo) {
+      setError("Preencha todos os campos de edição."); return;
     }
     try {
-      const metaValor = parseBRNumber(newMeta);
-      await addDoc(collection(db, "faturamento", unidade.toLowerCase(), "metas"), {
-        responsavel: newResponsavel.trim(),
-        periodo: metaPeriodo, 
-        remuneracaoType: newRemType,
-        meta: Number(newMeta),
-        createdAt: dayjs().toISOString(),
-      });
-      setSuccessMessage("Meta adicionada com sucesso!");
-      setNewResponsavel("");
-      setNewMeta("");
+      await updateDoc(
+        doc(db, "faturamento", unidade.toLowerCase(), "metas", id),
+        {
+          responsavel: editResponsavel.trim(),
+          meta: parseBRNumber(editMeta),
+          periodo: editPeriodo,
+          remuneracaoType: editRemType,
+        }
+      );
+      setSuccessMessage("Meta atualizada!"); setEditingId(null);
       setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      console.error(err);
-      setError("Erro ao adicionar meta");
+    } catch(err) {
+      console.error(err); setError("Erro ao salvar edição");
     }
   };
 
-  const handleEditMeta = (meta) => {
-    setEditingId(meta.id);
-    setEditPeriodo(meta.periodo);            
-    setEditResponsavel(meta.responsavel);
-    setEditMeta(meta.meta.toString());
-    setEditRemType(meta.remuneracaoType || "comissao");
-  };
-  
-
-  // salvar linha editada
-const handleSaveEditedMeta = async (id) => {
-  try {
-    if (!editResponsavel || !editMeta || !editRemType || !editPeriodo) {
-      setError("Preencha todos os campos de edição.");
-      return;
-    }
-    const ref = doc(
-      db,
-      "faturamento",
-      unidade.toLowerCase(),
-      "metas",
-      id
-    );
-    await updateDoc(ref, {
-      periodo: editPeriodo,
-      responsavel: editResponsavel.trim(),
-      meta: Number(editMeta),
-      remuneracaoType: editRemType,
-    });
-    setSuccessMessage("Meta atualizada com sucesso!");
-    setEditingId(null);
-    setTimeout(() => setSuccessMessage(""), 3000);
-  } catch (err) {
-    console.error("Erro ao salvar meta editada:", err);
-    setError("Falha ao atualizar meta.");
-  }
-};
-
-
-  const handleDeleteMeta = async (id) => {
-    if (window.confirm("Tem certeza que deseja excluir esta meta?")) {
-      try {
-        await deleteDoc(doc(db, "faturamento", unidade.toLowerCase(), "metas", id));
-        setSuccessMessage("Meta excluída com sucesso!");
-        setTimeout(() => setSuccessMessage(""), 3000);
-      } catch (err) {
-        setError("Erro ao excluir meta");
-        console.error(err);
-      }
+  const handleDeleteMeta = async id => {
+    if (!window.confirm("Excluir esta meta?")) return;
+    try {
+      await deleteDoc(
+        doc(db, "faturamento", unidade.toLowerCase(), "metas", id)
+      );
+      setSuccessMessage("Meta excluída!");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch(err) {
+      console.error(err); setError("Erro ao excluir meta");
     }
   };
 
-  // Filtra as vendas para o cálculo das metas: somente vendas cujo produto esteja selecionado
-  // E filtradas pelo período selecionado (usando selectedMonth)
-  // logo abaixo de onde você carrega `vendas`, `produtosSelecionados` e `selectedMonth`:
-  const vendasParaMeta = useMemo(() => {
-    if (!produtosLoaded) return [];
-    return vendas.filter((v) => {
-      if (!v.produto) return false;
-      const okProduto = produtosSelecionados.includes(v.produto.trim());
-      const okMes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth;
-      return okProduto && okMes;
-    });
-  }, [vendas, produtosSelecionados, selectedMonth, produtosLoaded]);
-  
+  // --- Dados para gráfico ---
+  const dadosGrafico = useMemo(() => {
+    return metas
+      .filter(m => m.periodo === selectedMonth)
+      .map(m => {
+        const totalV = vendasParaMeta
+          .filter(v => v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase())
+          .reduce((s,v) => s + Number(v.valor||0), 0);
+        return { nome: m.responsavel, vendas: totalV, meta: Number(m.meta) };
+      });
+  }, [metas, vendasParaMeta, selectedMonth]);
 
-  // Calcula a soma das vendas por responsável (para as vendas filtradas por período)
-  const somaPorResponsavel = vendasParaMeta.reduce((acc, v) => {
-    const key = v.responsavel || "Desconhecido";
-    const valor = Number(v.valor) || 0;
-    acc[key] = (acc[key] || 0) + valor;
-    return acc;
-  }, {});
+  const ordenado = useMemo(() =>
+    [...dadosGrafico].sort((a,b) => a.nome.localeCompare(b.nome, "pt", { sensitivity: "base" }))
+  ,[dadosGrafico]);
 
-
-// Para cada meta do período, pega as vendas do consultor correspondente filtradas pelo mês
-  const metasDoPeriodo = metas.filter((m) => m.periodo === selectedMonth);
-  const dadosGrafico = metasDoPeriodo.map((m) => {
-    const total = vendasParaMeta
-      .filter(
-        (v) =>
-          v.responsavel.trim().toLowerCase() ===
-          m.responsavel.trim().toLowerCase()
-      )
-      .reduce((sum, v) => sum + Number(v.valor || 0), 0);
-    return { nome: m.responsavel, vendas: total, meta: m.meta };
-  });
-  const ordenado = [...dadosGrafico].sort((a, b) =>
-    a.nome.localeCompare(b.nome, "pt", { sensitivity: "base" })
-  );
   const chartData = {
-    labels: ordenado.map((d) => d.nome),
+    labels: ordenado.map(d => d.nome),
     datasets: [
-      {
-        type: "bar",
-        label: "Meta",
-        data: ordenado.map((d) => d.meta),
-        backgroundColor: "#10B981",
-        borderRadius: 4,
-      },
-      {
-        type: "bar",
-        label: "Realizado",
-        data: ordenado.map((d) => d.vendas),
-        backgroundColor: "#3B82F6",
-        borderRadius: 4,
-      },
+      { type: "bar", label: "Meta", data: ordenado.map(d => d.meta), borderRadius:4, backgroundColor: "#10B981" },
+      { type: "bar", label: "Realizado", data: ordenado.map(d => d.vendas), borderRadius:4, backgroundColor: "#3B82F6" }
     ],
   };
 
-
-
-  // Paginação para a lista de vendas (caso seja necessário)
+  // --- Paginação ---
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const paginatedVendas = vendas.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+  const paginatedVendas = vendasParaMeta.slice(
+    (currentPage-1)*itemsPerPage,
+    currentPage*itemsPerPage
   );
 
-  // Calcula a média das vendas filtradas para o período (mês)
-  const totalFiltrado = vendasParaMeta.reduce(
-    (sum, v) => sum + (Number(v.valor) || 0),
-    0
-  );
-  const mediaPorVenda =
-    vendasParaMeta.length > 0 ? totalFiltrado / vendasParaMeta.length : 0;
-
-  const responsaveisUnicos = Array.from(
-    new Set(metas.map((m) => m.responsavel.trim()))
-  );
-
-  
-
-  if (!unidade) return <div>Redirecionando...</div>;
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Carregando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="metas-layout">
@@ -429,179 +442,130 @@ const handleSaveEditedMeta = async (id) => {
     </div>
   </div>
 
-  <div className="table-wrapper">
-    <table className="data-table">
-      <thead>
-        <tr>
-          <th>Período</th>
-          <th>Responsável</th>
-          <th>Meta (R$)</th>
-          <th>Vendas (R$)</th>
-          <th>% Meta</th>
-          <th>Remuneração (R$)</th>
-          <th>Tipo</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {metas
-          .filter((m) => m.periodo === selectedMonth)
-          .sort((a, b) =>
-            a.responsavel
-              .trim()
-              .localeCompare(b.responsavel.trim(), "pt", {
-                sensitivity: "base",
-              })
-          )
-          .map((m) => {
-            const isEditing = editingId === m.id;
+   {/* Tabela de Metas */}
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Período</th>
+                <th>Responsável</th>
+                <th>Meta (R$)</th>
+                <th>Vendas (R$)</th>
+                <th>% Meta</th>
+                <th>Remuneração (R$)</th>
+                <th>Tipo</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+            {metas
+    .filter((m) => m.periodo === selectedMonth)
+    .sort((a, b) =>
+      a.responsavel
+        .trim()
+        .localeCompare(b.responsavel.trim(), "pt", { sensitivity: "base" })
+    )
+    .map((m) => {
+      // 1) filtra vendas por consultor
+      const vendasDoResp = vendasParaMeta.filter(
+        (v) =>
+          v.responsavel.trim().toLowerCase() ===
+          m.responsavel.trim().toLowerCase()
+      );
 
-            // valores de exibição ou edição
-            const periodoValue     = isEditing ? editPeriodo     : m.periodo;
-            const responsavelValue = isEditing ? editResponsavel : m.responsavel;
-            const metaValue        = isEditing ? editMeta        : Number(m.meta);
-            const remTypeValue     = isEditing ? editRemType     : m.remuneracaoType;
+      // 1.1) soma total das vendas para exibir e calcular % Meta
+      const totalV = vendasDoResp.reduce(
+        (soma, v) => soma + Number(v.valor || 0),
+        0
+      );
 
-            // soma vendas desse responsável no período
-            const vendasResponsavel = vendasParaMeta.filter((v) => {
-              const respVenda = (v.responsavel || "")
-                .trim()
-                .toLowerCase();
-              const metaResp = (m.responsavel || "")
-                .trim()
-                .toLowerCase();
-              const mesmoMes =
-                dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") ===
-                m.periodo;
-              return respVenda === metaResp && mesmoMes;
-            });
-            const totalVendas = vendasResponsavel.reduce(
-              (acc, v) => acc + (Number(v.valor) || 0),
-              0
-            );
+      // 2) chama a função única que engloba toda a lógica de remuneração
+      const remuneracao = calcularRemuneracao(
+        Number(m.meta),     // meta individual
+        vendasDoResp,       // array de vendas do consultor
+        m.remuneracaoType,  // "comissao" ou "premiacao"
+        unidadeBatida,
+        configRem
+      );
 
-            // cálculo de % meta
-            const computedPercent =
-              metaValue > 0 ? (totalVendas / metaValue) * 100 : 0;
-            const excedente = computedPercent > 100 ? computedPercent - 100 : 0;
+      // 3) percentual de meta atingido
+      const pctMeta =
+        m.meta > 0 ? (totalV / Number(m.meta)) * 100 : 0;
 
-            // cálculo da remuneração
-            let remuneracaoVal = 0;
-            if (remTypeValue === "comissao") {
-              const taxaSem = 0.012;
-              const taxaCom = 0.015;
-              remuneracaoVal =
-                totalVendas >= metaValue
-                  ? totalVendas * taxaCom
-                  : totalVendas * taxaSem;
-            } else {
-              const faixa = (configRem?.premiacao || [])
-                .filter((f) => f.percentual <= computedPercent)
-                .sort((a, b) => a.percentual - b.percentual)
-                .pop();
-              remuneracaoVal = faixa?.premio || 0;
-            }
+      const isEditing = editingId === m.id;
 
-            return (
-              <tr key={m.id}>
-                <td>
-                  {isEditing ? (
-                    <input
-                      type="month"
-                      value={periodoValue}
-                      onChange={(e) => setEditPeriodo(e.target.value)}
-                      className="modern-input"
-                    />
-                  ) : (
-                    m.periodo
-                  )}
-                </td>
-                <td>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={responsavelValue}
-                      onChange={(e) =>
-                        setEditResponsavel(e.target.value)
-                      }
-                      list="responsaveisList"
-                      className="modern-input"
-                    />
-                  ) : (
-                    m.responsavel
-                  )}
-                </td>
-                <td>
-                  {isEditing ? (
-                    <input
-                      type="number"
-                      value={metaValue}
-                      onChange={(e) => setEditMeta(e.target.value)}
-                      className="modern-input"
-                    />
-                  ) : (
-                    metaValue.toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    })
-                  )}
-                </td>
-                <td>
-                  {totalVendas.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </td>
-                <td>
-                  {metaValue
-                    ? `${computedPercent.toFixed(2)}%` +
-                      (excedente > 0
-                        ? ` (+${excedente.toFixed(2)}%)`
-                        : "")
-                    : "N/A"}
-                </td>
-                <td>
-                  {remuneracaoVal.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </td>
-                <td>
-                  {isEditing ? (
-                    <div className="input-group tipo-group">
-                      <label>
-                        <input
-                          type="radio"
-                          name={`tipo-${m.id}`}
-                          value="comissao"
-                          checked={remTypeValue === "comissao"}
-                          onChange={() =>
-                            setEditRemType("comissao")
-                          }
-                        />{" "}
-                        Comissão
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name={`tipo-${m.id}`}
-                          value="premiacao"
-                          checked={remTypeValue === "premiacao"}
-                          onChange={() =>
-                            setEditRemType("premiacao")
-                          }
-                        />{" "}
-                        Premiação
-                      </label>
-                    </div>
-                  ) : remTypeValue === "comissao" ? (
-                    "Comissão"
-                  ) : (
-                    "Premiação"
-                  )}
-                </td>
-                <td className="actions">
-                  {isEditing ? (
+      return (
+        <tr key={m.id}>
+          <td>{isEditing ? (
+            <input
+              type="month"
+              value={editPeriodo}
+              onChange={(e) => setEditPeriodo(e.target.value)}
+              className="modern-input"
+            />
+          ) : (
+            m.periodo
+          )}</td>
+
+          <td>{isEditing ? (
+            <input
+              type="text"
+              value={editResponsavel}
+              onChange={(e) => setEditResponsavel(e.target.value)}
+              className="modern-input"
+            />
+          ) : (
+            m.responsavel
+          )}</td>
+
+          <td>{isEditing ? (
+            <input
+              type="number"
+              value={editMeta}
+              onChange={(e) => setEditMeta(e.target.value)}
+              className="modern-input"
+            />
+          ) : (
+            Number(m.meta).toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })
+          )}</td>
+
+          <td>
+            {totalV.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })}
+          </td>
+
+          <td>{pctMeta.toFixed(2)}%</td>
+
+          <td>
+            {remuneracao.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+              
+            })}
+          </td>
+
+          <td>{isEditing ? (
+            <select
+              value={editRemType}
+              onChange={(e) => setEditRemType(e.target.value)}
+              className="modern-input"
+            >
+              <option value="comissao">Comissão</option>
+              <option value="premiacao">Premiação</option>
+              
+            </select>
+          ) : m.remuneracaoType === "comissao" ? (
+            "Comissão"
+          ) : (
+            "Premiação"
+          )}</td>
+
+          <td className="actions">
+          {isEditing ? (
                     <>
                       <button
                         className="success-button"
@@ -630,17 +594,19 @@ const handleSaveEditedMeta = async (id) => {
                       >
                         🗑
                       </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-      </tbody>
-    </table>
-  </div>
-</section>
+              </>
+            )}
+          </td>
+        </tr>
+      );
+    })}
+</tbody>
 
+          </table>
+        </section>
+        
+
+        
 
 
 

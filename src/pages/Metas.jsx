@@ -782,7 +782,6 @@ export default function Metas() {
     border-radius: 2px;
   }
 
-  /* Navigation Bar */
   
 
   /* Form Styles */

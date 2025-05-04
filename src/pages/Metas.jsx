@@ -65,7 +65,7 @@ export default function Metas() {
     const {
       comissaoPlanos = [],
       premiacao = [],
-      taxaSem = 0.012, // taxa para produtos “não-plano”
+      taxaSem = 0.012, 
       taxaCom = 0.015
     } = configRem || {};
   
@@ -108,14 +108,8 @@ export default function Metas() {
     return faixa?.premio || 0;
   }
   
-  
-  
-  
-  
-
   // --- Configuração de remuneração ---
   
-
   useEffect(() => {
     async function loadConfig() {
       const ref = doc(db, "faturamento", unidade, "configRemuneracao", "premiacao");
@@ -128,9 +122,6 @@ export default function Metas() {
     loadConfig();
   }, [unidade]);
 
-
-  
-  
 
   // --- Carrega metas, vendas e produtos ---
   useEffect(() => {
@@ -729,38 +720,14 @@ export default function Metas() {
     --transition: all 0.3s ease;
     --header-height: 72px;
   }
-.sidebar {
-    width: 250px;
-    background-color: white;
-    border-right: 1px solid #e2e8f0;
-    position: fixed;
-    height: 100vh;
+  .metas-layout {
     display: flex;
-    flex-direction: column;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  }
-  metas-layout {
-    display: flex;
+    margin-left: 140px;
     min-height: 100vh;
     background-color: #f8fafc;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   }
-    .sidebar-header { padding: 1.5rem; border-bottom: 1px solid #e2e8f0; }
-    .sidebar-header h2 { font-size: 1.25rem; font-weight: 600; color: #4f46e5; margin: 0; }
-    .main-content { flex: 1; margin-left: 250px; padding: 2rem; }
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-    .header-content h1 { font-size: 1.75rem; font-weight: 600; margin: 0 1rem 0 0; }
-    .badge { background-color: #eef2ff; color: #4f46e5; padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-weight: 600; font-size: 0.875rem; }
-    .header-actions { display: flex; align-items: center; gap: 1.5rem; }
-    .last-update { font-size: 0.875rem; color: #64748b; }
-    .dashboard-section { margin-bottom: 2rem; }
-    .section-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; color: #1e293b; }
-    .alert { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; }
-    .alert.error { background-color: #fee2e2; color: #ef4444; }
-    .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 1rem; }
-    .loading-spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-radius: 50%; border-top-color: #4f46e5; animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
+    
   * {
     box-sizing: border-box;
     margin: 0;
@@ -816,17 +783,7 @@ export default function Metas() {
   }
 
   /* Navigation Bar */
-  .NavBar {
-    background-color: var(--card-bg);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    height: var(--header-height);
-    display: flex;
-    align-items: center;
-    padding: 0 2rem;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
+  
 
   /* Form Styles */
   .meta-form {

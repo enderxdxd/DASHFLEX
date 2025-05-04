@@ -133,7 +133,7 @@ export default function NavBar() {
         .navbar {
           display: flex;
           flex-direction: column;
-          width: 250px;
+          width: 280px;
           height: 100vh;
           background-color: white;
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);

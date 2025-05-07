@@ -189,9 +189,17 @@ export default function Metas() {
 
   // --- Responsáveis únicos ---
   const responsaveisUnicos = useMemo(
-    () => metas.map(m => m.responsavel.trim()),
+    () => {
+      const todos = metas.map(m => m.responsavel.trim());
+      
+      const unicos = new Set(todos);
+      return Array.from(unicos).sort((a, b) =>
+        a.localeCompare(b, "pt", { sensitivity: "base" })
+      );
+    },
     [metas]
   );
+  
 
   // --- CRUD de Metas ---
   const [newResponsavel, setNewResponsavel]   = useState("");

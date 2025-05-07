@@ -1,7 +1,7 @@
 const functions = require("firebase-functions/v1");
 const express = require("express");
 const cors = require("cors");
-const Busboy = require("busboy"); 
+const Busboy = require("busboy");
 const XLSX = require("xlsx");
 const dayjs = require("dayjs");
 const customParseFormat = require("dayjs/plugin/customParseFormat");
@@ -20,26 +20,22 @@ app.post("/", (req, res) => {
   let fileName = "";
   let unidade = "";
 
-  // Captura os campos de texto
+  // Captura o campo "unidade"
   busboy.on("field", (fieldname, val) => {
     if (fieldname === "unidade") {
-      unidade = val.trim();
+      unidade = val.trim().toLowerCase();
       console.log(`Unidade recebida: ${unidade}`);
     }
   });
 
-  // Captura o arquivo enviado no campo "file"
+  // Captura o arquivo Excel
   busboy.on("file", (fieldname, file, filename) => {
     if (fieldname === "file") {
       fileName = filename;
-      console.log(`Arquivo recebido: ${filename}`);
       const buffers = [];
-      file.on("data", (data) => {
-        buffers.push(data);
-      });
+      file.on("data", (data) => buffers.push(data));
       file.on("end", () => {
         fileBuffer = Buffer.concat(buffers);
-        console.log(`Tamanho do arquivo: ${fileBuffer.length} bytes`);
       });
     }
   });
@@ -50,134 +46,123 @@ app.post("/", (req, res) => {
       if (!fileBuffer) {
         return res.status(400).json({ success: false, error: "Nenhum arquivo recebido" });
       }
-      const fileExt = fileName.split(".").pop().toLowerCase();
-      if (!["xls", "xlsx"].includes(fileExt)) {
+      const ext = fileName.split(".").pop().toLowerCase();
+      if (!["xls", "xlsx"].includes(ext)) {
         return res.status(400).json({ success: false, error: "Apenas arquivos Excel permitidos" });
       }
       if (!unidade) {
         return res.status(400).json({ success: false, error: "Unidade não especificada" });
       }
       const unidadesValidas = ["alphaville", "buenavista", "marista"];
-      if (!unidadesValidas.includes(unidade.toLowerCase())) {
+      if (!unidadesValidas.includes(unidade)) {
         return res.status(400).json({ success: false, error: "Unidade inválida" });
       }
 
-      // Processa o arquivo Excel
+      // Lê o Excel
       let workbook;
       try {
         workbook = XLSX.read(fileBuffer, { type: "buffer" });
-      } catch (error) {
-        console.error("Erro ao processar Excel:", error);
+      } catch (err) {
         return res.status(400).json({ success: false, error: "Formato de arquivo inválido" });
       }
-
-      // Seleciona a primeira planilha e converte para JSON
       const sheetName = workbook.SheetNames[0];
-      const sheetData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-      console.log("Sheet Data:", sheetData);
-      if (!sheetData || sheetData.length === 0) {
+      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+      if (!rows.length) {
         return res.status(400).json({ success: false, error: "Nenhuma linha encontrada na planilha" });
       }
 
-      let totalSales = 0;
-      // Itera sobre cada linha e salva cada venda individualmente
-      for (const [index, row] of sheetData.entries()) {
-        console.log(`Processando linha ${index + 1}:`, row);
-        // Normaliza os campos removendo espaços extras
-        const produto = (row["Produto"] || "").trim();
-        const matricula = (row["Matrícula"] || "").trim();
-        const nome = (row["Nome"] || "").trim();
-        // Observe: pode ocorrer erro de digitação; aqui tentamos ambas as variantes:
-        const responsavelRaw = row["Responsável"] || row["Reponsável "] || "";
-        const responsavel = responsavelRaw.trim();
-        const dataCadastro = (row["Data de Cadastro"] || "").trim();
-        const numeroContrato = (row["N° Contrato"] || "").trim();
-        const dataInicio = (row["Data Início"] || "").trim();
-        const dataTermino = (row["Data Término"] || "").trim();
-        const duracao = (row["Duração"] || "").trim();
-        const modalidades = (row["Modalidades"] || "").trim();
-        const plano = (row["Plano"] || "").trim();
-        const situacaoContrato = (row["Situação de Contrato"] || "").trim();
-        const dataLancamentoRaw = row["Data Lançamento"] || "";
-        const dataLancamento = dataLancamentoRaw.trim();
-        const formaPagamento = (row["Forma Pagamento"] || "").trim();
-        const condicaoPagamento = (row["Condicao Pagamento"] || "").trim();
-        // Para o valor, removemos "R$" e substituímos vírgula por ponto, se necessário.
-        const valorStr = (row["Valor"] || "")
-          .replace("R$", "")
-          .replace(/\./g, "")
-          .replace(",", ".")
-          .trim();
-        const valor = Number(valorStr) || 0;
-        const empresa = (row["Empresa"] || "").trim();
+      // Transforma linhas em objetos de venda válidos
+      const sales = [];
+      for (const row of rows) {
+        const dataLancRaw = (row["Data Lançamento"] || "").trim();
+        if (!dataLancRaw) continue;
+        const parsed = dayjs(dataLancRaw, "DD/MM/YYYY");
+        if (!parsed.isValid()) continue;
 
-        // Se a data de lançamento estiver ausente, ignoramos a linha.
-        if (!dataLancamento) {
-          console.warn(`Linha ${index + 1} ignorada: Data Lançamento ausente.`);
-          continue;
-        }
-        // Faz o parse da data (formato DD/MM/YYYY)
-        const parsedDate = dayjs(dataLancamento, "DD/MM/YYYY");
-        if (!parsedDate.isValid()) {
-          console.warn(`Linha ${index + 1} ignorada: Data Lançamento inválida (${dataLancamento}).`);
-          continue;
-        }
-        const dataFormatada = parsedDate.format("YYYY-MM-DD");
+        const valor = Number(
+          (row["Valor"] || "")
+            .replace("R$", "")
+            .replace(/\./g, "")
+            .replace(",", ".")
+            .trim()
+        ) || 0;
 
-        // Monta o objeto de venda com todos os campos
-        const sale = {
-          produto,
-          matricula,
-          nome,
-          responsavel,
-          dataCadastro,
-          numeroContrato,
-          dataInicio,
-          dataTermino,
-          duracao,
-          modalidades,
-          plano,
-          situacaoContrato,
-          dataLancamento,
-          dataFormatada,
-          formaPagamento,
-          condicaoPagamento,
+        sales.push({
+          produto:    (row["Produto"] || "").trim(),
+          matricula:  (row["Matrícula"] || "").trim(),
+          nome:       (row["Nome"] || "").trim(),
+          responsavel: ((row["Responsável"] || row["Reponsável "] ) || "").trim(),
+          dataCadastro: (row["Data de Cadastro"] || "").trim(),
+          numeroContrato: (row["N° Contrato"] || "").trim(),
+          dataInicio: (row["Data Início"] || "").trim(),
+          dataTermino:(row["Data Término"] || "").trim(),
+          duracao:    (row["Duração"] || "").trim(),
+          modalidades:(row["Modalidades"] || "").trim(),
+          plano:      (row["Plano"] || "").trim(),
+          situacaoContrato: (row["Situação de Contrato"] || "").trim(),
+          dataLancamento: dataLancRaw,
+          dataFormatada: parsed.format("YYYY-MM-DD"),
+          formaPagamento: (row["Forma Pagamento"] || "").trim(),
+          condicaoPagamento: (row["Condicao Pagamento"] || "").trim(),
           valor,
-          empresa,
-          unidade: unidade.toLowerCase()
-        };
-
-        try {
-          // Salva a venda individualmente na coleção "vendas"
-          await db
-            .collection("faturamento")
-            .doc(unidade.toLowerCase())
-            .collection("vendas")
-            .add(sale);
-          totalSales++;
-          console.log(`Venda registrada na linha ${index + 1} para ${responsavel}`);
-        } catch (writeError) {
-          console.error(`Erro ao salvar venda na linha ${index + 1}:`, writeError);
-        }
+          empresa:    (row["Empresa"] || "").trim(),
+          unidade
+        });
       }
 
-      console.log("Total de vendas salvas:", totalSales);
+      if (!sales.length) {
+        return res.status(200).json({
+          success: true,
+          message: "Nenhuma venda válida para importar.",
+          fileName,
+          unidade
+        });
+      }
+
+      // Batch writes em grupos de até 500
+      const vendasRef = db.collection("faturamento")
+        .doc(unidade)
+        .collection("vendas");
+
+      const commits = [];
+      let batch = db.batch();
+
+      sales.forEach((sale, idx) => {
+        const docRef = vendasRef.doc();
+        batch.set(docRef, sale);
+
+        // Em cada 500 operações, faz commit e inicia novo batch
+        if ((idx + 1) % 500 === 0) {
+          commits.push(batch.commit());
+          batch = db.batch();
+        }
+      });
+
+      // Comita o batch restante
+      commits.push(batch.commit());
+
+      // Executa todos os commits em paralelo
+      await Promise.all(commits);
+
+      console.log(`Total de vendas salvas: ${sales.length}`);
+
       return res.status(200).json({
         success: true,
-        message: `Arquivo processado com sucesso. Foram registradas ${totalSales} venda(s).`,
+        message: `Arquivo processado com sucesso. Foram registradas ${sales.length} venda(s).`,
         fileName,
         unidade
       });
-    } catch (error) {
-      console.error("Erro no processamento:", error);
+    } catch (err) {
+      console.error("Erro no processamento:", err);
       return res.status(500).json({ success: false, error: "Erro interno no servidor" });
     }
   });
 
+  // Dispara o parser
   req.rawBody ? busboy.end(req.rawBody) : req.pipe(busboy);
 });
 
 exports.uploadXLS = functions
   .region("southamerica-east1")
-  .runWith({ timeoutSeconds: 540, memory: "1GB" })
+  .runWith({ timeoutSeconds: 540, memory: "2GB" })
   .https.onRequest(app);

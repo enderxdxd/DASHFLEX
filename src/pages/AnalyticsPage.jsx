@@ -236,7 +236,7 @@ const applyFilters = (filters) => {
         <div className="main-content">
           <div className="loading-state">
             <Loading3D size={180} />
-            <h2 className="loading-text">Carregando dashboard...</h2>
+            
           </div>
         </div>
       </div>

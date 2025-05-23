@@ -153,7 +153,7 @@ const Dashboard = () => {
     return (
       <div className="loading-container">
         <Loading3D size={120} />
-        <p>Carregando...</p>
+        
       </div>
     );
   }

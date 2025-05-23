@@ -31,3 +31,38 @@ export default function gerarPlanosPadrao(unidade) {
       return [];
   }
 }
+
+export function gerarFaixasPremiacao(unidade) {
+  const isAlphaville = unidade.toLowerCase() === 'alphaville';
+  const faixas = [];
+  
+  // Configurações base
+  const inicio = 35; // Começa em 35%
+  const incremento = 5; // Incremento de 5%
+  const valorBase = isAlphaville ? 200 : 180; // Valor base diferente por unidade
+  const valorMeta = isAlphaville ? 220 : 200; // Valor quando atinge meta diferente por unidade
+  
+  // Gera faixas até 100%
+  for (let percentual = inicio; percentual < 100; percentual += incremento) {
+    faixas.push({
+      percentual: percentual,
+      premio: valorBase
+    });
+  }
+  
+  // Adiciona faixa de 100%
+  faixas.push({
+    percentual: 100,
+    premio: valorMeta
+  });
+  
+  // Adiciona faixas acima de 100%
+  for (let percentual = 105; percentual <= 200; percentual += incremento) {
+    faixas.push({
+      percentual: percentual,
+      premio: valorMeta
+    });
+  }
+  
+  return faixas;
+}

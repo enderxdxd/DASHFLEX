@@ -25,8 +25,10 @@ const CurrencyInput = ({
     const num = typeof value === "string"
       ? parseInt(value.replace(/\D/g, ""), 10) || 0
       : value;
-    // se for zero, exibe "0,00"
-    if (num === 0) return "0,00";
+    
+    // se for zero ou string vazia, retorna vazio
+    if (num === 0 || num === "") return "";
+    
     // usa toLocaleString pra agrupar e criar duas casas decimais
     return num.toLocaleString("pt-BR", {
       minimumFractionDigits: 2,
@@ -35,12 +37,22 @@ const CurrencyInput = ({
   };
 
   const handleChange = (e) => {
-    // tira tudo que não é dígito
     const raw = e.target.value.replace(/\D/g, "");
+    
+    // se estiver vazio, limpa o input
+    if (raw === "") {
+      setInputValue("");
+      onChange("");
+      return;
+    }
+
+    // Converte para número e divide por 100 para tratar como centavos
+    const numericValue = Number(raw) / 100;
+    
     // atualiza o estado de exibição
-    setInputValue(formatCurrency(raw));
-    // avisa o pai com o número inteiro de reais
-    onChange(raw === "" ? "" : Number(raw));
+    setInputValue(formatCurrency(numericValue));
+    // avisa o pai com o valor em reais
+    onChange(numericValue);
   };
 
   return (

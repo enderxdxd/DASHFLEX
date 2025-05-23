@@ -3,6 +3,7 @@ import { collection, addDoc,getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import { Link, useParams, useNavigate } from "react-router-dom";
+import Loading3D from '../components/ui/Loading3D';
 
 const NavBar = () => {
   const { unidade } = useParams();
@@ -145,7 +146,7 @@ export default function AddSale() {
             Produto
             {loadingData ? (
               <div className="loading-input">
-                <div className="spinner small"></div>
+                <Loading3D size={40} />
                 Carregando produtos...
               </div>
             ) : (
@@ -174,7 +175,7 @@ export default function AddSale() {
             Responsável
             {loadingData ? (
               <div className="loading-input">
-                <div className="spinner small"></div>
+                <Loading3D size={40} />
                 Carregando responsáveis...
               </div>
             ) : (

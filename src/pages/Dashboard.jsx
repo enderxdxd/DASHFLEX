@@ -10,6 +10,10 @@ import VendasTable from "../components/dashboard/VendasTable";
 import FileUploader from "../components/dashboard/FileUploader";
 import MonthSelector from "../components/dashboard/MonthSelector";
 import FilterControls from "../components/dashboard/FilterControls";
+import AnalyticsSummary from "../components/dashboard/AnalyticsSummary";
+import { useConfigRem } from '../hooks/useConfigRem';
+import Loading3D from '../components/ui/Loading3D';
+
 import dayjs from "dayjs";
 import 'dayjs/locale/pt-br';
 
@@ -17,7 +21,17 @@ dayjs.locale('pt-br');
 
 const Dashboard = () => {
   const { unidade } = useParams();
+  const configRem = useConfigRem(unidade) || {};
+  const metaUnidade = Number(configRem.metaUnidade) || 0;
+
+
+
+
   const navigate = useNavigate();
+   
+
+
+
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const saved = localStorage.getItem('selectedMonth');
     return saved || dayjs().format('YYYY-MM');
@@ -100,6 +114,24 @@ const Dashboard = () => {
     [totalAtual, totalAnterior]
   );
 
+  // Calcula % de consultores batendo meta
+  const pctConsultoresBatendoMeta = useMemo(() => {
+    if (!metas.length) return 0;
+    
+    const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
+    if (!metasDoMes.length) return 0;
+
+    const consultoresBatendoMeta = metasDoMes.filter(m => {
+      const vendasDoConsultor = filteredVendas.filter(
+        v => v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase()
+      );
+      const totalVendas = vendasDoConsultor.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+      return totalVendas >= Number(m.meta);
+    });
+
+    return (consultoresBatendoMeta.length / metasDoMes.length) * 100;
+  }, [metas, selectedMonth, filteredVendas]);
+
   const loading = vendasLoading || metasLoading;
   const error = vendasError || metasError;
 
@@ -120,7 +152,7 @@ const Dashboard = () => {
   if (loading) {
     return (
       <div className="loading-container">
-        <div className="loading-spinner"></div>
+        <Loading3D size={120} />
         <p>Carregando...</p>
       </div>
     );
@@ -140,7 +172,7 @@ const Dashboard = () => {
       <main className="main-content">
         <header className="page-header">
           <div className="header-content">
-            <h1>Vendas</h1>
+            
             <div className="badge">{unidade.toUpperCase()}</div>
           </div>
           <div className="header-actions">
@@ -179,9 +211,13 @@ const Dashboard = () => {
             mediaAnterior={mediaAnterior}
             pctMedia={pctMedia}
             selectedMonth={selectedMonth}
+            pctConsultoresBatendoMeta={pctConsultoresBatendoMeta}
           />
           
         </div>
+        {/* Resumo de Análises (tendência + projeção) */}
+        
+
 
         <div className="dashboard-section">
           <PerformanceChart

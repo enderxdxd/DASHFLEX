@@ -194,6 +194,7 @@ export const useVendas = (unidade, metas = []) => {
 
   // ▼ Vendas já filtradas de acordo com todos os critérios
   const vendasFiltradas = useMemo(() => {
+    if (!unidade) return [];
     const uni = unidade.toLowerCase();
     return vendas.filter((v) => {
       // filtro de unidade

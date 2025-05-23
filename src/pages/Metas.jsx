@@ -26,6 +26,7 @@ import {
   Legend,
 } from "chart.js";
 import "react-datepicker/dist/react-datepicker.css";
+import Loading3D from '../components/ui/Loading3D';
 
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
@@ -75,13 +76,13 @@ export default function Metas() {
       return vendasArr.reduce((soma, venda) => {
         const valorVenda = Number(venda.valor || 0);
   
-        // 1) Se não for “plano”, usa taxa percentual
+        // 1) Se não for "plano", usa taxa percentual
         if (venda.produto.trim().toLowerCase() !== "plano") {
           const taxa = totalV >= metaValor ? taxaCom : taxaSem;
           return soma + valorVenda * taxa;
         }
   
-        // 2) Se for “plano”, procura intervalo nos planos configurados
+        // 2) Se for "plano", procura intervalo nos planos configurados
         const plano = comissaoPlanos.find(
           (p) => valorVenda >= p.min && valorVenda <= p.max
         );
@@ -98,7 +99,7 @@ export default function Metas() {
       }, 0);
     }
   
-    // --- caso “premiação” continua inalterado ---
+    // --- caso "premiação" continua inalterado ---
     const acumulado = vendasArr.reduce((s, v) => s + Number(v.valor || 0), 0);
     const percentual = metaValor > 0 ? (acumulado / metaValor) * 100 : 0;
     const faixa = premiacao
@@ -314,9 +315,9 @@ export default function Metas() {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Carregando...</p>
+      <div className="loading-state">
+        <Loading3D size={120} />
+        <p>Carregando dados...</p>
       </div>
     );
   }
@@ -338,81 +339,62 @@ export default function Metas() {
         </h1>
         <form onSubmit={handleAddMeta} className="meta-form">
           <div className="form-group">
-            {/* Campo para selecionar o Responsável */}
-            <div className="input-group">
-              <input
-                type="text"
-                list="responsaveisList"
-                placeholder="Selecione ou digite o Responsável"
-                value={newResponsavel}
-                onChange={(e) => setNewResponsavel(e.target.value)}
-                className="modern-input"
-              />
-              <datalist id="responsaveisList">
-                {responsaveisUnicos.map((nome) => (
-                  <option key={nome} value={nome} />
-                ))}
-              </datalist>
+            <div className="form-row">
+              {/* Campo para selecionar o Responsável */}
+              <div className="input-group">
+                <label htmlFor="responsavel">Responsável</label>
+                <input
+                  id="responsavel"
+                  type="text"
+                  list="responsaveisList"
+                  placeholder="Selecione ou digite o Responsável"
+                  value={newResponsavel}
+                  onChange={(e) => setNewResponsavel(e.target.value)}
+                  className="modern-input"
+                />
+                <datalist id="responsaveisList">
+                  {responsaveisUnicos.map((nome) => (
+                    <option key={nome} value={nome} />
+                  ))}
+                </datalist>
+              </div>
+
+              {/* Campo para digitar o valor da meta */}
+              <div className="input-group">
+                <label htmlFor="meta">Valor da Meta</label>
+                <div className="currency-input-wrapper">
+                  <span className="currency-symbol">R$</span>
+                  <input
+                    id="meta"
+                    type="number"
+                    placeholder="0,00"
+                    value={newMeta}
+                    onChange={(e) => setNewMeta(e.target.value)}
+                    className="modern-input"
+                  />
+                </div>
+              </div>
+
+              {/* Campo para selecionar o período da meta */}
+              <div className="input-group">
+                <label htmlFor="periodo">Período</label>
+                <input 
+                  id="periodo"
+                  type="month"
+                  value={metaPeriodo}
+                  onChange={(e) => setMetaPeriodo(e.target.value)}
+                  className="modern-input"
+                />
+              </div>
             </div>
 
-
-        {/* Campo para digitar o valor da meta */}
-        <div className="input-group currency-input">
-          <input
-            type="number"
-            placeholder="Valor da Meta"
-            value={newMeta}
-            onChange={(e) => setNewMeta(e.target.value)}
-            className="modern-input"
-          />
-        </div>
-
-        {/* Campo para selecionar o período da meta */}
-        <div className="input-group">
-          <input 
-            type="month"
-            value={metaPeriodo}
-            onChange={(e) => setMetaPeriodo(e.target.value)}
-            className="modern-input"
-          />
-        </div>
-        {/* Tipo de Remuneração */}
-        <div className="input-group radio-group">
-          <label>
-            <input
-              type="radio"
-              name="tipo"
-              value="comissao"
-              checked={newRemType === "comissao"}
-              onChange={() => setNewRemType("comissao")}
-            />
-            <span /> {/* Elemento visual do radio */}
-            <span>Comissão</span> {/* Texto */}
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="tipo"
-              value="premiacao"
-              checked={newRemType === "premiacao"}
-              onChange={() => setNewRemType("premiacao")}
-            />
-            <span /> {/* Elemento visual do radio */}
-            <span>Premiação</span> {/* Texto */}
-          </label>
-        </div>
-
-
-        <button type="submit" className="primary-button">
-          <svg xmlns="http://www.w3.org/2000/svg" className="button-icon" viewBox="0 0 24 24">
-            <path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2z" />
-          </svg>
-          Adicionar Meta
-        </button>
+            <button type="submit" className="submit-button">
+              Adicionar Meta
+            </button>
+          </div>
+        </form>
       </div>
-    </form>
-  </div>
-</header>
+    </header>
   
         {(error || successMessage) && (
           <div className={`alert ${error ? 'error' : 'success'}`}>
@@ -794,114 +776,105 @@ export default function Metas() {
 
   /* Form Styles */
   .meta-form {
-    background-color: var(--bg-color);
-    border-radius: var(--radius);
+    background: white;
+    border-radius: 12px;
     padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    margin-bottom: 2rem;
   }
 
   .form-group {
+    width: 100%;
+  }
+
+  .form-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1rem;
-    align-items: center;
+    margin-bottom: 1.5rem;
   }
 
   .input-group {
-    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .input-group label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #4B5563;
   }
 
   .modern-input {
     width: 100%;
-    height: 42px;
-    padding: 0 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
-    font-size: 14px;
-    color: var(--text-color);
-    background-color: white;
-    transition: var(--transition);
+    padding: 0.75rem 1rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: #1F2937;
+    background-color: #F9FAFB;
+    transition: all 0.2s ease;
   }
 
   .modern-input:focus {
     outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: #6366F1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    background-color: white;
   }
 
   .modern-input::placeholder {
-    color: var(--text-light);
+    color: #9CA3AF;
   }
 
-  /* Radio Group */
-  .radio-group {
-    display: flex;
-    gap: 1rem;
-  }
-
-  .radio-group label {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    font-size: 14px;
-  }
-
-  .radio-group input[type="radio"] {
-    position: absolute;
-    opacity: 0;
-  }
-
-  .radio-group label span:first-of-type {
-    display: inline-block;
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--border-color);
-    border-radius: 50%;
-    margin-right: 8px;
+  .currency-input-wrapper {
     position: relative;
-    transition: var(--transition);
-  }
-
-  .radio-group input[type="radio"]:checked + span {
-    border-color: var(--primary-color);
-  }
-
-  .radio-group input[type="radio"]:checked + span::after {
-    content: "";
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    background-color: var(--primary-color);
-    border-radius: 50%;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-  }
-
-  /* Buttons */
-  .primary-button {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background-color: var(--primary-color);
+  }
+
+  .currency-symbol {
+    position: absolute;
+    left: 1rem;
+    color: #6B7280;
+    font-size: 0.875rem;
+  }
+
+  .currency-input-wrapper input {
+    padding-left: 2.5rem;
+  }
+
+  .submit-button {
+    width: 100%;
+    padding: 0.75rem 1.5rem;
+    background-color: #6366F1;
     color: white;
     border: none;
-    border-radius: var(--radius);
-    padding: 0 20px;
-    height: 42px;
-    font-weight: 600;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.875rem;
     cursor: pointer;
-    transition: var(--transition);
+    transition: all 0.2s ease;
   }
 
-  .primary-button:hover {
-    background-color: var(--primary-hover);
+  .submit-button:hover {
+    background-color: #4F46E5;
   }
 
-  .button-icon {
-    width: 18px;
-    height: 18px;
-    fill: currentColor;
+  .submit-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+  }
+
+  @media (max-width: 640px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+
+    .meta-form {
+      padding: 1rem;
+    }
   }
 
   /* Alert Styles */

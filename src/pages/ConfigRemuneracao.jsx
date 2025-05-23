@@ -5,7 +5,8 @@ import { db } from "../firebase";
 import dayjs from "dayjs";
 import NavBar from "../components/NavBar";
 import CurrencyInput from "../utils/CurrencyInput";
-import gerarPlanosPadrao from "../utils/planosPadrao";
+import gerarPlanosPadrao, { gerarFaixasPremiacao } from "../utils/planosPadrao";
+import Loading3D from '../components/ui/Loading3D';
 
 // Componente Principal
 const ConfigRemuneracao = () => {
@@ -19,32 +20,92 @@ const ConfigRemuneracao = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [faixas, setFaixas] = useState([]);
   const [comissaoPlanos, setComissaoPlanos] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+
+  // Lista de meses para seleção
+  const meses = [
+    { value: 1, label: "Janeiro" },
+    { value: 2, label: "Fevereiro" },
+    { value: 3, label: "Março" },
+    { value: 4, label: "Abril" },
+    { value: 5, label: "Maio" },
+    { value: 6, label: "Junho" },
+    { value: 7, label: "Julho" },
+    { value: 8, label: "Agosto" },
+    { value: 9, label: "Setembro" },
+    { value: 10, label: "Outubro" },
+    { value: 11, label: "Novembro" },
+    { value: 12, label: "Dezembro" }
+  ];
+
+  // Gerar anos para seleção (ano atual e 5 anos para frente)
+  const anoAtual = new Date().getFullYear();
+  const anos = Array.from({ length: 6 }, (_, i) => anoAtual + i);
 
   // Carrega os dados iniciais
   useEffect(() => {
-    if (!unidade) {
-      navigate("/login");
-      return;
+    if (unidade) {
+      loadConfig();
     }
-    loadConfig();
-  }, [unidade, navigate]);
+  }, [unidade, selectedMonth]);
 
   const loadConfig = async () => {
     try {
       setLoading(true);
-      const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", "premiacao");
+      const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", `premiacao-${selectedMonth}`);
       const snap = await getDoc(ref);
       if (snap.exists()) {
         const data = snap.data();
         setMetaUnidade(data.metaUnidade || 0);
         setFaixas(Array.isArray(data.premiacao) ? data.premiacao : []);
         setComissaoPlanos(Array.isArray(data.comissaoPlanos) ? data.comissaoPlanos : []);
+      } else {
+        // Se não existir configuração para este mês, tentamos carregar o mês anterior
+        // ou uma configuração padrão
+        await loadPreviousConfig();
       }
     } catch (err) {
       console.error(err);
       setError("Falha ao carregar configuração.");
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // Carrega configuração do mês anterior ou configução padrão
+  const loadPreviousConfig = async () => {
+    try {
+      // Primeiro tentamos o mês anterior
+      const mesAnterior = selectedMonth.split('-')[1] === '01' 
+        ? `${parseInt(selectedMonth.split('-')[0]) - 1}-12`
+        : `${selectedMonth.split('-')[0]}-${String(parseInt(selectedMonth.split('-')[1]) - 1).padStart(2, '0')}`;
+      
+      const refAnterior = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", `premiacao-${mesAnterior}`);
+      const snapAnterior = await getDoc(refAnterior);
+      
+      if (snapAnterior.exists()) {
+        const data = snapAnterior.data();
+        setMetaUnidade(data.metaUnidade || 0);
+        setFaixas(Array.isArray(data.premiacao) ? data.premiacao : []);
+        setComissaoPlanos(Array.isArray(data.comissaoPlanos) ? data.comissaoPlanos : []);
+        setSuccessMessage("Carregada configuração do mês anterior. Salve para confirmar para este mês.");
+        setTimeout(() => setSuccessMessage(""), 5000);
+      } else {
+        // Se não existir configuração anterior, carregamos a configuração padrão
+        // ou inicializamos com valores vazios
+        setMetaUnidade(0);
+        setFaixas([]);
+        setComissaoPlanos(gerarPlanosPadrao(unidade));
+      }
+    } catch (err) {
+      console.error(err);
+      // Inicializa com valores padrão em caso de erro
+      setMetaUnidade(0);
+      setFaixas([]);
+      setComissaoPlanos([]);
     }
   };
   
@@ -58,6 +119,13 @@ const ConfigRemuneracao = () => {
   };
   
   const removeFaixa = (i) => setFaixas(faixas.filter((_, idx) => idx !== i));
+
+  const handleGerarFaixasPadrao = () => {
+    const novasFaixas = gerarFaixasPremiacao(unidade);
+    setFaixas(novasFaixas);
+    setSuccessMessage("Faixas de premiação geradas automaticamente!");
+    setTimeout(() => setSuccessMessage(""), 3000);
+  };
 
   // Funções para gerenciar planos
   const addPlano = () => setComissaoPlanos([
@@ -87,19 +155,24 @@ const ConfigRemuneracao = () => {
     try {
       setIsLoading(true);
       setError("");
-      const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", "premiacao");
-      
-      const metaUnidadeNum = metaUnidade ? parseInt(metaUnidade) : 0;
-      
-      await setDoc(
-        ref,
-        {
-          metaUnidade: metaUnidadeNum,
-          updatedAt: dayjs().toISOString(),
-        },
-        { merge: true }
+  
+      const unidadeLower = unidade.toLowerCase();
+      const ref = doc(
+        db,
+        "faturamento",
+        unidadeLower,
+        "configRemuneracao",
+        `premiacao-${selectedMonth}`
       );
-      setSuccessMessage("Meta da unidade atualizada com sucesso!");
+  
+      const metaUnidadeNum = metaUnidade ? parseInt(metaUnidade, 10) : 0;
+  
+      await setDoc(ref, {
+        metaUnidade: metaUnidadeNum,
+        updatedAt: dayjs().toISOString(),
+      });
+  
+      setSuccessMessage(`Meta de ${meses[parseInt(selectedMonth.split('-')[1]) - 1].label}/${selectedMonth.split('-')[0]} atualizada com sucesso!`);
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error(err);
@@ -231,7 +304,7 @@ const ConfigRemuneracao = () => {
         
         {loading ? (
           <div className="loading-overlay">
-            <div className="spinner"></div>
+            <Loading3D size={120} />
             <p>Carregando configurações...</p>
           </div>
         ) : (
@@ -262,6 +335,41 @@ const ConfigRemuneracao = () => {
                   
                   <div className="meta-config">
                     <div className="form-group">
+                      <label>Mês/Ano</label>
+                      <div className="month-year-selector">
+                        <select
+                          value={selectedMonth.split('-')[1]}
+                          onChange={(e) => {
+                            const [year] = selectedMonth.split('-');
+                            setSelectedMonth(`${year}-${e.target.value}`);
+                          }}
+                          className="form-select"
+                        >
+                          {meses.map((mes) => (
+                            <option key={mes.value} value={String(mes.value).padStart(2, '0')}>
+                              {mes.label}
+                            </option>
+                          ))}
+                        </select>
+                        
+                        <select
+                          value={selectedMonth.split('-')[0]}
+                          onChange={(e) => {
+                            const [, month] = selectedMonth.split('-');
+                            setSelectedMonth(`${e.target.value}-${month}`);
+                          }}
+                          className="form-select"
+                        >
+                          {anos.map((ano) => (
+                            <option key={ano} value={ano}>
+                              {ano}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="form-group">
                       <label>Meta (R$)</label>
                       <CurrencyInput
                         value={metaUnidade}
@@ -286,6 +394,15 @@ const ConfigRemuneracao = () => {
                     <p>Configure os valores de premiação por faixa percentual atingida da meta</p>
                   </div>
                   
+                  <div className="import-action">
+                    <button
+                      className="btn secondary"
+                      onClick={handleGerarFaixasPadrao}
+                    >
+                      Gerar Faixas Padrão
+                    </button>
+                  </div>
+
                   <div className="table-wrapper">
                     <table className="data-table">
                       <thead>
@@ -685,14 +802,14 @@ body {
 /* Meta da Unidade */
 .meta-config {
   display: flex;
-  align-items: flex-end;
+  flex-wrap: wrap;
   gap: 1.5rem;
+  align-items: flex-end;
 }
 
 /* Form Elements */
 .form-group {
-  margin-bottom: 1rem;
-  width: 300px;
+  margin-bottom: 0;
 }
 
 .form-group label {
@@ -909,9 +1026,6 @@ input:disabled {
   border-top: 1px solid var(--light-gray);
 }
 
-
-
-
 .navbar-header {
   padding: 1.5rem;
   text-align: center;
@@ -999,7 +1113,7 @@ input:disabled {
 @media (max-width: 768px) {
   .meta-config {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
   }
   
   .table-actions {
@@ -1035,6 +1149,32 @@ input:disabled {
   .tab.active {
     border-bottom: 1px solid var(--light-gray);
     border-left: 3px solid var(--primary-color);
+  }
+}
+
+.month-year-selector {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.month-year-selector select {
+  flex: 1;
+  min-width: 120px;
+}
+
+@media (max-width: 768px) {
+  .meta-config {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .month-year-selector {
+    flex-direction: column;
+  }
+
+  .month-year-selector select {
+    width: 100%;
   }
 }
         `}</style>

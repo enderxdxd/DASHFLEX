@@ -4,6 +4,7 @@ import { useParams, useLocation, Link } from "react-router-dom";
 import { getAuth } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { LineChart } from "lucide-react";
 
 export default function NavBar() {
   const { unidade } = useParams();
@@ -87,6 +88,14 @@ export default function NavBar() {
             <span>Metas</span>
           </Link>
 
+          <Link 
+            to={`/analytics/${unidade}`} 
+            className={`nav-link ${isActive("/analytics/") ? "active" : ""}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            <LineChart className="w-5 h-5" />
+            <span>Analytics</span>
+          </Link>
           <Link 
             to={`/add-sale/${unidade}`} 
             className={`nav-link ${isActive("/add-sale/") ? "active" : ""}`}

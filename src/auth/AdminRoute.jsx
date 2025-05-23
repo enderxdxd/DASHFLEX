@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import Loading3D from '../components/ui/Loading3D';
 
 export default function AdminRoute({ children }) {
   const [checking, setChecking] = useState(true);
@@ -25,7 +26,7 @@ export default function AdminRoute({ children }) {
   }, [auth]);
 
   if (checking) {
-    return <div>Verificando permissões…</div>;
+    return <Loading3D size={100} />;
   }
   if (!isAdmin) {
     // redireciona quem não é admin

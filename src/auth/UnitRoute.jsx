@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import Loading3D from '../components/ui/Loading3D';
 
 export default function UnitRoute({ children }) {
   const { unidade } = useParams();
@@ -25,7 +26,7 @@ export default function UnitRoute({ children }) {
     return () => unsub();
   }, [auth]);
 
-  if (loading) return <div>Carregando...</div>;
+  if (loading) return <Loading3D size={100} />;
   if (!user)   return <Navigate to="/login" replace />;
 
   const role = claims.role || "user";

@@ -9,6 +9,7 @@ import ConfigRemuneracao from "./pages/ConfigRemuneracao";
 import PrivateRoute from "./auth/PrivateRoute";
 import "./styles/variables.css";
 import AdminRoute from "./auth/AdminRoute";
+import AnalyticsPage from "./pages/AnalyticsPage";
 
 
 export default function App() {
@@ -50,6 +51,14 @@ export default function App() {
               <AdminRoute>
                 <ConfigRemuneracao/>
               </AdminRoute>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/analytics/:unidade"
+          element={
+            <PrivateRoute>
+              <AnalyticsPage />
             </PrivateRoute>
           }
         />

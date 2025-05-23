@@ -27,7 +27,7 @@ export default function HeatmapChart({ days, data }) {
             align-items: center;
             justify-content: center;
             height: 16rem;
-            background-color: #f8fafc;
+            background-color: var(--card);
             border-radius: 0.75rem;
             padding: 1.5rem;
           }
@@ -35,12 +35,12 @@ export default function HeatmapChart({ days, data }) {
           .empty-icon {
             width: 3rem;
             height: 3rem;
-            color: #cbd5e1;
+            color: var(--text-secondary);
             margin-bottom: 0.75rem;
           }
           
           .empty-message {
-            color: #64748b;
+            color: var(--text-secondary);
             text-align: center;
             font-size: 0.9375rem;
           }
@@ -195,7 +195,7 @@ export default function HeatmapChart({ days, data }) {
       <style jsx>{`
         .heatmap-chart {
           position: relative;
-          background-color: white;
+          background-color: var(--card);
           border-radius: 0.75rem;
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
           overflow: hidden;

@@ -249,6 +249,23 @@ export default function LineChart({
           box-sizing: border-box;
           border-radius: 0.5rem;
           padding: 0;
+          background-color: var(--card, white);
+          border: 1px solid var(--border, #e2e8f0);
+          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
+        }
+        
+        /* Light Mode Fallback */
+        :root {
+          --card: white;
+          --border: #e2e8f0;
+          --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Dark Mode Styles */
+        .dark .line-chart-container {
+          --card: #1e293b;
+          --border: #334155;
+          --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
         
         /* Melhorias de responsividade */

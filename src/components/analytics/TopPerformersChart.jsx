@@ -75,8 +75,7 @@ export default function TopPerformersChart({ data }) {
           color: '#64748b',
           padding: 4,
           autoSkip: true,
-          maxTicksLimit: 5,
-          stepSize: tickStep > 0 ? tickStep : undefined,
+          maxTicksLimit: 4,
           maxRotation: 0,
           minRotation: 0
         },
@@ -149,101 +148,149 @@ export default function TopPerformersChart({ data }) {
         </div>
       )}
       <style jsx>{`
-        .top-performers-chart {
-          position: relative;
-          background-color: white;
-          border-radius: 0.75rem;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-          overflow: hidden;
-          transition: box-shadow 0.3s ease;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-        }
-        .top-performers-chart:hover {
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
-        }
-        .gradient-bar {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 4px;
-          background: linear-gradient(to right, rgba(234, 179, 8, 0.75), rgba(59, 130, 246, 0.75));
-          z-index: 5;
-        }
-        .chart-header {
-          padding: 1.1rem 1.1rem 0.25rem 1.1rem;
-        }
-        .title-container {
-          display: flex;
-          align-items: center;
-        }
-        .title-icon {
-          width: 1.35rem;
-          height: 1.35rem;
-          color: #eab308;
-          margin-right: 0.5rem;
-        }
-        .chart-title {
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: #334155;
-          margin: 0;
-        }
-        .chart-container {
-          flex: 1;
-          padding: 0.5rem 0.5rem 0.5rem 0.5rem;
-        }
-        .chart-footer {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-top: 1px solid #f1f5f9;
-          padding: 0.5rem 1.1rem;
-          margin-top: 0.25rem;
-          font-size: 0.92rem;
-        }
-        .consultors-info {
-          display: flex;
-          align-items: center;
-          color: #64748b;
-        }
-        .consultors-icon {
-          width: 1rem;
-          height: 1rem;
-          margin-right: 0.25rem;
-        }
-        .see-all-button {
-          display: flex;
-          align-items: center;
-          color: #3b82f6;
-          cursor: pointer;
-          transition: color 0.2s;
-        }
-        .see-all-button:hover {
-          color: #1d4ed8;
-        }
-        .arrow-icon {
-          width: 1rem;
-          height: 1rem;
-          margin-left: 0.25rem;
-        }
-        @media (max-width: 768px) {
-          .chart-header {
-            padding: 0.75rem 0.75rem 0.25rem 0.75rem;
-          }
-          .chart-container {
-            padding: 0.25rem 0.25rem 0.5rem 0.25rem;
-          }
-          .chart-footer {
-            padding: 0.5rem 0.75rem;
-          }
-          .chart-title {
-            font-size: 1.05rem;
-          }
-        }
-      `}</style>
+  /* Light Mode Defaults */
+  :root {
+    --chart-bg: #ffffff;
+    --chart-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    --chart-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.07);
+    --gradient-start: rgba(234, 179, 8, 0.75);
+    --gradient-end: rgba(59, 130, 246, 0.75);
+    --text-primary: #334155;
+    --text-secondary: #64748b;
+    --icon-color: #eab308;
+    --footer-border: #f1f5f9;
+    --link-color: #3b82f6;
+    --link-hover: #1d4ed8;
+  }
+
+  /* Dark Mode Overrides */
+  .dark {
+    --chart-bg: #1f2937;
+    --chart-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --chart-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.5);
+    /* Gradient can stay the same or be tweaked if needed */
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --icon-color: #fde047;
+    --footer-border: #334155;
+    --link-color: #93c5fd;
+    --link-hover: #60a5fa;
+  }
+
+  .top-performers-chart {
+    position: relative;
+    background-color: var(--chart-bg);
+    border-radius: 0.75rem;
+    box-shadow: var(--chart-shadow);
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .top-performers-chart:hover {
+    box-shadow: var(--chart-shadow-hover);
+  }
+
+  .gradient-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(
+      to right,
+      var(--gradient-start),
+      var(--gradient-end)
+    );
+    z-index: 5;
+  }
+
+  .chart-header {
+    padding: 1.1rem;
+  }
+
+  .title-container {
+    display: flex;
+    align-items: center;
+  }
+
+  .title-icon {
+    width: 1.35rem;
+    height: 1.35rem;
+    color: var(--icon-color);
+    margin-right: 0.5rem;
+  }
+
+  .chart-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .chart-container {
+    flex: 1;
+    padding: 0.5rem;
+  }
+
+  .chart-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--footer-border);
+    padding: 0.5rem 1.1rem;
+    margin-top: 0.25rem;
+    font-size: 0.92rem;
+  }
+
+  .consultors-info {
+    display: flex;
+    align-items: center;
+    color: var(--text-secondary);
+  }
+
+  .consultors-icon {
+    width: 1rem;
+    height: 1rem;
+    margin-right: 0.25rem;
+  }
+
+  .see-all-button {
+    display: flex;
+    align-items: center;
+    color: var(--link-color);
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .see-all-button:hover {
+    color: var(--link-hover);
+  }
+
+  .arrow-icon {
+    width: 1rem;
+    height: 1rem;
+    margin-left: 0.25rem;
+  }
+
+  @media (max-width: 768px) {
+    .chart-header {
+      padding: 0.75rem;
+    }
+    .chart-container {
+      padding: 0.25rem 0.25rem 0.5rem;
+    }
+    .chart-footer {
+      padding: 0.5rem 0.75rem;
+    }
+    .chart-title {
+      font-size: 1.05rem;
+    }
+  }
+`}</style>
+
     </div>
   );
 }

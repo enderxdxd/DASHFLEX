@@ -277,7 +277,7 @@ const FiltersPanel = ({
         }
 
         .filters-panel {
-          background-color: white;
+          background-color: var(--card);
           border-radius: 0.75rem;
           width: 100%;
           max-width: 600px;
@@ -293,8 +293,8 @@ const FiltersPanel = ({
           justify-content: space-between;
           align-items: center;
           padding: 1.25rem;
-          border-bottom: 1px solid #e2e8f0;
-          background-color: #f8fafc;
+          border-bottom: 1px solid var(--border);
+          background-color: var(--background);
         }
 
         .filters-title-container {
@@ -304,20 +304,20 @@ const FiltersPanel = ({
         }
 
         .filters-icon {
-          color: #4f46e5;
+          color: var(--primary);
         }
 
         .filters-title {
           font-size: 1.25rem;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--text-primary);
           margin: 0;
         }
 
         .close-button {
           background: none;
           border: none;
-          color: #64748b;
+          color: var(--text-secondary);
           cursor: pointer;
           padding: 0.5rem;
           display: flex;
@@ -328,8 +328,8 @@ const FiltersPanel = ({
         }
 
         .close-button:hover {
-          background-color: #f1f5f9;
-          color: #1e293b;
+          background-color: var(--background);
+          color: var(--text-primary);
         }
 
         .filters-content {
@@ -352,24 +352,24 @@ const FiltersPanel = ({
           align-items: center;
           gap: 0.5rem;
           font-weight: 500;
-          color: #374151;
+          color: var(--text-primary);
           font-size: 0.875rem;
         }
 
         .filter-select,
         .filter-input {
           padding: 0.75rem;
-          border: 1px solid #d1d5db;
+          border: 1px solid var(--border);
           border-radius: 0.5rem;
           font-size: 0.875rem;
           transition: all 0.2s;
-          background-color: white;
+          background-color: var(--card);
         }
 
         .filter-select:focus,
         .filter-input:focus {
           outline: none;
-          border-color: #4f46e5;
+          border-color: var(--primary);
           box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
 
@@ -387,13 +387,13 @@ const FiltersPanel = ({
 
         .range-separator {
           font-size: 0.875rem;
-          color: #6b7280;
+          color: var(--text-secondary);
           font-weight: 500;
         }
 
         .active-filters {
-          background-color: #f8fafc;
-          border-top: 1px solid #e2e8f0;
+          background-color: var(--background);
+          border-top: 1px solid var(--border);
           padding: 1rem 1.5rem;
         }
 
@@ -407,13 +407,13 @@ const FiltersPanel = ({
         .active-filters-label {
           font-size: 0.875rem;
           font-weight: 500;
-          color: #374151;
+          color: var(--text-primary);
         }
 
         .clear-filters-button {
           background: none;
           border: none;
-          color: #6b7280;
+          color: var(--text-secondary);
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -425,8 +425,8 @@ const FiltersPanel = ({
         }
 
         .clear-filters-button:hover {
-          background-color: #e5e7eb;
-          color: #374151;
+          background-color: var(--background);
+          color: var(--text-primary);
         }
 
         .active-filters-list {
@@ -436,8 +436,8 @@ const FiltersPanel = ({
         }
 
         .filter-tag {
-          background-color: #e0e7ff;
-          color: #3730a3;
+          background-color: var(--background);
+          color: var(--text-primary);
           padding: 0.375rem 0.75rem;
           border-radius: 9999px;
           font-size: 0.75rem;
@@ -450,7 +450,7 @@ const FiltersPanel = ({
         .filter-tag button {
           background: none;
           border: none;
-          color: #3730a3;
+          color: var(--text-primary);
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -461,7 +461,7 @@ const FiltersPanel = ({
         }
 
         .filter-tag button:hover {
-          background-color: #c7d2fe;
+          background-color: var(--background);
         }
 
         .filters-footer {
@@ -469,8 +469,8 @@ const FiltersPanel = ({
           justify-content: flex-end;
           gap: 0.75rem;
           padding: 1.25rem;
-          border-top: 1px solid #e2e8f0;
-          background-color: #f8fafc;
+          border-top: 1px solid var(--border);
+          background-color: var(--background);
         }
 
         .cancel-button,
@@ -485,22 +485,22 @@ const FiltersPanel = ({
         }
 
         .cancel-button {
-          background-color: white;
-          color: #374151;
-          border: 1px solid #d1d5db;
+          background-color: var(--card);
+          color: var(--text-primary);
+          border: 1px solid var(--border);
         }
 
         .cancel-button:hover {
-          background-color: #f9fafb;
+          background-color: var(--background);
         }
 
         .apply-button {
-          background-color: #4f46e5;
-          color: white;
+          background-color: var(--primary);
+          color: var(--card);
         }
 
         .apply-button:hover {
-          background-color: #4338ca;
+          background-color: var(--primary-hover);
         }
 
         @media (max-width: 640px) {
@@ -526,6 +526,10 @@ const FiltersPanel = ({
           .filters-footer {
             flex-direction: column;
           }
+        }
+
+        .card-title, .section-header h2 {
+          color: var(--text-primary);
         }
       `}</style>
     </div>

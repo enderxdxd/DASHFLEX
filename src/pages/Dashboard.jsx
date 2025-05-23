@@ -195,10 +195,12 @@ const Dashboard = () => {
         )}
 
         <div className="dashboard-section">
-        <MonthSelector
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <MonthSelector
               value={selectedMonth}
               onChange={handleMonthChange}
             />
+          </div>
           <MetricCards
             totalFaturado={totalAtual}
             totalCurrent={totalAtual}
@@ -268,34 +270,132 @@ const Dashboard = () => {
         .dashboard-layout {
           display: flex;
           min-height: 100vh;
-          background-color: #f8fafc;
+          background-color: var(--bg-primary, #f8fafc);
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
         .sidebar {
           width: 250px;
-          background-color: white;
-          border-right: 1px solid #e2e8f0;
+          background-color: var(--card, white);
+          border-right: 1px solid var(--border, #e2e8f0);
           position: fixed;
           height: 100vh;
           display: flex;
           flex-direction: column;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
         }
-        .sidebar-header { padding: 1.5rem; border-bottom: 1px solid #e2e8f0; }
-        .sidebar-header h2 { font-size: 1.25rem; font-weight: 600; color: #4f46e5; margin: 0; }
-        .main-content { flex: 1; margin-left: 250px; padding: 2rem; }
-        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-        .header-content h1 { font-size: 1.75rem; font-weight: 600; margin: 0 1rem 0 0; }
-        .badge { background-color: #eef2ff; color: #4f46e5; padding: 0.25rem 0.75rem; border-radius: 0.25rem; font-weight: 600; font-size: 0.875rem; }
-        .header-actions { display: flex; align-items: center; gap: 1.5rem; }
-        .last-update { font-size: 0.875rem; color: #64748b; }
-        .dashboard-section { margin-bottom: 2rem; }
-        .section-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; color: #1e293b; }
-        .alert { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1.5rem; }
-        .alert.error { background-color: #fee2e2; color: #ef4444; }
-        .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 1rem; }
-        .loading-spinner { width: 40px; height: 40px; border: 3px solid #e2e8f0; border-radius: 50%; border-top-color: #4f46e5; animation: spin 1s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .sidebar-header { 
+          padding: 1.5rem; 
+          border-bottom: 1px solid var(--border, #e2e8f0); 
+        }
+        .sidebar-header h2 { 
+          font-size: 1.25rem; 
+          font-weight: 600; 
+          color: var(--primary, #4f46e5); 
+          margin: 0; 
+        }
+        .main-content { 
+          flex: 1; 
+          margin-left: 250px; 
+          padding: 2rem; 
+        }
+        .page-header { 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+          margin-bottom: 2rem; 
+        }
+        .header-content h1 { 
+          font-size: 1.75rem; 
+          font-weight: 600; 
+          margin: 0 1rem 0 0; 
+          color: var(--text-primary, #1e293b);
+        }
+        .badge { 
+          background-color: var(--primary-light, #eef2ff); 
+          color: var(--primary, #4f46e5); 
+          padding: 0.25rem 0.75rem; 
+          border-radius: 0.25rem; 
+          font-weight: 600; 
+          font-size: 0.875rem; 
+        }
+        .header-actions { 
+          display: flex; 
+          align-items: center; 
+          gap: 1.5rem; 
+        }
+        .last-update { 
+          font-size: 0.875rem; 
+          color: var(--text-secondary, #64748b); 
+        }
+        .dashboard-section { 
+          margin-bottom: 2rem; 
+        }
+        .section-title { 
+          font-size: 1.25rem; 
+          font-weight: 600; 
+          margin-bottom: 1rem; 
+          color: var(--text-primary, #1e293b); 
+        }
+        .alert { 
+          display: flex; 
+          align-items: center; 
+          gap: 0.75rem; 
+          padding: 1rem; 
+          border-radius: 0.5rem; 
+          margin-bottom: 1.5rem; 
+        }
+        .alert.error { 
+          background-color: var(--danger-light, #fee2e2); 
+          color: var(--danger, #ef4444); 
+        }
+        .loading-container { 
+          display: flex; 
+          flex-direction: column; 
+          align-items: center; 
+          justify-content: center; 
+          height: 100vh; 
+          gap: 1rem; 
+          color: var(--text-primary, #1e293b);
+        }
+        .loading-spinner { 
+          width: 40px; 
+          height: 40px; 
+          border: 3px solid var(--border, #e2e8f0); 
+          border-radius: 50%; 
+          border-top-color: var(--primary, #4f46e5); 
+          animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { 
+          to { transform: rotate(360deg); } 
+        }
+
+        /* Light Mode Fallback */
+        :root {
+          --bg-primary: #f8fafc;
+          --card: white;
+          --border: #e2e8f0;
+          --text-primary: #1e293b;
+          --text-secondary: #64748b;
+          --primary: #4f46e5;
+          --primary-light: #eef2ff;
+          --danger: #ef4444;
+          --danger-light: #fee2e2;
+          --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Dark Mode Styles */
+        .dark .dashboard-layout {
+          --bg-primary: #0f172a;
+          --card: #1e293b;
+          --border: #334155;
+          --text-primary: #f1f5f9;
+          --text-secondary: #94a3b8;
+          --primary: #6366f1;
+          --primary-light: #1e3a8a20;
+          --danger: #ef4444;
+          --danger-light: #99182020;
+          --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
       `}</style>
     </div>
   );

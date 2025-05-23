@@ -4,32 +4,7 @@ import { db } from "../firebase";
 import dayjs from "dayjs";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import Loading3D from '../components/ui/Loading3D';
-
-const NavBar = () => {
-  const { unidade } = useParams();
-  return (
-    <nav className="nav-bar">
-      <Link to={`/dashboard/${unidade}`} className="nav-link">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-          <polyline points="9 22 9 12 15 12 15 22"></polyline>
-        </svg>
-        Dashboard
-      </Link>
-      <Link to="/unidade" className="nav-link">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-        </svg>
-        Unidade
-      </Link>
-      <Link to={`/metas/${unidade}`} className="nav-link">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>
-        Metas
-      </Link>
-      
-    </nav>
-  );
-};
+import NavBar from "../components/NavBar";
 
 export default function AddSale() {
   const { unidade } = useParams();
@@ -261,37 +236,6 @@ export default function AddSale() {
       </form>
 
       <style jsx>{`
-        .nav-bar {
-          display: flex;
-          gap: 1.5rem;
-          padding: 1.5rem;
-          background: #f8fafc;
-          border-bottom: 1px solid #e2e8f0;
-          margin-bottom: 2rem;
-        }
-
-        .nav-link {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          color: #64748b;
-          text-decoration: none;
-          padding: 0.75rem 1.25rem;
-          border-radius: 8px;
-          transition: all 0.2s ease;
-        }
-
-        .nav-link:hover {
-          background: #f1f5f9;
-          color: #334155;
-        }
-
-        .nav-link.active {
-          background: #6366f1;
-          color: white;
-          box-shadow: 0 2px 4px rgba(99, 102, 241, 0.1);
-        }
-
         .form-container {
           max-width: 600px;
           margin: 0 auto;
@@ -299,10 +243,10 @@ export default function AddSale() {
         }
 
         .sales-form {
-          background: white;
+          background: var(--card, white);
           padding: 2rem;
           border-radius: 16px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+          box-shadow: var(--shadow-form, 0 4px 6px -1px rgba(0, 0, 0, 0.05));
         }
 
         .form-header {
@@ -315,13 +259,13 @@ export default function AddSale() {
           align-items: center;
           gap: 1rem;
           justify-content: center;
-          color: #1e293b;
+          color: var(--text-primary, #1e293b);
           margin: 0 0 0.5rem 0;
           font-size: 1.5rem;
         }
 
         .unidade-info {
-          color: #64748b;
+          color: var(--text-secondary, #64748b);
           font-size: 0.9em;
           margin: 0;
         }
@@ -332,7 +276,7 @@ export default function AddSale() {
 
         label {
           display: block;
-          color: #475569;
+          color: var(--text-label, #475569);
           font-weight: 500;
           margin-bottom: 0.75rem;
           font-size: 0.95rem;
@@ -341,18 +285,19 @@ export default function AddSale() {
         input {
           width: 100%;
           padding: 0.875rem;
-          border: 1px solid #e2e8f0;
+          border: 1px solid var(--border, #e2e8f0);
           border-radius: 8px;
           font-size: 1rem;
           transition: all 0.2s ease;
-          background: #f8fafc;
+          background: var(--input-bg, #f8fafc);
+          color: var(--text-primary, #1e293b);
         }
 
         input:focus {
           outline: none;
-          border-color: #818cf8;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-          background: white;
+          border-color: var(--primary, #818cf8);
+          box-shadow: 0 0 0 3px var(--primary-shadow, rgba(99, 102, 241, 0.1));
+          background: var(--card, white);
         }
 
         input:disabled {
@@ -370,7 +315,7 @@ export default function AddSale() {
           right: 14px;
           top: 50%;
           transform: translateY(-50%);
-          color: #94a3b8;
+          color: var(--icon-muted, #94a3b8);
         }
 
         .alert {
@@ -384,16 +329,16 @@ export default function AddSale() {
         }
 
         .alert.error {
-          background: #fef2f2;
-          color: #dc2626;
-          border: 1px solid #fecaca;
+          background: var(--danger-light, #fef2f2);
+          color: var(--danger, #dc2626);
+          border: 1px solid var(--danger-border, #fecaca);
         }
 
         .submit-btn {
           width: 100%;
           padding: 1.125rem;
-          background: #6366f1;
-          color: white;
+          background: var(--primary, #6366f1);
+          color: var(--button-text, white);
           border: none;
           border-radius: 8px;
           font-weight: 500;
@@ -407,24 +352,24 @@ export default function AddSale() {
         }
 
         .submit-btn:hover {
-          background: #4f46e5;
+          background: var(--primary-dark, #4f46e5);
           transform: translateY(-1px);
         }
 
         .submit-btn:disabled {
-          background: #c7d2fe;
+          background: var(--primary-disabled, #c7d2fe);
           transform: none;
           cursor: not-allowed;
         }
         
         .loading-input {
           padding: 0.875rem;
-          background: #f8fafc;
+          background: var(--input-bg, #f8fafc);
           border-radius: 8px;
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          color: #64748b;
+          color: var(--text-secondary, #64748b);
         }
 
         .spinner.small {
@@ -435,8 +380,8 @@ export default function AddSale() {
 
         datalist {
           position: absolute;
-          background: white;
-          border: 1px solid #e2e8f0;
+          background: var(--card, white);
+          border: 1px solid var(--border, #e2e8f0);
           border-radius: 8px;
           margin-top: 4px;
           max-height: 200px;
@@ -449,15 +394,15 @@ export default function AddSale() {
         }
 
         datalist option:hover {
-          background: #f1f5f9;
+          background: var(--row-hover, #f1f5f9);
         }
 
         .spinner {
           width: 22px;
           height: 22px;
-          border: 2px solid rgba(255, 255, 255, 0.3);
+          border: 2px solid var(--spinner-bg, rgba(255, 255, 255, 0.3));
           border-radius: 50%;
-          border-top-color: white;
+          border-top-color: var(--spinner-top, white);
           animation: spin 1s linear infinite;
         }
 
@@ -466,18 +411,18 @@ export default function AddSale() {
           padding: 3rem 2rem;
           max-width: 600px;
           margin: 2rem auto;
-          background: #fef2f2;
+          background: var(--danger-light, #fef2f2);
           border-radius: 12px;
-          border: 1px solid #fecaca;
+          border: 1px solid var(--danger-border, #fecaca);
         }   
 
         .error-container h2 {
-          color: #dc2626;
+          color: var(--danger, #dc2626);
           margin-bottom: 1.5rem;
         }
 
         .error-link {
-          color: #6366f1;
+          color: var(--primary, #6366f1);
           text-decoration: none;
           font-weight: 500;
           transition: opacity 0.2s;
@@ -496,15 +441,55 @@ export default function AddSale() {
             padding: 1.5rem;
           }
 
-          .nav-bar {
-            flex-direction: column;
-            gap: 0.5rem;
-            padding: 1rem;
-          }
-
           .sales-form {
             padding: 1.5rem;
           }
+        }
+
+        /* Light Mode Fallback */
+        :root {
+          --card: #fff;
+          --input-bg: #f8fafc;
+          --row-hover: #f1f5f9;
+          --border: #e2e8f0;
+          --text-primary: #1e293b;
+          --text-secondary: #64748b;
+          --text-label: #475569;
+          --icon-muted: #94a3b8;
+          --primary: #6366f1;
+          --primary-dark: #4f46e5;
+          --primary-disabled: #c7d2fe;
+          --primary-shadow: rgba(99, 102, 241, 0.1);
+          --button-text: white;
+          --danger: #dc2626;
+          --danger-light: #fef2f2;
+          --danger-border: #fecaca;
+          --spinner-bg: rgba(255, 255, 255, 0.3);
+          --spinner-top: white;
+          --shadow-form: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Dark Mode Styles */
+        .dark {
+          --card: #1e293b;
+          --input-bg: #0f172a;
+          --row-hover: #334155;
+          --border: #334155;
+          --text-primary: #f1f5f9;
+          --text-secondary: #94a3b8;
+          --text-label: #cbd5e1;
+          --icon-muted: #64748b;
+          --primary: #6366f1;
+          --primary-dark: #4f46e5;
+          --primary-disabled: #312e81;
+          --primary-shadow: rgba(99, 102, 241, 0.18);
+          --button-text: #f1f5f9;
+          --danger: #ef4444;
+          --danger-light: #99182020;
+          --danger-border: #991b1b;
+          --spinner-bg: rgba(255, 255, 255, 0.12);
+          --spinner-top: #6366f1;
+          --shadow-form: 0 4px 12px rgba(0,0,0,0.18);
         }
       `}</style>
     </div>

@@ -464,10 +464,11 @@ export default function ProjectionCard({
       <style jsx>{`
         .enhanced-projection-card {
           position: relative;
-          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          background: var(--card);
+          color: var(--text-primary);
           border-radius: 1rem;
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-          border: 1px solid #f1f5f9;
+          border: 1px solid var(--border);
           overflow: hidden;
           transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
           opacity: 0;
@@ -565,14 +566,14 @@ export default function ProjectionCard({
         .card-title {
           font-size: 1.25rem;
           font-weight: 700;
-          color: #1e293b;
+          color: var(--text-primary);
           margin: 0 0 0.25rem 0;
           line-height: 1.4;
         }
         
         .card-subtitle {
           font-size: 0.875rem;
-          color: #64748b;
+          color: var(--text-secondary);
           margin: 0;
           font-weight: 500;
         }
@@ -583,7 +584,7 @@ export default function ProjectionCard({
           align-items: center;
           padding: 0.75rem 1rem;
           border-radius: 0.75rem;
-          border: 2px solid;
+          border: 2px solid var(--border);
           min-width: 6rem;
           text-align: center;
         }
@@ -649,7 +650,7 @@ export default function ProjectionCard({
         
         .progress-label {
           font-size: 0.875rem;
-          color: #64748b;
+          color: var(--text-secondary);
           font-weight: 600;
           display: block;
           margin-bottom: 0.5rem;
@@ -664,7 +665,7 @@ export default function ProjectionCard({
         .current-value {
           font-size: 1.25rem;
           font-weight: 700;
-          color: #1e293b;
+          color: var(--text-primary);
         }
         
         .divider {
@@ -674,7 +675,7 @@ export default function ProjectionCard({
         
         .target-value {
           font-size: 1rem;
-          color: #64748b;
+          color: var(--text-secondary);
           font-weight: 600;
         }
         
@@ -690,7 +691,7 @@ export default function ProjectionCard({
           align-items: center;
           gap: 0.5rem;
           font-size: 0.75rem;
-          color: #64748b;
+          color: var(--text-secondary);
           font-weight: 500;
         }
         
@@ -787,7 +788,7 @@ export default function ProjectionCard({
         
         .velocity-label {
           font-size: 0.75rem;
-          color: #64748b;
+          color: var(--text-secondary);
           font-weight: 600;
           white-space: nowrap;
         }
@@ -825,7 +826,7 @@ export default function ProjectionCard({
         
         .date-display {
           font-size: 0.75rem;
-          color: #94a3b8;
+          color: var(--text-secondary);
           font-weight: 500;
         }
         
@@ -888,14 +889,14 @@ export default function ProjectionCard({
         .metric-title {
           font-size: 0.875rem;
           font-weight: 600;
-          color: #374151;
+          color: var(--text-primary);
           display: block;
           margin-bottom: 0.25rem;
         }
         
         .metric-subtitle {
           font-size: 0.75rem;
-          color: #64748b;
+          color: var(--text-secondary);
           display: block;
         }
         
@@ -908,7 +909,7 @@ export default function ProjectionCard({
         .metric-value {
           font-size: 1.125rem;
           font-weight: 700;
-          color: #1e293b;
+          color: var(--text-primary);
         }
         
         .trend-indicator {
@@ -946,7 +947,7 @@ export default function ProjectionCard({
         .details-title {
           font-size: 1.125rem;
           font-weight: 700;
-          color: #1e293b;
+          color: var(--text-primary);
           margin: 0;
         }
         
@@ -975,7 +976,7 @@ export default function ProjectionCard({
           margin-bottom: 0.75rem;
           font-size: 0.875rem;
           font-weight: 600;
-          color: #64748b;
+          color: var(--text-secondary);
         }
         
         .detail-content {
@@ -999,7 +1000,7 @@ export default function ProjectionCard({
         
         .detail-subtitle {
           font-size: 0.875rem;
-          color: #64748b;
+          color: var(--text-secondary);
           font-weight: 500;
         }
         
@@ -1020,12 +1021,12 @@ export default function ProjectionCard({
         }
         
         .timeline-label {
-          color: #64748b;
+          color: var(--text-secondary);
         }
         
         .timeline-value {
           font-weight: 600;
-          color: #374151;
+          color: var(--text-primary);
         }
         
         .performance-metric {
@@ -1037,7 +1038,7 @@ export default function ProjectionCard({
         
         .perf-label {
           font-size: 0.875rem;
-          color: #64748b;
+          color: var(--text-secondary);
         }
         
         .perf-badge {
@@ -1213,7 +1214,6 @@ export default function ProjectionCard({
             width: 1.5rem;
             height: 1.5rem;
           }
-        }
         }
       `}</style>
     </div>

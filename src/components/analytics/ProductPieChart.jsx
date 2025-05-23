@@ -438,9 +438,9 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
       <style jsx>{`
         .product-pie-chart {
           position: relative;
-          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          background: linear-gradient(135deg, var(--card) 0%, var(--background) 100%);
           border-radius: 1rem;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          box-shadow: 0 4px 20px var(--shadow-pie, rgba(0, 0, 0, 0.08));
           overflow: hidden;
           transition: all 0.3s ease;
           height: 100%;
@@ -459,7 +459,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         }
         
         .product-pie-chart:hover {
-          box-shadow: 0 8px 35px rgba(0, 0, 0, 0.12);
+          box-shadow: 0 8px 35px var(--shadow-pie-hover, rgba(0, 0, 0, 0.12));
         }
         
         .product-pie-chart.empty {
@@ -476,11 +476,11 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
           width: 100%;
           height: 4px;
           background: linear-gradient(90deg, 
-            #6366f1 0%, 
-            #22c55e 25%, 
-            #fb923c 50%, 
-            #f87171 75%, 
-            #a855f7 100%);
+            var(--primary, #6366f1) 0%, 
+            var(--success, #22c55e) 25%, 
+            var(--warning, #fb923c) 50%, 
+            var(--danger, #f87171) 75%, 
+            var(--purple, #a855f7) 100%);
           z-index: 5;
         }
         
@@ -492,19 +492,19 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         .empty-icon {
           width: 4rem;
           height: 4rem;
-          color: #cbd5e1;
+          color: var(--text-muted, #cbd5e1);
           margin-bottom: 1rem;
         }
         
         .empty-title {
           font-size: 1.25rem;
           font-weight: 600;
-          color: #475569;
+          color: var(--text-secondary, #475569);
           margin: 0 0 0.5rem 0;
         }
         
         .empty-message {
-          color: #64748b;
+          color: var(--text-secondary, #64748b);
           margin: 0;
         }
         
@@ -532,14 +532,14 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         .title-icon {
           width: 1.5rem;
           height: 1.5rem;
-          color: #6366f1;
+          color: var(--primary, #6366f1);
           flex-shrink: 0;
         }
         
         .chart-title {
           font-size: 1.25rem;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--text-primary);
           margin: 0;
         }
         
@@ -548,7 +548,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
           align-items: center;
           gap: 0.5rem;
           font-size: 0.875rem;
-          color: #64748b;
+          color: var(--text-secondary);
         }
         
         .stat-item {
@@ -556,7 +556,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         }
         
         .stat-divider {
-          color: #cbd5e1;
+          color: var(--border, #cbd5e1);
         }
         
         .chart-controls {
@@ -574,7 +574,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         
         .control-label {
           font-size: 0.875rem;
-          color: #64748b;
+          color: var(--text-secondary);
           display: flex;
           align-items: center;
           gap: 0.25rem;
@@ -583,11 +583,11 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         .threshold-select,
         .sort-select {
           padding: 0.25rem 0.5rem;
-          border: 1px solid #d1d5db;
+          border: 1px solid var(--border);
           border-radius: 0.375rem;
           font-size: 0.875rem;
-          background-color: white;
-          color: #374151;
+          background-color: var(--card, white);
+          color: var(--text-primary);
         }
         
         .control-button {
@@ -596,17 +596,17 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
           justify-content: center;
           width: 2.25rem;
           height: 2.25rem;
-          background-color: #f8fafc;
-          border: 1px solid #e2e8f0;
+          background-color: var(--bg-secondary, #f8fafc);
+          border: 1px solid var(--border);
           border-radius: 0.5rem;
-          color: #64748b;
+          color: var(--text-secondary);
           cursor: pointer;
           transition: all 0.2s ease;
         }
         
         .control-button:hover {
-          background-color: #e2e8f0;
-          color: #374151;
+          background-color: var(--bg-hover, #e2e8f0);
+          color: var(--text-primary);
           transform: translateY(-1px);
         }
         
@@ -667,7 +667,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         
         .details-container {
           flex: 1;
-          background-color: #fafbfc;
+          background-color: var(--bg-secondary, #fafbfc);
           border-radius: 0.75rem;
           padding: 1.25rem;
           overflow: auto;
@@ -685,7 +685,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         .details-title {
           font-size: 1.125rem;
           font-weight: 600;
-          color: #1e293b;
+          color: var(--text-primary);
           margin: 0;
         }
         
@@ -697,7 +697,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         
         .sort-label {
           font-size: 0.875rem;
-          color: #64748b;
+          color: var(--text-secondary);
           display: flex;
           align-items: center;
           gap: 0.5rem;
@@ -708,8 +708,8 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
           max-height: 600px;
           overflow-y: auto;
           border-radius: 0.5rem;
-          border: 1px solid #e2e8f0;
-          background-color: white;
+          border: 1px solid var(--border);
+          background-color: var(--card, white);
         }
         
         .details-table {
@@ -721,24 +721,24 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         .details-table th {
           text-align: left;
           padding: 0.75rem 1rem;
-          background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-          color: #475569;
+          background: linear-gradient(135deg, var(--th-bg1, #f1f5f9) 0%, var(--th-bg2, #e2e8f0) 100%);
+          color: var(--text-primary);
           font-weight: 600;
-          border-bottom: 2px solid #d1d5db;
+          border-bottom: 2px solid var(--border-th, #d1d5db);
           white-space: nowrap;
         }
         
         .details-table td {
           padding: 0.75rem 1rem;
-          border-bottom: 1px solid #f1f5f9;
+          border-bottom: 1px solid var(--border-td, #f1f5f9);
         }
         
         .even-row {
-          background-color: #ffffff;
+          background-color: var(--row-even, #ffffff);
         }
         
         .odd-row {
-          background-color: #f8fafc;
+          background-color: var(--row-odd, #f8fafc);
         }
         
         .rank-column {
@@ -752,8 +752,8 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
           justify-content: center;
           width: 1.5rem;
           height: 1.5rem;
-          background-color: #e2e8f0;
-          color: #64748b;
+          background-color: var(--badge-bg, #e2e8f0);
+          color: var(--badge-text, #64748b);
           border-radius: 50%;
           font-weight: 600;
           font-size: 0.75rem;
@@ -777,7 +777,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         }
         
         .product-name {
-          color: #1e293b;
+          color: var(--text-primary);
           font-weight: 500;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -790,7 +790,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         }
         
         .value-amount {
-          color: #1e293b;
+          color: var(--text-primary);
           font-weight: 600;
         }
         
@@ -805,34 +805,25 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
           gap: 0.25rem;
         }
         
-        .percent-badge {
-          display: inline-block;
-          padding: 0.25rem 0.5rem;
-          border-radius: 0.375rem;
-          font-size: 0.75rem;
-          font-weight: 600;
-          text-align: center;
-        }
-        
         .percent-badge.top {
-          background-color: #dcfce7;
-          color: #166534;
+          background-color: var(--success-light, #dcfce7);
+          color: var(--success, #166534);
         }
         
         .percent-badge.good {
-          background-color: #dbeafe;
-          color: #1e40af;
+          background-color: var(--primary-light, #dbeafe);
+          color: var(--primary-dark, #1e40af);
         }
         
         .percent-badge.standard {
-          background-color: #f1f5f9;
-          color: #64748b;
+          background-color: var(--row-odd, #f1f5f9);
+          color: var(--text-secondary, #64748b);
         }
         
         .percent-bar {
           width: 100%;
           height: 0.25rem;
-          background-color: #f1f5f9;
+          background-color: var(--row-odd, #f1f5f9);
           border-radius: 0.125rem;
           overflow: hidden;
         }
@@ -848,43 +839,35 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
           text-align: center;
         }
         
-        .status-indicator {
-          display: inline-block;
-          padding: 0.25rem 0.5rem;
-          border-radius: 0.375rem;
-          font-size: 0.75rem;
-          font-weight: 500;
-        }
-        
         .status-indicator.excellent {
-          background-color: #dcfce7;
-          color: #166534;
+          background-color: var(--success-light, #dcfce7);
+          color: var(--success, #166534);
         }
         
         .status-indicator.good {
-          background-color: #dbeafe;
-          color: #1e40af;
+          background-color: var(--primary-light, #dbeafe);
+          color: var(--primary-dark, #1e40af);
         }
         
         .status-indicator.standard {
-          background-color: #f1f5f9;
-          color: #64748b;
+          background-color: var(--row-odd, #f1f5f9);
+          color: var(--text-secondary, #64748b);
         }
         
         .total-row {
-          background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+          background: linear-gradient(135deg, var(--th-bg1, #f1f5f9) 0%, var(--th-bg2, #e2e8f0) 100%);
           font-weight: 600;
         }
         
         .total-row td {
           border-bottom: none;
-          color: #1e293b;
-          border-top: 2px solid #d1d5db;
+          color: var(--text-primary);
+          border-top: 2px solid var(--border-th, #d1d5db);
         }
         
         .total-badge {
           display: inline-block;
-          background-color: #6366f1;
+          background-color: var(--primary, #6366f1);
           color: white;
           padding: 0.25rem 0.5rem;
           border-radius: 0.375rem;
@@ -895,7 +878,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
         .trend-icon {
           width: 1rem;
           height: 1rem;
-          color: #22c55e;
+          color: var(--success, #22c55e);
         }
         
         @media (max-width: 768px) {
@@ -970,6 +953,66 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
           .trend-column {
             display: none;
           }
+        }
+        
+        /* Light Mode Fallback */
+        :root {
+          --card: #fff;
+          --background: #f8fafc;
+          --bg-secondary: #fafbfc;
+          --bg-hover: #e2e8f0;
+          --text-primary: #1e293b;
+          --text-secondary: #64748b;
+          --text-muted: #cbd5e1;
+          --primary: #6366f1;
+          --primary-dark: #3730a3;
+          --primary-light: #dbeafe;
+          --success: #22c55e;
+          --success-light: #dcfce7;
+          --danger: #f87171;
+          --warning: #fb923c;
+          --purple: #a855f7;
+          --border: #e2e8f0;
+          --border-th: #d1d5db;
+          --border-td: #f1f5f9;
+          --row-even: #fff;
+          --row-odd: #f8fafc;
+          --badge-bg: #e2e8f0;
+          --badge-text: #64748b;
+          --th-bg1: #f1f5f9;
+          --th-bg2: #e2e8f0;
+          --shadow-pie: rgba(0,0,0,0.08);
+          --shadow-pie-hover: rgba(0,0,0,0.12);
+        }
+        
+        /* Dark Mode Styles */
+        .dark {
+          --card: #1e293b;
+          --background: #0f172a;
+          --bg-secondary: #1e293b;
+          --bg-hover: #334155;
+          --text-primary: #f1f5f9;
+          --text-secondary: #94a3b8;
+          --text-muted: #64748b;
+          --primary: #6366f1;
+          --primary-dark: #6366f1;
+          --primary-light: #312e81;
+          --success: #22c55e;
+          --success-light: #06402520;
+          --danger: #ef4444;
+          --warning: #fb923c;
+          --purple: #a855f7;
+          --border: #334155;
+          --border-th: #334155;
+          --border-td: #1e293b;
+          --row-even: #1e293b;
+          --row-odd: #0f172a;
+          --badge-bg: #334155;
+          --badge-text: #94a3b8;
+          --th-bg1: #1e293b;
+          --th-bg2: #334155;
+          --shadow-pie: rgba(0,0,0,0.18);
+          --shadow-pie-hover: rgba(0,0,0,0.28);
         }
       `}</style>
     </div>

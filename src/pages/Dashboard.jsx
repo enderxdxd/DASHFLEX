@@ -151,9 +151,9 @@ const Dashboard = () => {
   if (!unidade) return <div>Redirecionando...</div>;
   if (loading) {
     return (
-      <div className="loading-container">
+      <div className="loading-center">
         <Loading3D size={120} />
-        
+        <p>Carregando...</p>
       </div>
     );
   }
@@ -348,14 +348,18 @@ const Dashboard = () => {
           background-color: var(--danger-light, #fee2e2); 
           color: var(--danger, #ef4444); 
         }
-        .loading-container { 
-          display: flex; 
-          flex-direction: column; 
-          align-items: center; 
-          justify-content: center; 
-          height: 100vh; 
-          gap: 1rem; 
-          color: var(--text-primary, #1e293b);
+        .loading-center {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          width: 100vw;
+          flex-direction: column;
+          position: fixed;
+          top: 0;
+          left: 0;
+          background: var(--bg-primary, #f8fafc);
+          z-index: 9999;
         }
         .loading-spinner { 
           width: 40px; 

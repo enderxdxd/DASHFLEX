@@ -143,7 +143,16 @@ export default function AnalyticsPage() {
   }, [loadingVendas, loadingMetas, loadingConfig, errorVendas, errorMetas, errorConfig]);
 
   if (!unidade) return <Navigate to="/" replace />;
-  if (isLoading)  return <Loading3D />;
+  if (isLoading)  return (
+    <div className="app-container">
+      <NavBar />
+      <div className="main-content">
+        <div className="loading-center">
+          <Loading3D size={180} />
+        </div>
+      </div>
+    </div>
+  );
   if (error)      return <div>Erro: {error}</div>;
 
   // Prepara dados para o gráfico de linha
@@ -234,9 +243,8 @@ const applyFilters = (filters) => {
       <div className="app-container">
         <NavBar />
         <div className="main-content">
-          <div className="loading-state">
+          <div className="loading-center">
             <Loading3D size={180} />
-            
           </div>
         </div>
       </div>
@@ -367,6 +375,12 @@ const applyFilters = (filters) => {
               
               <div className="header-controls">
                 <div className="tab-selector">
+                <button 
+                    onClick={() => setActiveTab('dashboard')} 
+                    className={`tab-button ${activeTab === 'dashboard' ? 'active' : ''}`}
+                  >
+                    Dashboard
+                  </button>
                   
                   <button 
                     onClick={() => setActiveTab('detalhes')} 
@@ -374,6 +388,7 @@ const applyFilters = (filters) => {
                   >
                     Detalhes
                   </button>
+                  
                 </div>
                 
                 <div className="month-selector-desktop">
@@ -1449,6 +1464,20 @@ const applyFilters = (filters) => {
           --badge-pending-bg: #fde04720;
           --badge-pending-text: #fde047;
           --badge-pending-border: #fde047;
+        }
+
+        .loading-center {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          width: 100vw;
+          flex-direction: column;
+          position: fixed;
+          top: 0;
+          left: 0;
+          background: var(--bg-primary, #f8fafc);
+          z-index: 9999;
         }
       `}</style>
     </div>

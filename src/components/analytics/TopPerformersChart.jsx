@@ -1,12 +1,104 @@
-import React from 'react';
+
+import React, { useMemo, useEffect, useState } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { Trophy, User, ArrowRight } from 'lucide-react';
 
 export default function TopPerformersChart({ data }) {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Detecta o tema atual
+  useEffect(() => {
+    const checkTheme = () => {
+      const isDark = 
+        document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setIsDarkMode(isDark);
+    };
+
+    // Verifica inicial
+    checkTheme();
+
+    // Observer para mudanças na classe dark
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme']
+    });
+
+    // Listener para mudanças no sistema
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', checkTheme);
+
+    return () => {
+      observer.disconnect();
+      mediaQuery.removeEventListener('change', checkTheme);
+    };
+  }, []);
+
+  // Tema de cores baseado no modo
+  const theme = useMemo(() => {
+    if (isDarkMode) {
+      return {
+        // Cores das barras
+        topPerformer: {
+          background: 'rgba(250, 204, 21, 0.8)', // Dourado mais claro
+          border: 'rgba(245, 158, 11, 1)',
+          text: '#fbbf24'
+        },
+        regular: {
+          background: 'rgba(96, 165, 250, 0.7)', // Azul mais claro
+          border: 'rgba(96, 165, 250, 1)',
+          text: '#60a5fa'
+        },
+        // Interface
+        tooltip: {
+          background: '#1e293b',
+          border: '#60a5fa',
+          text: '#f1f5f9'
+        },
+        grid: 'rgba(71, 85, 105, 0.6)', // Grid mais escuro
+        axis: {
+          text: '#94a3b8', // Texto dos eixos mais claro
+          textBold: '#fbbf24' // Texto bold (top performer)
+        },
+        label: '#e2e8f0', // Labels nas barras
+        emptyState: '#94a3b8'
+      };
+    } else {
+      return {
+        // Cores das barras
+        topPerformer: {
+          background: 'rgba(234, 179, 8, 0.85)',
+          border: 'rgba(202, 138, 4, 1)',
+          text: '#ca8a04'
+        },
+        regular: {
+          background: 'rgba(59, 130, 246, 0.7)',
+          border: 'rgba(59, 130, 246, 1)',
+          text: '#3b82f6'
+        },
+        // Interface
+        tooltip: {
+          background: '#312e81',
+          border: '#6366f1',
+          text: '#ffffff'
+        },
+        grid: 'rgba(226, 232, 240, 0.6)',
+        axis: {
+          text: '#64748b',
+          textBold: '#ca8a04'
+        },
+        label: '#334155',
+        emptyState: '#64748b'
+      };
+    }
+  }, [isDarkMode]);
+
   // Formata moeda brasileira
   const formatMoney = (value) => {
-    return new Intl.NumberFormat('pt-BR', { 
-      style: 'currency', 
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
       currency: 'BRL',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
@@ -14,25 +106,34 @@ export default function TopPerformersChart({ data }) {
   };
 
   if (!data || data.length === 0) {
-    return <div style={{ padding: '2rem', color: '#64748b', textAlign: 'center' }}>Sem dados para exibir.</div>;
+    return (
+      <div style={{ 
+        padding: '2rem', 
+        color: theme.emptyState, 
+        textAlign: 'center',
+        fontStyle: 'italic'
+      }}>
+        Sem dados para exibir.
+      </div>
+    );
   }
 
   const labels = data.map(d => d.nome);
   const totals = data.map(d => d.total);
 
-  // Cores: top 1 dourado, demais azul claro
+  // Cores dinâmicas baseadas no tema
   const backgroundColors = totals.map((_, index) =>
-    index === 0 ? 'rgba(234, 179, 8, 0.85)' : 'rgba(59, 130, 246, 0.7)'
+    index === 0 ? theme.topPerformer.background : theme.regular.background
   );
   const borderColors = totals.map((_, index) =>
-    index === 0 ? 'rgba(202, 138, 4, 1)' : 'rgba(59, 130, 246, 1)'
+    index === 0 ? theme.topPerformer.border : theme.regular.border
   );
 
   // Valor máximo para ticks
   const maxValue = Math.max(...totals);
   const tickStep = Math.ceil(maxValue / 4 / 1000) * 1000;
 
-  // Chart options
+  // Chart options com cores dinâmicas
   const chartOptions = {
     indexAxis: 'y',
     responsive: true,
@@ -44,17 +145,19 @@ export default function TopPerformersChart({ data }) {
         callbacks: {
           label: (ctx) => `${ctx.label}: ${formatMoney(ctx.parsed.x)}`
         },
-        backgroundColor: '#312e81',
-        titleColor: '#fff',
-        bodyColor: '#fff',
-        borderColor: '#6366f1',
+        backgroundColor: theme.tooltip.background,
+        titleColor: theme.tooltip.text,
+        bodyColor: theme.tooltip.text,
+        borderColor: theme.tooltip.border,
         borderWidth: 1,
         padding: 10,
-        caretSize: 6
+        caretSize: 6,
+        cornerRadius: 8,
+        displayColors: false
       },
       datalabels: {
         display: true,
-        color: '#334155',
+        color: theme.label,
         anchor: 'end',
         align: 'end',
         font: { weight: 'bold', size: 12 },
@@ -63,7 +166,11 @@ export default function TopPerformersChart({ data }) {
     },
     scales: {
       x: {
-        grid: { color: 'rgba(226, 232, 240, 0.6)', drawBorder: false },
+        grid: { 
+          color: theme.grid, 
+          drawBorder: false,
+          lineWidth: 1
+        },
         ticks: {
           callback: v => {
             if (v >= 1000000) return `R$ ${(v/1000000).toFixed(1)}M`;
@@ -71,42 +178,96 @@ export default function TopPerformersChart({ data }) {
             if (v >= 100) return `R$ ${v}`;
             return `R$ ${v}`;
           },
-          font: { family: 'Inter, Helvetica, Arial, sans-serif', size: 10 },
-          color: '#64748b',
+          font: { 
+            family: 'Inter, Helvetica, Arial, sans-serif', 
+            size: 10 
+          },
+          color: theme.axis.text,
           padding: 4,
           autoSkip: true,
           maxTicksLimit: 4,
           maxRotation: 0,
           minRotation: 0
         },
-        max: Math.ceil(maxValue / tickStep) * tickStep
+        max: Math.ceil(maxValue / tickStep) * tickStep,
+        border: {
+          display: false
+        }
       },
       y: {
         grid: { display: false, drawBorder: false },
         ticks: {
           padding: 10,
-          font: { family: 'Inter, Helvetica, Arial, sans-serif', size: 13, weight: ctx => ctx.index === 0 ? 'bold' : 'normal' },
-          color: ctx => ctx.index === 0 ? '#ca8a04' : '#334155'
+          font: { 
+            family: 'Inter, Helvetica, Arial, sans-serif', 
+            size: 13, 
+            weight: ctx => ctx.index === 0 ? 'bold' : 'normal' 
+          },
+          color: ctx => ctx.index === 0 ? theme.axis.textBold : theme.axis.text
+        },
+        border: {
+          display: false
         }
       }
+    },
+    animation: {
+      duration: 1000,
+      easing: 'easeInOutQuart'
     }
   };
 
-  // Adiciona labels de valor ao final das barras
+  // Plugin para labels customizados nas barras
   const plugins = [{
     afterDatasetsDraw: chart => {
-      const { ctx, chartArea: area } = chart;
+      const { ctx } = chart;
       chart.getDatasetMeta(0).data.forEach((bar, i) => {
         ctx.save();
         ctx.font = 'bold 12px Inter, Helvetica, Arial, sans-serif';
-        ctx.fillStyle = '#334155';
+        ctx.fillStyle = theme.label;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(formatMoney(totals[i]), bar.x + 8, bar.y);
+        
+        // Adiciona um pequeno espaçamento
+        const text = formatMoney(totals[i]);
+        const padding = 8;
+        
+        // Desenha um fundo sutil para melhor legibilidade
+        const textWidth = ctx.measureText(text).width;
+        const textHeight = 16;
+        
+        ctx.globalAlpha = isDarkMode ? 0.2 : 0.1;
+        ctx.fillStyle = isDarkMode ? '#ffffff' : '#000000';
+        ctx.fillRect(
+          bar.x + padding - 4, 
+          bar.y - textHeight/2, 
+          textWidth + 8, 
+          textHeight
+        );
+        
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = theme.label;
+        ctx.fillText(text, bar.x + padding, bar.y);
         ctx.restore();
       });
     }
   }];
+
+  // Dados do gráfico
+  const chartData = {
+    labels,
+    datasets: [{
+      data: totals,
+      backgroundColor: backgroundColors,
+      borderColor: borderColors,
+      borderWidth: 2,
+      borderRadius: 6,
+      borderSkipped: false,
+      hoverBackgroundColor: backgroundColors.map(color => 
+        color.replace(/[\d.]+\)$/g, '0.9)')
+      ),
+      hoverBorderWidth: 3
+    }]
+  };
 
   return (
     <div className="top-performers-chart">
@@ -170,7 +331,7 @@ export default function TopPerformersChart({ data }) {
     --chart-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.5);
     /* Gradient can stay the same or be tweaked if needed */
     --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
+    --text-secondary:rgb(255, 255, 255);
     --icon-color: #fde047;
     --footer-border: #334155;
     --link-color: #93c5fd;

@@ -7,7 +7,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import dayjs from "dayjs";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
@@ -29,6 +29,127 @@ const PerformanceChart = ({
   setChartTimeRange,
   selectedMonth = dayjs().format("YYYY-MM")
 }) => {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Detecta o tema atual
+  useEffect(() => {
+    const checkTheme = () => {
+      const isDark = 
+        document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setIsDarkMode(isDark);
+    };
+
+    // Verifica inicial
+    checkTheme();
+
+    // Observer para mudanças na classe dark
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme']
+    });
+
+    // Listener para mudanças no sistema
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', checkTheme);
+
+    return () => {
+      observer.disconnect();
+      mediaQuery.removeEventListener('change', checkTheme);
+    };
+  }, []);
+
+  // Tema de cores baseado no modo
+  const theme = useMemo(() => {
+    if (isDarkMode) {
+      return {
+        // Cores principais
+        primary: '#f1f5f9',
+        secondary: '#e2e8f0',
+        muted: '#94a3b8',
+        background: '#1e293b',
+        surface: '#334155',
+        border: '#475569',
+        
+        // Tooltip
+        tooltip: {
+          background: 'rgba(30, 41, 59, 0.95)',
+          title: '#f1f5f9',
+          body: '#e2e8f0',
+          border: 'rgba(71, 85, 105, 0.8)'
+        },
+        
+        // Grid e eixos
+        grid: 'rgba(71, 85, 105, 0.5)',
+        axis: {
+          text: '#94a3b8',
+          title: '#cbd5e1'
+        },
+        
+        // Labels nas barras
+        valueLabel: '#cbd5e1',
+        
+        // Paleta de cores vibrantes para dark mode
+        barColors: [
+          'rgba(129, 140, 248, 0.9)',  // Indigo claro
+          'rgba(56, 189, 248, 0.9)',   // Sky claro
+          'rgba(251, 146, 60, 0.9)',   // Orange claro
+          'rgba(52, 211, 153, 0.9)',   // Emerald claro
+          'rgba(196, 181, 253, 0.9)',  // Purple claro
+          'rgba(248, 113, 113, 0.9)',  // Red claro
+          'rgba(74, 222, 128, 0.9)',   // Green claro
+          'rgba(252, 211, 77, 0.9)',   // Amber claro
+          'rgba(96, 165, 250, 0.9)',   // Blue claro
+          'rgba(244, 114, 182, 0.9)',  // Pink claro
+        ]
+      };
+    } else {
+      return {
+        // Cores principais
+        primary: '#1e293b',
+        secondary: '#334155',
+        muted: '#64748b',
+        background: '#ffffff',
+        surface: '#f8fafc',
+        border: '#e2e8f0',
+        
+        // Tooltip
+        tooltip: {
+          background: 'rgba(255, 255, 255, 0.95)',
+          title: '#1e293b',
+          body: '#334155',
+          border: 'rgba(226, 232, 240, 0.8)'
+        },
+        
+        // Grid e eixos
+        grid: 'rgba(226, 232, 240, 0.5)',
+        axis: {
+          text: '#64748b',
+          title: '#64748b'
+        },
+        
+        // Labels nas barras
+        valueLabel: '#475569',
+        
+        // Paleta de cores original
+        barColors: [
+          'rgba(99, 102, 241, 0.9)',  // Indigo
+          'rgba(14, 165, 233, 0.9)',  // Sky
+          'rgba(234, 88, 12, 0.9)',   // Orange
+          'rgba(5, 150, 105, 0.9)',   // Emerald
+          'rgba(168, 85, 247, 0.9)',  // Purple
+          'rgba(239, 68, 68, 0.9)',   // Red
+          'rgba(16, 185, 129, 0.9)',  // Green
+          'rgba(245, 158, 11, 0.9)',  // Amber
+          'rgba(59, 130, 246, 0.9)',  // Blue
+          'rgba(236, 72, 153, 0.9)',  // Pink
+        ]
+      };
+    }
+  }, [isDarkMode]);
+
   // Define bases de comparação a partir do selectedMonth
   const baseWeekDate = dayjs(`${selectedMonth}-01`);
   const baseMonthStr = baseWeekDate.format("YYYY-MM");
@@ -69,29 +190,11 @@ const PerformanceChart = ({
     return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;
   };
 
-  // Cria uma paleta de cores para as barras
-  const getBarColors = () => {
-    return [
-      'rgba(99, 102, 241, 0.9)',  // Indigo
-      'rgba(14, 165, 233, 0.9)',  // Sky
-      'rgba(234, 88, 12, 0.9)',   // Orange
-      'rgba(5, 150, 105, 0.9)',   // Emerald
-      'rgba(168, 85, 247, 0.9)',  // Purple
-      'rgba(239, 68, 68, 0.9)',   // Red
-      'rgba(16, 185, 129, 0.9)',  // Green
-      'rgba(245, 158, 11, 0.9)',  // Amber
-      'rgba(59, 130, 246, 0.9)',  // Blue
-      'rgba(236, 72, 153, 0.9)',  // Pink
-    ];
-  };
-
   // Prepara dados para ChartJS
   const chartData = useMemo(() => {
     const sortedKeys = Object.keys(somaPorResponsavel).sort((a, b) => 
       somaPorResponsavel[b] - somaPorResponsavel[a]
     );
-    
-    const colors = getBarColors();
     
     return {
       labels: sortedKeys.map(nome => truncateName(nome)),
@@ -99,14 +202,19 @@ const PerformanceChart = ({
         {
           label: "Valor Total (R$)",
           data: sortedKeys.map(key => somaPorResponsavel[key]),
-          backgroundColor: sortedKeys.map((_, index) => colors[index % colors.length]),
+          backgroundColor: sortedKeys.map((_, index) => 
+            theme.barColors[index % theme.barColors.length]
+          ),
           borderWidth: 0,
           borderRadius: 6,
           maxBarThickness: 40,
+          hoverBackgroundColor: sortedKeys.map((_, index) => 
+            theme.barColors[index % theme.barColors.length].replace('0.9)', '1)')
+          ),
         },
       ],
     };
-  }, [somaPorResponsavel]);
+  }, [somaPorResponsavel, theme.barColors]);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
@@ -125,13 +233,14 @@ const PerformanceChart = ({
           font: { 
             size: 12,
             weight: '500',
-          } 
+          },
+          color: theme.secondary
         } 
       },
       tooltip: {
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        titleColor: '#1e293b',
-        bodyColor: '#334155',
+        backgroundColor: theme.tooltip.background,
+        titleColor: theme.tooltip.title,
+        bodyColor: theme.tooltip.body,
         bodyFont: {
           size: 13,
         },
@@ -140,9 +249,11 @@ const PerformanceChart = ({
           weight: '600',
         },
         padding: 12,
-        borderColor: 'rgba(226, 232, 240, 0.8)',
+        borderColor: theme.tooltip.border,
         borderWidth: 1,
         displayColors: false,
+        cornerRadius: 8,
+        caretPadding: 8,
         callbacks: {
           label: (context) => {
             const value = context.raw;
@@ -164,7 +275,7 @@ const PerformanceChart = ({
       y: {
         beginAtZero: true,
         grid: {
-          color: 'rgba(226, 232, 240, 0.5)',
+          color: theme.grid,
           drawBorder: false,
         },
         border: {
@@ -173,7 +284,7 @@ const PerformanceChart = ({
         title: {
           display: true,
           text: 'Valor Total (R$)',
-          color: '#64748b',
+          color: theme.axis.title,
           font: {
             size: 12,
             weight: '500',
@@ -184,7 +295,7 @@ const PerformanceChart = ({
         },
         ticks: {
           padding: 10,
-          color: '#64748b',
+          color: theme.axis.text,
           font: {
             size: 11,
           },
@@ -205,7 +316,7 @@ const PerformanceChart = ({
         },
         ticks: { 
           padding: 8,
-          color: '#64748b',
+          color: theme.axis.text,
           font: { 
             size: 11,
             weight: '500',
@@ -232,7 +343,7 @@ const PerformanceChart = ({
       afterDatasetsDraw(chart) {
         const { ctx, data, chartArea: { top }, scales: { x, y } } = chart;
         
-        ctx.font = '500 11px Arial, sans-serif';
+        ctx.font = '500 11px Inter, Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         
@@ -246,13 +357,27 @@ const PerformanceChart = ({
           else if (value >= 1e3) formattedValue = `R$ ${(value/1e3).toFixed(1)}K`;
           else formattedValue = `R$ ${value.toFixed(0)}`;
           
+          // Desenha fundo sutil para melhor legibilidade
+          const textWidth = ctx.measureText(formattedValue).width;
+          const textHeight = 14;
+          
+          ctx.globalAlpha = isDarkMode ? 0.3 : 0.1;
+          ctx.fillStyle = isDarkMode ? '#ffffff' : '#000000';
+          ctx.fillRect(
+            xPos - textWidth/2 - 4, 
+            yPos - textHeight - 6, 
+            textWidth + 8, 
+            textHeight
+          );
+          
           // Desenha o texto
-          ctx.fillStyle = '#475569';
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = theme.valueLabel;
           ctx.fillText(formattedValue, xPos, yPos - 10);
         });
       }
     }]
-  }), [somaPorResponsavel, chartData.labels]);
+  }), [somaPorResponsavel, chartData.labels, theme, isDarkMode]);
 
   // Determina título baseado no período
   const getPeriodTitle = () => {
@@ -269,6 +394,26 @@ const PerformanceChart = ({
     }
   };
 
+  // Se não há dados
+  if (!filteredVendas || filteredVendas.length === 0) {
+    return (
+      <div style={{
+        padding: '2rem',
+        textAlign: 'center',
+        color: theme.muted,
+        backgroundColor: theme.background,
+        borderRadius: '8px',
+        border: `1px solid ${theme.border}`
+      }}>
+        <p style={{ fontSize: '1rem', margin: '0 0 0.5rem 0' }}>
+          📊 Nenhuma venda encontrada
+        </p>
+        <p style={{ fontSize: '0.875rem', margin: 0 }}>
+          Ajuste os filtros para visualizar os dados
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="chart-section">
       <div className="chart-header">

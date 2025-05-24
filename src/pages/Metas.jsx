@@ -692,30 +692,93 @@ export default function Metas() {
         </section>  
       </main>
   
-<style jsx>{`
-    /* Base Styles & Variables */
+      <style jsx>{`
+  /* Light Mode Default Values */
   :root {
     --primary-color: #3b82f6;
     --primary-hover: #2563eb;
+    --primary-light: #dbeafe;
+    --primary-lighter: #eff6ff;
     --accent-color: #10b981;
+    --accent-light: #d1fae5;
     --error-color: #ef4444;
+    --error-light: #fef2f2;
+    --error-lighter: #fee2e2;
     --success-color: #10b981;
+    --success-light: #d1fae5;
+    --success-lighter: #ecfdf5;
     --text-color: #1e293b;
+    --text-secondary: #4b5563;
     --text-light: #64748b;
+    --text-muted: #9ca3af;
+    --text-placeholder: #9ca3af;
+    --text-currency: #6b7280;
     --border-color: #e2e8f0;
+    --border-input: #e5e7eb;
+    --border-hover: #cbd5e1;
+    --border-focus: #6366f1;
     --bg-color: #f8fafc;
+    --bg-secondary: #f9fafb;
+    --bg-hover: #f1f5f9;
     --card-bg: #ffffff;
+    --input-bg: #f9fafb;
+    --input-focus-bg: #ffffff;
+    --table-hover: rgba(0, 0, 0, 0.01);
     --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    --shadow-light: 0 2px 4px rgba(0, 0, 0, 0.05);
+    --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    --shadow-focus-strong: 0 0 0 3px rgba(99, 102, 241, 0.3);
     --radius: 8px;
     --transition: all 0.3s ease;
     --header-height: 72px;
   }
+
+  /* Manual Dark Mode Classes */
+  .dark,
+  [data-theme="dark"] {
+    --primary-color: #60a5fa;
+    --primary-hover: #3b82f6;
+    --primary-light: rgba(96, 165, 250, 0.1);
+    --primary-lighter: rgba(96, 165, 250, 0.05);
+    --accent-color: #34d399;
+    --accent-light: rgba(52, 211, 153, 0.1);
+    --error-color: #f87171;
+    --error-light: rgba(248, 113, 113, 0.1);
+    --error-lighter: rgba(248, 113, 113, 0.05);
+    --success-color: #34d399;
+    --success-light: rgba(52, 211, 153, 0.1);
+    --success-lighter: rgba(52, 211, 153, 0.05);
+    --text-color: #f1f5f9;
+    --text-secondary: #e2e8f0;
+    --text-light: #94a3b8;
+    --text-muted: #64748b;
+    --text-placeholder: #64748b;
+    --text-currency: #94a3b8;
+    --border-color: #374151;
+    --border-input: #4b5563;
+    --border-hover: #6b7280;
+    --border-focus: #60a5fa;
+    --bg-color: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-hover: #334155;
+    --card-bg: #1e293b;
+    --input-bg: #334155;
+    --input-focus-bg: #475569;
+    --table-hover: rgba(255, 255, 255, 0.02);
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    --shadow-light: 0 2px 4px rgba(0, 0, 0, 0.2);
+    --shadow-focus: 0 0 0 3px rgba(96, 165, 250, 0.2);
+    --shadow-focus-strong: 0 0 0 3px rgba(96, 165, 250, 0.4);
+  }
+
+  /* Base Styles */
   .metas-layout {
     display: flex;
     margin-left: 140px;
     min-height: 100vh;
-    background-color: #f8fafc;
+    background-color: var(--bg-color);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    transition: var(--transition);
   }
     
   * {
@@ -729,6 +792,7 @@ export default function Metas() {
     background-color: var(--bg-color);
     color: var(--text-color);
     line-height: 1.5;
+    transition: var(--transition);
   }
 
   /* Layout Structure */
@@ -752,6 +816,8 @@ export default function Metas() {
     box-shadow: var(--shadow);
     padding: 2rem;
     margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
   }
 
   .header-content h1 {
@@ -772,15 +838,15 @@ export default function Metas() {
     border-radius: 2px;
   }
 
-  
-
   /* Form Styles */
   .meta-form {
-    background: white;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     padding: 1.5rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-light);
     margin-bottom: 2rem;
+    transition: var(--transition);
   }
 
   .form-group {
@@ -803,29 +869,33 @@ export default function Metas() {
   .input-group label {
     font-size: 0.875rem;
     font-weight: 500;
-    color: #4B5563;
+    color: var(--text-secondary);
   }
 
   .modern-input {
     width: 100%;
     padding: 0.75rem 1rem;
-    border: 1px solid #E5E7EB;
+    border: 1px solid var(--border-input);
     border-radius: 8px;
     font-size: 0.875rem;
-    color: #1F2937;
-    background-color: #F9FAFB;
-    transition: all 0.2s ease;
+    color: var(--text-color);
+    background-color: var(--input-bg);
+    transition: var(--transition);
   }
 
   .modern-input:focus {
     outline: none;
-    border-color: #6366F1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-    background-color: white;
+    border-color: var(--border-focus);
+    box-shadow: var(--shadow-focus);
+    background-color: var(--input-focus-bg);
+  }
+
+  .modern-input:hover {
+    border-color: var(--border-hover);
   }
 
   .modern-input::placeholder {
-    color: #9CA3AF;
+    color: var(--text-placeholder);
   }
 
   .currency-input-wrapper {
@@ -837,8 +907,9 @@ export default function Metas() {
   .currency-symbol {
     position: absolute;
     left: 1rem;
-    color: #6B7280;
+    color: var(--text-currency);
     font-size: 0.875rem;
+    z-index: 1;
   }
 
   .currency-input-wrapper input {
@@ -848,23 +919,28 @@ export default function Metas() {
   .submit-button {
     width: 100%;
     padding: 0.75rem 1.5rem;
-    background-color: #6366F1;
+    background-color: var(--primary-color);
     color: white;
     border: none;
     border-radius: 8px;
     font-weight: 500;
     font-size: 0.875rem;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: var(--transition);
   }
 
   .submit-button:hover {
-    background-color: #4F46E5;
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
   }
 
   .submit-button:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+    box-shadow: var(--shadow-focus-strong);
+  }
+
+  .submit-button:active {
+    transform: translateY(0);
   }
 
   @media (max-width: 640px) {
@@ -885,18 +961,21 @@ export default function Metas() {
     padding: 12px 16px;
     border-radius: var(--radius);
     margin: 1rem 0;
+    transition: var(--transition);
   }
 
   .alert.error {
-    background-color: rgba(239, 68, 68, 0.1);
+    background-color: var(--error-light);
     color: var(--error-color);
     border-left: 4px solid var(--error-color);
+    border: 1px solid var(--error-color);
   }
 
   .alert.success {
-    background-color: rgba(16, 185, 129, 0.1);
+    background-color: var(--success-light);
     color: var(--success-color);
     border-left: 4px solid var(--success-color);
+    border: 1px solid var(--success-color);
   }
 
   .alert-icon {
@@ -918,14 +997,16 @@ export default function Metas() {
     font-size: 1.25rem;
     font-weight: 600;
     margin-right: auto;
+    color: var(--text-color);
   }
 
   .total-metas {
     color: var(--text-light);
     font-size: 14px;
-    background-color: var(--bg-color);
+    background-color: var(--bg-secondary);
     padding: 4px 12px;
     border-radius: 50px;
+    border: 1px solid var(--border-color);
   }
 
   .metas-list {
@@ -934,6 +1015,8 @@ export default function Metas() {
     box-shadow: var(--shadow);
     padding: 2rem;
     margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
   }
 
   .month-filter {
@@ -966,7 +1049,7 @@ export default function Metas() {
   }
 
   .data-table th {
-    background-color: var(--bg-color);
+    background-color: var(--bg-secondary);
     font-weight: 600;
     font-size: 14px;
     color: var(--text-light);
@@ -977,7 +1060,11 @@ export default function Metas() {
   }
 
   .data-table tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.01);
+    background-color: var(--table-hover);
+  }
+
+  .data-table tbody tr {
+    transition: var(--transition);
   }
 
   /* Action buttons */
@@ -1002,30 +1089,33 @@ export default function Metas() {
   }
 
   .edit-button {
-    background-color: rgba(59, 130, 246, 0.1);
+    background-color: var(--primary-light);
     color: var(--primary-color);
   }
 
   .edit-button:hover {
-    background-color: rgba(59, 130, 246, 0.2);
+    background-color: var(--primary-lighter);
+    transform: scale(1.05);
   }
 
   .delete-button {
-    background-color: rgba(239, 68, 68, 0.1);
+    background-color: var(--error-light);
     color: var(--error-color);
   }
 
   .delete-button:hover {
-    background-color: rgba(239, 68, 68, 0.2);
+    background-color: var(--error-lighter);
+    transform: scale(1.05);
   }
 
   .success-button {
-    background-color: rgba(16, 185, 129, 0.1);
+    background-color: var(--success-light);
     color: var(--success-color);
   }
 
   .success-button:hover {
-    background-color: rgba(16, 185, 129, 0.2);
+    background-color: var(--success-lighter);
+    transform: scale(1.05);
   }
 
   .cancel-button {
@@ -1035,10 +1125,13 @@ export default function Metas() {
 
   .cancel-button:hover {
     background-color: rgba(100, 116, 139, 0.2);
+    transform: scale(1.05);
   }
 
   .edit-button svg,
-  .delete-button svg {
+  .delete-button svg,
+  .success-button svg,
+  .cancel-button svg {
     width: 16px;
     height: 16px;
     fill: currentColor;
@@ -1056,13 +1149,15 @@ export default function Metas() {
     box-shadow: var(--shadow);
     padding: 2rem;
     margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
   }
 
   .toggle-product-filter {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: none;
+    background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
     padding: 8px 16px;
@@ -1074,8 +1169,10 @@ export default function Metas() {
   }
 
   .toggle-product-filter:hover {
-    background-color: var(--bg-color);
+    background-color: var(--bg-hover);
     color: var(--text-color);
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
   }
 
   .filter-icon {
@@ -1098,11 +1195,13 @@ export default function Metas() {
     overflow: hidden;
     cursor: pointer;
     transition: var(--transition);
+    background: var(--card-bg);
   }
 
   .product-card:hover {
     border-color: var(--primary-color);
     transform: translateY(-2px);
+    box-shadow: var(--shadow);
   }
 
   .product-card input[type="checkbox"] {
@@ -1127,6 +1226,7 @@ export default function Metas() {
     align-items: center;
     justify-content: center;
     transition: var(--transition);
+    background: var(--card-bg);
   }
 
   .checkmark svg {
@@ -1153,6 +1253,8 @@ export default function Metas() {
     box-shadow: var(--shadow);
     padding: 2rem;
     margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+    transition: var(--transition);
   }
 
   .chart-wrapper {
@@ -1163,6 +1265,7 @@ export default function Metas() {
   .chart-legend {
     display: flex;
     gap: 1.5rem;
+    flex-wrap: wrap;
   }
 
   .legend-item {
@@ -1200,6 +1303,52 @@ export default function Metas() {
     gap: 8px;
     font-size: 14px;
     cursor: pointer;
+    color: var(--text-color);
+  }
+
+  /* Select Elements */
+  select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-input);
+    border-radius: var(--radius);
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: var(--transition);
+    appearance: none;
+  }
+
+  select:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: var(--shadow-focus);
+    background-color: var(--input-focus-bg);
+  }
+
+  select:hover {
+    border-color: var(--border-hover);
+  }
+
+  /* Accessibility improvements */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+      transform: none !important;
+    }
+  }
+
+  /* Focus states for accessibility */
+  .toggle-product-filter:focus,
+  .product-card:focus,
+  .edit-button:focus,
+  .delete-button:focus,
+  .success-button:focus,
+  .cancel-button:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
   }
 
   /* Responsive adjustments */
@@ -1237,6 +1386,12 @@ export default function Metas() {
     .chart-legend {
       margin-top: 0.5rem;
     }
+
+    .data-table th,
+    .data-table td {
+      padding: 8px 12px;
+      font-size: 14px;
+    }
   }
 
   @media (max-width: 480px) {
@@ -1251,11 +1406,46 @@ export default function Metas() {
     .chart-wrapper {
       height: 250px;
     }
-  }
-  
-}
 
-      `}</style>
+    .metas-header,
+    .metas-list,
+    .product-filter-section,
+    .chart-section,
+    .meta-form {
+      padding: 1rem;
+    }
+
+    .chart-legend {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+
+  /* Print styles */
+  @media print {
+    .metas-layout {
+      margin-left: 0;
+      background: white;
+    }
+
+    .metas-header,
+    .metas-list,
+    .product-filter-section,
+    .chart-section,
+    .meta-form {
+      box-shadow: none;
+      border: 1px solid #ccc;
+      background: white;
+    }
+
+    .edit-button,
+    .delete-button,
+    .success-button,
+    .cancel-button {
+      display: none;
+    }
+  }
+}`}</style>
     </div>
   );
  }

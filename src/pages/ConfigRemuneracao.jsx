@@ -52,28 +52,7 @@ const ConfigRemuneracao = () => {
     }
   }, [unidade, selectedMonth]);
 
-  const loadConfig = async () => {
-    try {
-      setLoading(true);
-      const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", `premiacao-${selectedMonth}`);
-      const snap = await getDoc(ref);
-      if (snap.exists()) {
-        const data = snap.data();
-        setMetaUnidade(data.metaUnidade || 0);
-        setFaixas(Array.isArray(data.premiacao) ? data.premiacao : []);
-        setComissaoPlanos(Array.isArray(data.comissaoPlanos) ? data.comissaoPlanos : []);
-      } else {
-        // Se não existir configuração para este mês, tentamos carregar o mês anterior
-        // ou uma configuração padrão
-        await loadPreviousConfig();
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Falha ao carregar configuração.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  
   
   // Carrega configuração do mês anterior ou configução padrão
   const loadPreviousConfig = async () => {
@@ -182,101 +161,164 @@ const ConfigRemuneracao = () => {
     }
   };
 
-  const handleSaveFaixas = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
-      const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", "premiacao");
-      
-      await setDoc(
-        ref,
-        {
-          premiacao: faixas.map((f) => ({
-            percentual: Number(f.percentual),
-            premio: f.premio ? parseInt(f.premio) : 0,
-          })),
-          updatedAt: dayjs().toISOString(),
-        },
-        { merge: true }
-      );
-      setSuccessMessage("Faixas de premiação atualizadas com sucesso!");
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      console.error(err);
-      setError("Falha ao atualizar faixas de premiação.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // 🔧 CORREÇÕES NECESSÁRIAS:
 
-  const handleSavePlanos = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
-      const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", "premiacao");
-      
-      await setDoc(
-        ref,
-        {
-          comissaoPlanos: comissaoPlanos.map((p) => ({
-            plano: p.plano.trim(),
-            min: p.min ? parseInt(p.min) : 0,
-            max: p.max ? parseInt(p.max) : 0,
-            semMeta: p.semMeta ? parseInt(p.semMeta) : 0,
-            comMeta: p.comMeta ? parseInt(p.comMeta) : 0,
-            metaTME: p.metaTME ? parseInt(p.metaTME) : 0,
-          })),
-          updatedAt: dayjs().toISOString(),
-        },
-        { merge: true }
-      );
-      setSuccessMessage("Comissões por plano atualizadas com sucesso!");
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      console.error(err);
-      setError("Falha ao atualizar comissões por plano.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+// 1. Corrigir handleSaveFaixas para usar o mês selecionado:
+const handleSaveFaixas = async () => {
+  try {
+    setIsLoading(true);
+    setError("");
+    
+    // ✅ CORREÇÃO: Usar selectedMonth no caminho
+    const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", `premiacao-${selectedMonth}`);
+    
+    await setDoc(
+      ref,
+      {
+        premiacao: faixas.map((f) => ({
+          percentual: Number(f.percentual),
+          premio: f.premio ? parseInt(f.premio) : 0,
+        })),
+        updatedAt: dayjs().toISOString(),
+      },
+      { merge: true }
+    );
+    setSuccessMessage("Faixas de premiação atualizadas com sucesso!");
+    setTimeout(() => setSuccessMessage(""), 3000);
+  } catch (err) {
+    console.error(err);
+    setError("Falha ao atualizar faixas de premiação.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-  const handleSave = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
-      const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", "premiacao");
+// 2. Corrigir handleSavePlanos para usar o mês selecionado:
+const handleSavePlanos = async () => {
+  try {
+    setIsLoading(true);
+    setError("");
+    
+    // ✅ CORREÇÃO: Usar selectedMonth no caminho
+    const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", `premiacao-${selectedMonth}`);
+    
+    await setDoc(
+      ref,
+      {
+        comissaoPlanos: comissaoPlanos.map((p) => ({
+          plano: p.plano.trim(),
+          min: p.min ? parseInt(p.min) : 0,
+          max: p.max ? parseInt(p.max) : 0,
+          semMeta: p.semMeta ? parseInt(p.semMeta) : 0,
+          comMeta: p.comMeta ? parseInt(p.comMeta) : 0,
+          metaTME: p.metaTME ? parseInt(p.metaTME) : 0,
+        })),
+        updatedAt: dayjs().toISOString(),
+      },
+      { merge: true }
+    );
+    setSuccessMessage("Comissões por plano atualizadas com sucesso!");
+    setTimeout(() => setSuccessMessage(""), 3000);
+  } catch (err) {
+    console.error(err);
+    setError("Falha ao atualizar comissões por plano.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// 3. Corrigir handleSave para usar o mês selecionado:
+const handleSave = async () => {
+  try {
+    setIsLoading(true);
+    setError("");
+    
+    // ✅ CORREÇÃO: Usar selectedMonth no caminho
+    const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", `premiacao-${selectedMonth}`);
+    
+    const metaUnidadeNum = metaUnidade ? parseInt(metaUnidade) : 0;
+    
+    await setDoc(
+      ref,
+      {
+        metaUnidade: metaUnidadeNum,
+        premiacao: faixas.map((f) => ({
+          percentual: Number(f.percentual),
+          premio: f.premio ? parseInt(f.premio) : 0,
+        })),
+        comissaoPlanos: comissaoPlanos.map((p) => ({
+          plano: p.plano.trim(),
+          min: p.min ? parseInt(p.min) : 0,
+          max: p.max ? parseInt(p.max) : 0,
+          semMeta: p.semMeta ? parseInt(p.semMeta) : 0,
+          comMeta: p.comMeta ? parseInt(p.comMeta) : 0, 
+          metaTME: p.metaTME ? parseInt(p.metaTME) : 0,
+        })),
+        updatedAt: dayjs().toISOString(),
+      },
+      { merge: true }
+    );
+    setSuccessMessage("Configurações salvas com sucesso!");
+    setTimeout(() => setSuccessMessage(""), 3000);
+  } catch (err) {
+    console.error(err);
+    setError("Falha ao salvar configuração.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// 4. ADICIONAR: Função para limpar configurações antigas (opcional)
+const handleLimparConfiguracoes = async () => {
+  try {
+    setIsLoading(true);
+    setError("");
+    
+    // Resetar os estados
+    setMetaUnidade(0);
+    setFaixas([]);
+    setComissaoPlanos([]);
+    
+    setSuccessMessage("Configurações limpas! Não esqueça de salvar as novas configurações.");
+    setTimeout(() => setSuccessMessage(""), 3000);
+  } catch (err) {
+    console.error(err);
+    setError("Falha ao limpar configurações.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// 5. MELHORAR: Adicionar logs para debug
+const loadConfig = async () => {
+  try {
+    setLoading(true);
+    const ref = doc(db, "faturamento", unidade.toLowerCase(), "configRemuneracao", `premiacao-${selectedMonth}`);
+    
+    console.log("🔍 Carregando de:", ref.path); // Debug
+    
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data();
       
-      const metaUnidadeNum = metaUnidade ? parseInt(metaUnidade) : 0;
+      console.log("📊 Dados carregados:", data); // Debug
       
-      await setDoc(
-        ref,
-        {
-          metaUnidade: metaUnidadeNum,
-          premiacao: faixas.map((f) => ({
-            percentual: Number(f.percentual),
-            premio: f.premio ? parseInt(f.premio) : 0,
-          })),
-          comissaoPlanos: comissaoPlanos.map((p) => ({
-            plano: p.plano.trim(),
-            min: p.min ? parseInt(p.min) : 0,
-            max: p.max ? parseInt(p.max) : 0,
-            semMeta: p.semMeta ? parseInt(p.semMeta) : 0,
-            comMeta: p.comMeta ? parseInt(p.comMeta) : 0, 
-            metaTME: p.metaTME ? parseInt(p.metaTME) : 0,
-          })),
-          updatedAt: dayjs().toISOString(),
-        },
-        { merge: true }
-      );
-      setSuccessMessage("Configurações salvas com sucesso!");
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      console.error(err);
-      setError("Falha ao salvar configuração.");
-    } finally {
-      setIsLoading(false);
+      setMetaUnidade(data.metaUnidade || 0);
+      setFaixas(Array.isArray(data.premiacao) ? data.premiacao : []);
+      setComissaoPlanos(Array.isArray(data.comissaoPlanos) ? data.comissaoPlanos : []);
+      
+      console.log("✅ Faixas carregadas:", data.premiacao); // Debug
+    } else {
+      console.log("❌ Documento não encontrado, carregando config anterior..."); // Debug
+      await loadPreviousConfig();
     }
-  };
+  } catch (err) {
+    console.error("🚨 Erro ao carregar config:", err);
+    setError("Falha ao carregar configuração.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="dashboard-wrapper">
@@ -617,23 +659,122 @@ const ConfigRemuneracao = () => {
           </>
         )}
         <style jsx>{`
-          /* Estilos Globais */
+/* Light Mode Default Values */
 :root {
   --primary-color: #0066cc;
-  --primary-dark:rgb(6, 83, 170);
+  --primary-dark: #0053aa;
+  --primary-light: rgba(0, 102, 204, 0.1);
+  --primary-lighter: rgba(0, 102, 204, 0.05);
+  --primary-focus: rgba(0, 102, 204, 0.2);
+  --primary-shadow: rgba(0, 102, 204, 0.3);
   --secondary-color: #f8f9fa;
+  --secondary-hover: #e9ecef;
   --tertiary-color: #6c757d;
+  --tertiary-hover: #5a6268;
   --success-color: #28a745;
+  --success-light: rgba(40, 167, 69, 0.1);
+  --success-bg: #d4edda;
+  --success-border: #c3e6cb;
+  --success-text: #155724;
   --danger-color: #dc3545;
+  --danger-light: rgba(220, 53, 69, 0.1);
+  --danger-bg: #f8d7da;
+  --danger-border: #f5c6cb;
+  --danger-text: #721c24;
+  --danger-hover-bg: #ffebee;
   --warning-color: #ffc107;
+  --warning-light: rgba(255, 193, 7, 0.1);
   --light-gray: #e9ecef;
   --medium-gray: #adb5bd;
   --dark-gray: #495057;
+  --page-bg: #f5f7f9;
+  --card-bg: #ffffff;
+  --input-bg: #ffffff;
+  --input-disabled-bg: #f8f9fa;
+  --table-bg: #ffffff;
+  --table-header-bg: #f8f9fa;
+  --table-hover: rgba(0, 102, 204, 0.05);
+  --navbar-bg: #2c3e50;
+  --navbar-hover: rgba(255, 255, 255, 0.1);
+  --navbar-border: rgba(255, 255, 255, 0.1);
+  --text-primary: #333333;
+  --text-secondary: #495057;
+  --text-muted: #6c757d;
+  --text-light: #adb5bd;
+  --text-white: #ffffff;
+  --text-navbar: rgba(255, 255, 255, 0.8);
+  --text-navbar-active: #ffffff;
+  --text-navbar-title: rgba(255, 255, 255, 0.5);
+  --border-color: #e9ecef;
+  --border-light: #dee2e6;
+  --border-focus: #0066cc;
   --border-radius: 4px;
   --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --box-shadow-hover: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --box-shadow-focus: 0 0 0 2px rgba(0, 102, 204, 0.2);
+  --spinner-bg: rgba(0, 0, 0, 0.1);
+  --spinner-border: #0066cc;
   --transition: all 0.2s ease-in-out;
 }
 
+/* Manual Dark Mode Classes */
+.dark,
+[data-theme="dark"] {
+  --primary-color: #4da6ff;
+  --primary-dark: #3399ff;
+  --primary-light: rgba(77, 166, 255, 0.15);
+  --primary-lighter: rgba(77, 166, 255, 0.08);
+  --primary-focus: rgba(77, 166, 255, 0.25);
+  --primary-shadow: rgba(77, 166, 255, 0.4);
+  --secondary-color: #374151;
+  --secondary-hover: #4b5563;
+  --tertiary-color: #9ca3af;
+  --tertiary-hover: #d1d5db;
+  --success-color: #34d399;
+  --success-light: rgba(52, 211, 153, 0.15);
+  --success-bg: rgba(52, 211, 153, 0.1);
+  --success-border: rgba(52, 211, 153, 0.3);
+  --success-text: #6ee7b7;
+  --danger-color: #f87171;
+  --danger-light: rgba(248, 113, 113, 0.15);
+  --danger-bg: rgba(248, 113, 113, 0.1);
+  --danger-border: rgba(248, 113, 113, 0.3);
+  --danger-text: #fca5a5;
+  --danger-hover-bg: rgba(248, 113, 113, 0.08);
+  --warning-color: #fbbf24;
+  --warning-light: rgba(251, 191, 36, 0.15);
+  --light-gray: #4b5563;
+  --medium-gray: #6b7280;
+  --dark-gray: #d1d5db;
+  --page-bg: #0f172a;
+  --card-bg: #1e293b;
+  --input-bg: #334155;
+  --input-disabled-bg: #1e293b;
+  --table-bg: #1e293b;
+  --table-header-bg: #334155;
+  --table-hover: rgba(77, 166, 255, 0.08);
+  --navbar-bg: #1e293b;
+  --navbar-hover: rgba(255, 255, 255, 0.1);
+  --navbar-border: rgba(255, 255, 255, 0.1);
+  --text-primary: #f1f5f9;
+  --text-secondary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-light: #64748b;
+  --text-white: #0f172a;
+  --text-navbar: rgba(255, 255, 255, 0.8);
+  --text-navbar-active: #ffffff;
+  --text-navbar-title: rgba(255, 255, 255, 0.5);
+  --border-color: #475569;
+  --border-light: #64748b;
+  --border-focus: #4da6ff;
+  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --box-shadow-hover: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --box-shadow-focus: 0 0 0 2px rgba(77, 166, 255, 0.3);
+  --spinner-bg: rgba(255, 255, 255, 0.1);
+  --spinner-border: #4da6ff;
+}
+
+/* Global Styles */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -643,8 +784,9 @@ const ConfigRemuneracao = () => {
 body {
   font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   line-height: 1.6;
-  color: #333;
-  background-color: #f5f7f9;
+  color: var(--text-primary);
+  background-color: var(--page-bg);
+  transition: background-color var(--transition), color var(--transition);
 }
 
 /* Layout Principal */
@@ -662,21 +804,24 @@ body {
 /* Cabeçalho da Página */
 .config-header {
   margin-bottom: 2rem;
-  border-bottom: 1px solid var(--light-gray);
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 1rem;
+  transition: border-color var(--transition);
 }
 
 .config-header h1 {
   font-size: 1.8rem;
   font-weight: 600;
-  color: var(--dark-gray);
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
+  transition: color var(--transition);
 }
 
 .last-update {
   font-size: 0.85rem;
-  color: var(--tertiary-color);
+  color: var(--text-muted);
   font-style: italic;
+  transition: color var(--transition);
 }
 
 /* Alertas */
@@ -687,18 +832,19 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: all var(--transition);
 }
 
 .alert.error {
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
-  color: #721c24;
+  background-color: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-text);
 }
 
 .alert.success {
-  background-color: #d4edda;
-  border: 1px solid #c3e6cb;
-  color: #155724;
+  background-color: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success-text);
 }
 
 .alert button {
@@ -708,10 +854,19 @@ body {
   cursor: pointer;
   color: inherit;
   opacity: 0.7;
+  transition: opacity var(--transition);
+  border-radius: var(--border-radius);
+  padding: 0.25rem;
 }
 
 .alert button:hover {
   opacity: 1;
+  transform: scale(1.1);
+}
+
+.alert button:focus {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 /* Loading Spinner */
@@ -724,8 +879,8 @@ body {
 }
 
 .spinner {
-  border: 4px solid rgba(0, 0, 0, 0.1);
-  border-top: 4px solid var(--primary-color);
+  border: 4px solid var(--spinner-bg);
+  border-top: 4px solid var(--spinner-border);
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -742,7 +897,8 @@ body {
 .tabs {
   display: flex;
   margin-bottom: 1.5rem;
-  border-bottom: 1px solid var(--light-gray);
+  border-bottom: 1px solid var(--border-color);
+  transition: border-color var(--transition);
 }
 
 .tab {
@@ -752,13 +908,14 @@ body {
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
-  color: var(--tertiary-color);
+  color: var(--text-muted);
   cursor: pointer;
   transition: var(--transition);
 }
 
 .tab:hover {
   color: var(--primary-color);
+  transform: translateY(-2px);
 }
 
 .tab.active {
@@ -766,17 +923,29 @@ body {
   border-bottom-color: var(--primary-color);
 }
 
+.tab:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 .tab-content {
-  background: white;
+  background: var(--card-bg);
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
   margin-bottom: 2rem;
+  border: 1px solid var(--border-color);
+  transition: all var(--transition);
+}
+
+.tab-content:hover {
+  box-shadow: var(--box-shadow-hover);
 }
 
 /* Seções de Configuração */
 .config-section {
   padding: 1.5rem;
-  border-bottom: 1px solid var(--light-gray);
+  border-bottom: 1px solid var(--border-color);
+  transition: border-color var(--transition);
 }
 
 .config-section:last-child {
@@ -790,13 +959,15 @@ body {
 .section-header h2 {
   font-size: 1.4rem;
   font-weight: 600;
-  color: var(--dark-gray);
+  color: var(--text-secondary);
   margin-bottom: 0.35rem;
+  transition: color var(--transition);
 }
 
 .section-header p {
-  color: var(--tertiary-color);
+  color: var(--text-muted);
   font-size: 0.9rem;
+  transition: color var(--transition);
 }
 
 /* Meta da Unidade */
@@ -817,27 +988,36 @@ body {
   font-size: 0.9rem;
   font-weight: 500;
   margin-bottom: 0.5rem;
-  color: var(--dark-gray);
+  color: var(--text-secondary);
+  transition: color var(--transition);
 }
 
 input, select, textarea {
   width: 100%;
   padding: 0.65rem 0.75rem;
   font-size: 0.95rem;
-  border: 1px solid var(--light-gray);
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   transition: var(--transition);
+  background-color: var(--input-bg);
+  color: var(--text-primary);
 }
 
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+  border-color: var(--border-focus);
+  box-shadow: var(--box-shadow-focus);
+  transform: translateY(-1px);
+}
+
+input:hover, select:hover, textarea:hover {
+  border-color: var(--border-light);
 }
 
 input:disabled {
-  background-color: var(--secondary-color);
+  background-color: var(--input-disabled-bg);
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
 /* Currency Input */
@@ -850,8 +1030,10 @@ input:disabled {
 .currency-prefix {
   position: absolute;
   left: 10px;
-  color: var(--dark-gray);
+  color: var(--text-secondary);
   font-weight: 500;
+  z-index: 1;
+  transition: color var(--transition);
 }
 
 .currency-input-wrapper input {
@@ -868,7 +1050,9 @@ input:disabled {
 .percent-symbol {
   position: absolute;
   right: 10px;
-  color: var(--dark-gray);
+  color: var(--text-secondary);
+  z-index: 1;
+  transition: color var(--transition);
 }
 
 .percent-input input {
@@ -892,6 +1076,13 @@ input:disabled {
   margin-bottom: 1rem;
   border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
+  border: 1px solid var(--border-color);
+  background-color: var(--table-bg);
+  transition: all var(--transition);
+}
+
+.table-wrapper:hover {
+  box-shadow: var(--box-shadow-hover);
 }
 
 .data-table {
@@ -903,14 +1094,19 @@ input:disabled {
 .data-table td {
   padding: 0.75rem 1rem;
   text-align: left;
-  border-bottom: 1px solid var(--light-gray);
+  border-bottom: 1px solid var(--border-color);
+  transition: all var(--transition);
 }
 
 .data-table th {
-  background-color: var(--secondary-color);
+  background-color: var(--table-header-bg);
   font-weight: 600;
-  color: var(--dark-gray);
+  color: var(--text-secondary);
   white-space: nowrap;
+}
+
+.data-table td {
+  color: var(--text-primary);
 }
 
 .data-table tr:last-child td {
@@ -918,7 +1114,11 @@ input:disabled {
 }
 
 .data-table tr:hover td {
-  background-color: rgba(0, 102, 204, 0.05);
+  background-color: var(--table-hover);
+}
+
+.data-table tr {
+  transition: background-color var(--transition);
 }
 
 .comissao-table th, 
@@ -929,9 +1129,10 @@ input:disabled {
 
 .empty-state {
   text-align: center;
-  color: var(--tertiary-color);
+  color: var(--text-muted);
   padding: 2rem !important;
   font-style: italic;
+  transition: color var(--transition);
 }
 
 .action-column {
@@ -963,33 +1164,55 @@ input:disabled {
   font-size: 0.95rem;
 }
 
+.btn:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 .btn.primary {
   background-color: var(--primary-color);
-  color: white;
+  color: var(--text-white);
 }
 
 .btn.primary:hover:not(:disabled) {
   background-color: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--box-shadow-hover);
+}
+
+.btn.primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn.secondary {
   background-color: var(--secondary-color);
-  color: var(--dark-gray);
-  border: 1px solid var(--light-gray);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
 }
 
 .btn.secondary:hover:not(:disabled) {
-  background-color: var(--light-gray);
+  background-color: var(--secondary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--box-shadow);
+}
+
+.btn.secondary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn.tertiary {
   background-color: transparent;
-  color: var(--tertiary-color);
+  color: var(--text-muted);
 }
 
 .btn.tertiary:hover:not(:disabled) {
-  color: var(--dark-gray);
+  color: var(--text-secondary);
   background-color: var(--secondary-color);
+  transform: translateY(-1px);
+}
+
+.btn.tertiary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn:disabled {
@@ -1014,7 +1237,12 @@ input:disabled {
 }
 
 .btn.delete:hover {
-  background-color: #ffebee;
+  background-color: var(--danger-hover-bg);
+  transform: translateY(-1px);
+}
+
+.btn.delete:active {
+  transform: translateY(0);
 }
 
 /* Page Actions */
@@ -1023,20 +1251,38 @@ input:disabled {
   justify-content: space-between;
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--light-gray);
+  border-top: 1px solid var(--border-color);
+  transition: border-color var(--transition);
+}
+
+/* Navbar Styles */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  background-color: var(--navbar-bg);
+  z-index: 1000;
+  transition: all var(--transition);
 }
 
 .navbar-header {
   padding: 1.5rem;
   text-align: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--navbar-border);
 }
 
 .navbar-brand {
   font-size: 1.5rem;
   font-weight: 700;
-  color: white;
+  color: var(--text-navbar-active);
   text-decoration: none;
+  transition: color var(--transition);
+}
+
+.navbar-brand:hover {
+  color: var(--primary-color);
 }
 
 .navbar-menu {
@@ -1046,30 +1292,89 @@ input:disabled {
 .nav-item {
   display: block;
   padding: 0.75rem 1.5rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-navbar);
   text-decoration: none;
-  transition: all 0.2s;
+  transition: all var(--transition);
   border-left: 3px solid transparent;
 }
 
 .nav-item:hover, .nav-item.active {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: white;
+  background-color: var(--navbar-hover);
+  color: var(--text-navbar-active);
   border-left-color: var(--primary-color);
+  transform: translateX(4px);
+}
+
+.nav-item:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
 }
 
 .nav-section {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--navbar-border);
 }
 
 .nav-section-title {
   padding: 0.5rem 1.5rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-navbar-title);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 1px;
+  transition: color var(--transition);
+}
+
+/* Month Year Selector */
+.month-year-selector {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.month-year-selector select {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
+  
+  @keyframes spin {
+    0%, 100% { transform: rotate(0deg); }
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .navbar {
+    display: none;
+  }
+  
+  .main-content {
+    margin-left: 0;
+  }
+  
+  .tab-content,
+  .table-wrapper {
+    box-shadow: none;
+    border: 1px solid #ccc;
+    background: white;
+  }
+  
+  .btn {
+    display: none;
+  }
 }
 
 /* Responsividade */
@@ -1094,7 +1399,7 @@ input:disabled {
     left: 1rem;
     z-index: 100;
     background-color: var(--primary-color);
-    color: white;
+    color: var(--text-white);
     width: 40px;
     height: 40px;
     border-radius: 50%;
@@ -1103,6 +1408,18 @@ input:disabled {
     justify-content: center;
     cursor: pointer;
     box-shadow: var(--box-shadow);
+    border: none;
+    transition: all var(--transition);
+  }
+  
+  .menu-toggle:hover {
+    background-color: var(--primary-dark);
+    transform: scale(1.1);
+  }
+  
+  .menu-toggle:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
   }
   
   .menu-toggle.open {
@@ -1133,6 +1450,30 @@ input:disabled {
   .page-actions .btn {
     width: 100%;
   }
+  
+  .month-year-selector {
+    flex-direction: column;
+  }
+
+  .month-year-selector select {
+    width: 100%;
+  }
+  
+  .config-header {
+    padding-bottom: 0.75rem;
+  }
+  
+  .config-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .config-section {
+    padding: 1rem;
+  }
+  
+  .section-header h2 {
+    font-size: 1.25rem;
+  }
 }
 
 @media (max-width: 576px) {
@@ -1143,41 +1484,45 @@ input:disabled {
   .tab {
     width: 100%;
     text-align: center;
-    border-bottom: 1px solid var(--light-gray);
+    border-bottom: 1px solid var(--border-color);
+    border-left: none;
   }
   
   .tab.active {
-    border-bottom: 1px solid var(--light-gray);
+    border-bottom: 1px solid var(--border-color);
     border-left: 3px solid var(--primary-color);
   }
-}
-
-.month-year-selector {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.month-year-selector select {
-  flex: 1;
-  min-width: 120px;
-}
-
-@media (max-width: 768px) {
-  .meta-config {
+  
+  .tab:hover {
+    transform: none;
+  }
+  
+  .main-content {
+    padding: 0.75rem;
+  }
+  
+  .config-section {
+    padding: 0.75rem;
+  }
+  
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+  
+  .alert {
+    padding: 0.5rem 1rem;
     flex-direction: column;
-    align-items: stretch;
+    text-align: center;
+    gap: 0.5rem;
   }
-
-  .month-year-selector {
-    flex-direction: column;
-  }
-
-  .month-year-selector select {
-    width: 100%;
+  
+  .loading-overlay {
+    padding: 2rem 1rem;
   }
 }
-        `}</style>
+`}</style>
       </div>
     </div>
   );

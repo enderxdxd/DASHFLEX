@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp,
@@ -310,6 +309,33 @@ export default function ProjectionCard({
     });
   }
 
+  const shareData = async () => {
+    const text = `
+  📊 Relatório de Meta - ${title}
+  📅 Período: ${period}
+  🎯 Meta: ${formatMoney(metaUnidade)}
+  💰 Faturado: ${formatMoney(soldToDate)}
+  📈 Projeção: ${formatMoney(projectedTotal)}
+  📊 Progresso: ${formatPercent(pctOfMeta)}
+  ⚡ Status: ${metaStatus.label}
+    `.trim();
+  
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Relatório de Meta',
+          text: text
+        });
+      } catch (err) {
+        console.log('Compartilhamento cancelado');
+      }
+    } else {
+      // Fallback - copia para clipboard
+      navigator.clipboard.writeText(text);
+      alert('Dados copiados para a área de transferência!');
+    }
+  };
+
   return (
     <div className={`enhanced-projection-card ${isFullscreen ? 'fullscreen' : ''} phase-${animationPhase}`}>
       {/* Barra de gradiente dinâmica */}
@@ -366,7 +392,11 @@ export default function ProjectionCard({
               <Maximize2 size={16} />
             </button>
             
-            <button className="control-btn" title="Exportar">
+            <button 
+              className="control-btn" 
+              title="Exportar"
+              onClick={shareData}
+            >
               <Download size={16} />
             </button>
           </div>

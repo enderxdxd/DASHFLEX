@@ -289,13 +289,7 @@ export default function ProductPieChart({ data, title = "Distribuição por Prod
             {showDetails ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
           
-          <button 
-            className="control-button"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            title={isFullscreen ? "Sair do modo tela cheia" : "Modo tela cheia"}
-          >
-            <Maximize2 size={16} />
-          </button>
+          
           
           <button className="control-button" title="Exportar gráfico">
             <Download size={16} />

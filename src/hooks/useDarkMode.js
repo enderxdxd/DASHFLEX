@@ -5,7 +5,7 @@ export default function useDarkMode() {
     if (typeof window === 'undefined') return 'light';
     const persisted = localStorage.getItem('theme');
     if (persisted) return persisted;
-    return 'light'; // Sempre light como padrão
+    return 'dark'; // Sempre light como padrão
   };
 
   const [theme, setTheme] = useState(getInitialMode);

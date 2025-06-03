@@ -615,19 +615,19 @@ const VendasTable = ({
     width: 100%;
     table-layout: fixed; /* CRUCIAL para alinhamento */
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 12px; /* Reduzido de 13px */
     background: var(--bg-table, white);
-    min-width: 1100px; /* Largura mínima para evitar quebra */
+    min-width: auto; /* Removido min-width fixo */
   }
   
-  /* DEFINIÇÃO DE LARGURAS DAS COLUNAS */
-  .col-data { width: 110px; }
-  .col-produto { width: 300px; }
-  .col-matricula { width: 100px; }
-  .col-nome { width: 250px; }
-  .col-responsavel { width: 200px; }
-  .col-valor { width: 120px; }
-  .col-acoes { width: 120px; }
+  /* DEFINIÇÃO DE LARGURAS DAS COLUNAS - OTIMIZADAS */
+  .col-data { width: 85px; }
+  .col-produto { width: 220px; }
+  .col-matricula { width: 75px; }
+  .col-nome { width: 180px; }
+  .col-responsavel { width: 150px; }
+  .col-valor { width: 90px; }
+  .col-acoes { width: 80px; }
   
   /* Cabeçalho da tabela */
   .vendas-table thead {
@@ -637,8 +637,9 @@ const VendasTable = ({
   }
   
   .vendas-table th {
-    padding: 14px 16px;
+    padding: 10px 12px; /* Reduzido de 14px 16px */
     font-weight: 600;
+    font-size: 11px; /* Tamanho menor para headers */
     color: var(--text-table-header, #475569);
     border-bottom: 1px solid var(--border-table-header, #e2e8f0);
     background: linear-gradient(135deg, var(--bg-table-header, #f8fafc) 0%, var(--bg-table-header-light, #f1f5f9) 100%);
@@ -688,7 +689,7 @@ const VendasTable = ({
   
   /* Células da tabela */
   .vendas-table td {
-    padding: 14px 16px;
+    padding: 10px 12px; /* Reduzido de 14px 16px */
     border-bottom: 1px solid var(--border-table-row, #f1f5f9);
     color: var(--text-table-cell, #334155);
     vertical-align: middle;
@@ -700,7 +701,7 @@ const VendasTable = ({
   /* Células específicas com diferentes comportamentos */
   .vendas-table td.col-data {
     font-family: 'Roboto Mono', monospace;
-    font-size: 12px;
+    font-size: 11px; /* Reduzido */
     color: var(--text-table-mono, #475569);
     font-weight: 500;
   }
@@ -709,7 +710,8 @@ const VendasTable = ({
   .vendas-table td.col-nome {
     white-space: normal;
     word-wrap: break-word;
-    line-height: 1.4;
+    line-height: 1.3; /* Mais compacto */
+    font-size: 11px; /* Reduzido */
   }
   
   .vendas-table td.col-produto {
@@ -719,27 +721,30 @@ const VendasTable = ({
   
   .vendas-table td.col-matricula {
     font-family: 'Roboto Mono', monospace;
-    font-size: 12px;
+    font-size: 10px; /* Bem pequeno */
     color: var(--text-table-secondary, #64748b);
     font-weight: 500;
     text-align: center;
   }
   
   .vendas-table td.col-nome {
-    font-weight: 600;
+    font-weight: 500; /* Reduzido de 600 */
     color: var(--text-table-important, #1e293b);
   }
   
   .vendas-table td.col-responsavel {
     color: var(--text-table-secondary, #64748b);
+    font-size: 11px; /* Reduzido */
   }
   
   .vendas-table td.col-valor {
     text-align: right;
+    font-size: 12px; /* Mantido um pouco maior para valores */
   }
   
   .vendas-table td.col-acoes {
     text-align: center;
+    padding: 8px; /* Menos padding para ações */
   }
   
   /* Valor monetário */
@@ -871,15 +876,20 @@ const VendasTable = ({
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 28px; /* Reduzido de 32px */
+    height: 28px; /* Reduzido de 32px */
+    border-radius: 6px; /* Mais compacto */
     border: none;
     cursor: pointer;
     background-color: transparent;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+  }
+  
+  .action-button svg {
+    width: 14px; /* Ícones menores */
+    height: 14px;
   }
   
   .action-button::before {
@@ -1066,15 +1076,31 @@ const VendasTable = ({
   
   /* Responsividade */
   @media (max-width: 1200px) {
+    /* Para telas menores, reduzir ainda mais */
+    .col-data { width: 80px; }
+    .col-produto { width: 180px; }
+    .col-matricula { width: 70px; }
+    .col-nome { width: 150px; }
+    .col-responsavel { width: 130px; }
+    .col-valor { width: 85px; }
+    .col-acoes { width: 70px; }
+    
+    .vendas-table {
+      font-size: 11px;
+    }
+  }
+  
+  @media (max-width: 992px) {
+    /* Tablets - começa a precisar de scroll */
     .table-container {
-      margin: 0 -28px;
+      margin: 0 -20px;
       border-radius: 0;
       border-left: none;
       border-right: none;
     }
     
     .vendas-table {
-      min-width: 900px;
+      min-width: 768px;
     }
   }
   

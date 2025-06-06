@@ -3,6 +3,10 @@ import { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { registerLocale } from 'react-datepicker';
+import ptBR from 'date-fns/locale/pt-BR';
+
+registerLocale('pt-BR', ptBR);
 
 const FilterControls = ({ 
   filters, 
@@ -80,98 +84,98 @@ const FilterControls = ({
         </button>
       </div>
       
-      <div className="filters-grid">
-        <div className="filter-column">
-          <div className="filter-group">
-            <label htmlFor="responsavel">Responsável</label>
-            <div className="select-wrapper">
-              <select 
-                id="responsavel"
-                value={filters.filtroResponsavel}
-                onChange={(e) => dispatchFilters({
-                  type: 'SET_FILTER_RESPONSAVEL',
-                  payload: e.target.value
-                })}
-              >
-                <option value="">Todos</option>
-                {responsaveis.map(resp => (
-                  <option key={resp} value={resp}>{resp}</option>
-                ))}
-              </select>
+      <div className="filters-container">
+        <div className="filters-grid">
+          <div className="filter-column">
+            <div className="filter-group">
+              <label htmlFor="responsavel">Responsável</label>
+              <div className="select-wrapper">
+                <select 
+                  id="responsavel"
+                  value={filters.filtroResponsavel}
+                  onChange={(e) => dispatchFilters({
+                    type: 'SET_FILTER_RESPONSAVEL',
+                    payload: e.target.value
+                  })}
+                >
+                  <option value="">Todos</option>
+                  {responsaveis.map(resp => (
+                    <option key={resp} value={resp}>{resp}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div className="filter-group">
+              <label htmlFor="produto">Produto</label>
+              <div className="select-wrapper">
+                <select 
+                  id="produto"
+                  value={filters.filtroProduto}
+                  onChange={(e) => dispatchFilters({
+                    type: 'SET_FILTER_PRODUTO',
+                    payload: e.target.value
+                  })}
+                >
+                  <option value="">Todos</option>
+                  {produtos.map(prod => (
+                    <option key={prod} value={prod}>{prod}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
           
-          <div className="filter-group">
-            <label htmlFor="produto">Produto</label>
-            <div className="select-wrapper">
-              <select 
-                id="produto"
-                value={filters.filtroProduto}
-                onChange={(e) => dispatchFilters({
-                  type: 'SET_FILTER_PRODUTO',
-                  payload: e.target.value
-                })}
-              >
-                <option value="">Todos</option>
-                {produtos.map(prod => (
-                  <option key={prod} value={prod}>{prod}</option>
-                ))}
-              </select>
+          <div className="filter-column">
+            <div className="filter-group">
+              <label htmlFor="searchInput">Pesquisar</label>
+              <div className="search-input-wrapper">
+                <input
+                  type="text"
+                  id="searchInput"
+                  placeholder="Digite para pesquisar..."
+                  value={filters.searchTerm}
+                  onChange={(e) => dispatchFilters({
+                    type: 'SET_SEARCH_TERM',
+                    payload: e.target.value
+                  })}
+                />
+                <button className="search-btn" type="button">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-        
-        <div className="filter-column">
-          <div className="filter-group">
-            <label htmlFor="searchInput">Pesquisar</label>
-            <div className="search-input-wrapper">
-              <input
-                type="text"
-                id="searchInput"
-                placeholder="Digite para pesquisar..."
-                value={filters.searchTerm}
-                onChange={(e) => dispatchFilters({
-                  type: 'SET_SEARCH_TERM',
-                  payload: e.target.value
-                })}
-              />
-              <button className="search-btn" type="button">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-              </button>
-            </div>
-          </div>
-          
-          <div className="filter-group">
-            <label>Intervalo de Datas</label>
-            <div className="date-range-wrapper">
-              <button 
-                className="date-range-display"
-                onClick={() => setIsDateRangeOpen(!isDateRangeOpen)}
-                type="button"
-              >
-                <span>
-                  {filters.startDate 
-                    ? dayjs(filters.startDate).format('DD/MM/YYYY') 
-                    : 'Data inicial'}
-                </span>
-                <span className="date-range-separator">a</span>
-                <span>
-                  {filters.endDate 
-                    ? dayjs(filters.endDate).format('DD/MM/YYYY') 
-                    : 'Data final'}
-                </span>
-                <svg className="calendar-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                  <line x1="16" y1="2" x2="16" y2="6"></line>
-                  <line x1="8" y1="2" x2="8" y2="6"></line>
-                  <line x1="3" y1="10" x2="21" y2="10"></line>
-                </svg>
-              </button>
-              
-             
+            
+            <div className="filter-group date-filter-group">
+              <label>Intervalo de Datas</label>
+              <div className="date-range-wrapper">
+                <button 
+                  className="date-range-display"
+                  onClick={() => setIsDateRangeOpen(!isDateRangeOpen)}
+                  type="button"
+                >
+                  <span>
+                    {filters.startDate 
+                      ? dayjs(filters.startDate).format('DD/MM/YYYY') 
+                      : 'Data inicial'}
+                  </span>
+                  <span className="date-range-separator">a</span>
+                  <span>
+                    {filters.endDate 
+                      ? dayjs(filters.endDate).format('DD/MM/YYYY') 
+                      : 'Data final'}
+                  </span>
+                  <svg className="calendar-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                </button>
+                
                 {isDateRangeOpen && (
                   <div className="date-picker-popup">
                     <div className="date-picker-header">
@@ -231,6 +235,7 @@ const FilterControls = ({
                     </div>
                   </div>
                 )}
+              </div>
             </div>
           </div>
         </div>
@@ -302,7 +307,7 @@ const FilterControls = ({
           margin-bottom: 32px;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           position: relative;
-          overflow: hidden;
+          overflow: visible; /* Mudança aqui para permitir que o calendário apareça */
         }
         
         .filters-panel::before {
@@ -367,10 +372,19 @@ const FilterControls = ({
           transform: translateY(0);
         }
         
+        /* Container principal para organizar layout */
+        .filters-container {
+          display: flex;
+          gap: 24px;
+          align-items: flex-start;
+        }
+        
         .filters-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          grid-template-columns: repeat(2, minmax(280px, 1fr));
           gap: 24px;
+          flex: 1;
+          max-width: 600px; /* Limita a largura dos filtros */
         }
         
         .filter-column {
@@ -383,6 +397,12 @@ const FilterControls = ({
           display: flex;
           flex-direction: column;
           gap: 10px;
+          position: relative;
+        }
+        
+        /* Z-index especial para o grupo de datas */
+        .date-filter-group {
+          z-index: 1000;
           position: relative;
         }
         
@@ -558,12 +578,12 @@ const FilterControls = ({
           position: absolute;
           top: calc(100% + 8px);
           left: 0;
-          z-index: 100;
+          z-index: 9999; /* Z-index muito alto para ficar acima de tudo */
           width: 100%;
           min-width: 660px;
           background: linear-gradient(135deg, var(--bg-popup, white) 0%, var(--bg-popup-light, #f8fafc) 100%);
           border-radius: 12px;
-          box-shadow: var(--shadow-popup, 0 20px 40px rgba(0, 0, 0, 0.15));
+          box-shadow: var(--shadow-popup, 0 20px 40px rgba(0, 0, 0, 0.25));
           border: 1px solid var(--border-popup, #e2e8f0);
           padding: 20px;
           backdrop-filter: blur(20px);
@@ -764,7 +784,9 @@ const FilterControls = ({
           border: 1px solid var(--border-stats, #e2e8f0);
           border-radius: 12px;
           padding: 24px;
-          height: 100%;
+          min-width: 320px;
+          max-width: 380px;
+          height: fit-content;
         }
         
         .stats-header {
@@ -888,9 +910,7 @@ const FilterControls = ({
           font-weight: 500;
         }
         
-       
-        
-        /* Manual Dark Mode Classes */
+        /* Dark Mode */
         .dark .filters-panel,
         [data-theme="dark"] .filters-panel {
           --bg-primary: #1e293b;
@@ -1042,33 +1062,6 @@ const FilterControls = ({
           transform: translateY(-1px);
         }
         
-        /* Accessibility improvements */
-        @media (prefers-reduced-motion: reduce) {
-          .filters-panel,
-          .clear-all-btn,
-          select,
-          input,
-          .search-btn,
-          .date-range-display,
-          .stat-card,
-          .stat-icon,
-          .apply-dates-btn,
-          .clear-dates-btn,
-          .close-calendar-btn {
-            transition: none;
-            animation: none;
-            transform: none;
-          }
-          
-          .date-picker-popup {
-            animation: none;
-          }
-          
-          @keyframes slideDown {
-            0%, 100% { opacity: 1; transform: translateY(0); }
-          }
-        }
-        
         /* Focus states for accessibility */
         .clear-all-btn:focus,
         .search-btn:focus,
@@ -1080,19 +1073,23 @@ const FilterControls = ({
           outline-offset: 2px;
         }
         
-        /* Print styles */
-        @media print {
-          .filters-panel {
-            box-shadow: none;
-            border: 1px solid #ccc;
-            background: white;
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+          .filters-container {
+            flex-direction: column;
+            gap: 20px;
           }
           
-          .clear-all-btn,
-          .search-btn,
-          .close-calendar-btn,
-          .date-picker-popup {
-            display: none;
+          .filters-grid {
+            max-width: none;
+          }
+          
+          .stats-column {
+            max-width: none;
+          }
+          
+          .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
           }
         }
         
@@ -1168,6 +1165,49 @@ const FilterControls = ({
           .apply-dates-btn {
             padding: 8px 12px;
             font-size: 13px;
+          }
+        }
+        
+        /* Accessibility improvements */
+        @media (prefers-reduced-motion: reduce) {
+          .filters-panel,
+          .clear-all-btn,
+          select,
+          input,
+          .search-btn,
+          .date-range-display,
+          .stat-card,
+          .stat-icon,
+          .apply-dates-btn,
+          .clear-dates-btn,
+          .close-calendar-btn {
+            transition: none;
+            animation: none;
+            transform: none;
+          }
+          
+          .date-picker-popup {
+            animation: none;
+          }
+          
+          @keyframes slideDown {
+            0%, 100% { opacity: 1; transform: translateY(0); }
+          }
+        }
+        
+        /* Print styles */
+        @media print {
+          .filters-panel {
+            box-shadow: none;
+            border: 1px solid #ccc;
+            background: white;
+          }
+          
+          .clear-all-btn,
+          .search-btn,
+          .close-calendar-btn,
+          .date-picker-popup {
+            display: none;
           }
         }
       `}</style>

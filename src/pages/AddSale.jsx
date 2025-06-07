@@ -126,7 +126,7 @@ export default function AddSale() {
       const sale = {
         produto: produto.trim(),
         responsavel: responsavel.trim(),
-        valor: Number(valor),
+        valor: Number(valor) / 100,
         dataLancamento: parsedDate.format("DD/MM/YYYY"),
         dataFormatada: parsedDate.format("YYYY-MM-DD"),
         unidade: unidade.toLowerCase(),

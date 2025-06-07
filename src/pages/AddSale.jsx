@@ -138,7 +138,7 @@ export default function AddSale() {
       
       // Delay para mostrar a animação de sucesso
       setTimeout(() => {
-        navigate(`/dashboard/${unidade}`);
+        
       }, 1500);
       
     } catch (err) {

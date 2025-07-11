@@ -87,25 +87,43 @@ app.post("/", (req, res) => {
             .trim()
         ) || 0;
 
+        // extrai Resp. Recebimento e Resp. Venda
+        const respRecebimento = (
+          row["Resp. Recebimento"] ||
+          row["Resp Recebimento"] ||
+          row["Responsável"] ||
+          ""
+        ).trim();
+
+        const respVenda = (
+          row["Resp. Venda"] ||
+          row["Resp Venda"] ||
+          ""
+        ).trim();
+
+        // Se o responsável for 'Administrador', usa o respVenda
+        const responsavelFinal = respRecebimento === 'Administrador' && respVenda ? respVenda : respRecebimento;
+
         sales.push({
-          produto:    (row["Produto"] || "").trim(),
-          matricula:  (row["Matrícula"] || "").trim(),
-          nome:       (row["Nome"] || "").trim(),
-          responsavel: ((row["Responsável"] || row["Reponsável "] ) || "").trim(),
-          dataCadastro: (row["Data de Cadastro"] || "").trim(),
-          numeroContrato: (row["N° Contrato"] || "").trim(),
-          dataInicio: (row["Data Início"] || "").trim(),
-          dataTermino:(row["Data Término"] || "").trim(),
-          duracao:    (row["Duração"] || "").trim(),
-          modalidades:(row["Modalidades"] || "").trim(),
-          plano:      (row["Plano"] || "").trim(),
-          situacaoContrato: (row["Situação de Contrato"] || "").trim(),
-          dataLancamento: dataLancRaw,
-          dataFormatada: parsed.format("YYYY-MM-DD"),
-          formaPagamento: (row["Forma Pagamento"] || "").trim(),
-          condicaoPagamento: (row["Condicao Pagamento"] || "").trim(),
+          produto:            (row["Produto"]               || "").trim(),
+          matricula:          (row["Matrícula"]             || "").trim(),
+          nome:               (row["Nome"]                  || "").trim(),
+          responsavel:        responsavelFinal,    // Usa o respVenda se for 'Administrador'
+          respVenda,                              // mantém o respVenda original
+          dataCadastro:       (row["Data de Cadastro"]      || "").trim(),
+          numeroContrato:     (row["N° Contrato"]           || "").trim(),
+          dataInicio:         (row["Data Início"]           || "").trim(),
+          dataTermino:        (row["Data Término"]          || "").trim(),
+          duracao:            (row["Duração"]               || "").trim(),
+          modalidades:        (row["Modalidades"]           || "").trim(),
+          plano:              (row["Plano"]                 || "").trim(),
+          situacaoContrato:   (row["Situação de Contrato"]  || "").trim(),
+          dataLancamento:     dataLancRaw,
+          dataFormatada:      parsed.format("YYYY-MM-DD"),
+          formaPagamento:     (row["Forma Pagamento"]       || "").trim(),
+          condicaoPagamento:  (row["Condicao Pagamento"]    || "").trim(),
           valor,
-          empresa:    (row["Empresa"] || "").trim(),
+          empresa:            (row["Empresa"]               || "").trim(),
           unidade
         });
       }
@@ -131,7 +149,6 @@ app.post("/", (req, res) => {
         const docRef = vendasRef.doc();
         batch.set(docRef, sale);
 
-        // Em cada 500 operações, faz commit e inicia novo batch
         if ((idx + 1) % 500 === 0) {
           commits.push(batch.commit());
           batch = db.batch();

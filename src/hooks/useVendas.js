@@ -22,6 +22,8 @@ export const useVendas = (unidade, metas = []) => {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [processedData, setProcessedData] = useState(null);
+  // flag para conversão automática do 'Administrador'
+  const [autoConvertAdmin, setAutoConvertAdmin] = useState(true);
 
   // Filtros e seleção de período
   const [filtroResponsavel, setFiltroResponsavel] = useState("");
@@ -86,10 +88,11 @@ export const useVendas = (unidade, metas = []) => {
       return;
     }
   
-    // 2) Prepara o FormData com arquivo e unidade
+    // 2) Prepara o FormData com arquivo, unidade e flag de conversão
     const form = new FormData();
     form.append("file", file);
     form.append("unidade", unidade);
+  form.append("autoConvertAdmin", String(autoConvertAdmin));
   
     try {
       setUploading(true);
@@ -326,6 +329,8 @@ export const useVendas = (unidade, metas = []) => {
     file,
     setFile,
     uploading,
+    autoConvertAdmin,
+    setAutoConvertAdmin,
     handleUpload,
 
     filtroResponsavel,

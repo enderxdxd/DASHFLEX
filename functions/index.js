@@ -19,12 +19,17 @@ app.post("/", (req, res) => {
   let fileBuffer = null;
   let fileName = "";
   let unidade = "";
+  let autoConvertAdmin = "true"; // default mantém comportamento atual
 
-  // Captura o campo "unidade"
+  // Captura campos simples
+  // - unidade
+  // - autoConvertAdmin (flag "true" | "false")
   busboy.on("field", (fieldname, val) => {
     if (fieldname === "unidade") {
       unidade = val.trim().toLowerCase();
       console.log(`Unidade recebida: ${unidade}`);
+    } else if (fieldname === "autoConvertAdmin") {
+      autoConvertAdmin = val.trim().toLowerCase();
     }
   });
 
@@ -71,6 +76,8 @@ app.post("/", (req, res) => {
         return res.status(400).json({ success: false, error: "Nenhuma linha encontrada na planilha" });
       }
 
+      const shouldConvert = autoConvertAdmin === "true";
+
       // Transforma linhas em objetos de venda válidos
       const sales = [];
       for (const row of rows) {
@@ -101,8 +108,8 @@ app.post("/", (req, res) => {
           ""
         ).trim();
 
-        // Se o responsável for 'Administrador', usa o respVenda
-        const responsavelFinal = respRecebimento === 'Administrador' && respVenda ? respVenda : respRecebimento;
+        // Se o responsável for 'Administrador' e usuário optou pela conversão, usa o respVenda
+        const responsavelFinal = shouldConvert && respRecebimento === 'Administrador' && respVenda ? respVenda : respRecebimento;
 
         sales.push({
           produto:            (row["Produto"]               || "").trim(),

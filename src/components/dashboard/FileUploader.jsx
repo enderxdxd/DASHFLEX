@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 
-const FileUploader = ({ file, setFile, handleUpload, uploading }) => {
+const FileUploader = ({ file, setFile, handleUpload, uploading, autoConvertAdmin = true, setAutoConvertAdmin }) => {
   const fileInputRef = useRef(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [hasUploaded, setHasUploaded] = useState(false);
@@ -70,6 +70,85 @@ const FileUploader = ({ file, setFile, handleUpload, uploading }) => {
       </div>
       
       <div className="uploader-container">
+        {/* Opção de conversão automática */}
+        <div style={{
+          marginBottom: '16px',
+          padding: '14px 16px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          border: '1px solid #e0e0e0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+        }}>
+          <div 
+            onClick={() => setAutoConvertAdmin(!autoConvertAdmin)}
+            style={{
+              position: 'relative',
+              width: '40px',
+              height: '20px',
+              flexShrink: 0,
+              cursor: 'pointer'
+            }}
+          >
+            <input 
+              type="checkbox" 
+              checked={autoConvertAdmin}
+              onChange={() => {}}
+              style={{
+                opacity: 0,
+                width: 0,
+                height: 0,
+                position: 'absolute'
+              }}
+            />
+            <div 
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: autoConvertAdmin ? '#1976d2' : '#bdbdbd',
+                transition: 'all 0.2s ease',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 2px'
+              }}
+            >
+              <div 
+                style={{
+                  height: '16px',
+                  width: '16px',
+                  backgroundColor: 'white',
+                  borderRadius: '50%',
+                  transform: autoConvertAdmin ? 'translateX(20px)' : 'translateX(0)',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                }}
+              />
+            </div>
+          </div>
+          <div>
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 500,
+              color: '#333',
+              marginBottom: '4px'
+            }}>
+              Converter automaticamente "Administrador" para Resp. Venda
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: '#666',
+              lineHeight: 1.4
+            }}>
+              Quando ativado, substitui automaticamente o responsável "Administrador" pelo "Resp. Venda"
+            </div>
+          </div>
+        </div>
         <input
           type="file"
           onChange={handleFileChange}

@@ -52,6 +52,8 @@ const Dashboard = () => {
     processedData,
     successMessage,
     uploading,
+    autoConvertAdmin,
+    setAutoConvertAdmin,
     updateVenda,
     responsaveis,
     produtos,
@@ -260,7 +262,9 @@ const Dashboard = () => {
             setFile={setFile}
             handleUpload={handleUpload}
             uploading={uploading}
-            processedData={processedData} // Adicionar esta prop
+            autoConvertAdmin={autoConvertAdmin}
+            setAutoConvertAdmin={setAutoConvertAdmin}
+            processedData={processedData} 
             successMessage={successMessage}
           />
         </div>

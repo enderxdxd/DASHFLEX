@@ -82,6 +82,8 @@ const Dashboard = () => {
     mediaAnterior,
     pctVendas,
     pctMedia,
+    estatisticasPlanos,
+    estatisticasOutros,
   } = useFilters(
     vendas,
     metas.map(m => m.responsavel),
@@ -239,6 +241,8 @@ const Dashboard = () => {
           totalVendas={filteredVendas.length}
           totalFaturado={totalAtual}
           mediaVenda={mediaAtual}
+          estatisticasPlanos={estatisticasPlanos}
+          estatisticasOutros={estatisticasOutros}
         />
 
         <div className="dashboard-section">

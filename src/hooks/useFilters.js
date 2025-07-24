@@ -185,6 +185,32 @@ export const useFilters = (
   );
   const mediaPorVenda =
     filteredVendas.length > 0 ? totalFiltrado / filteredVendas.length : 0;
+  
+    const vendasPlanos = filteredVendas.filter(v => 
+      (v.produto || "").trim().toLowerCase() === "plano"
+    );
+    
+    const vendasOutrosProdutos = filteredVendas.filter(v => 
+      (v.produto || "").trim().toLowerCase() !== "plano"
+    );
+    
+    // Estatísticas para planos
+    const estatisticasPlanos = {
+      quantidade: vendasPlanos.length,
+      valorTotal: vendasPlanos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0),
+      valorMedio: vendasPlanos.length > 0 
+        ? vendasPlanos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0) / vendasPlanos.length 
+        : 0
+    };
+    
+    // Estatísticas para outros produtos
+    const estatisticasOutros = {
+      quantidade: vendasOutrosProdutos.length,
+      valorTotal: vendasOutrosProdutos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0),
+      valorMedio: vendasOutrosProdutos.length > 0 
+        ? vendasOutrosProdutos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0) / vendasOutrosProdutos.length 
+        : 0
+    };
 
   // Comparativo mês anterior
   const prevMonth = dayjs(filters.selectedMonth + '-01','YYYY-MM-DD')
@@ -223,6 +249,10 @@ export const useFilters = (
     mediaAtual: mediaPorVenda,
     mediaAnterior: vendasPrev.length > 0 ? totalAnterior / countAnterior : 0,
     pctVendas,
-    pctMedia
+    pctMedia,
+    estatisticasPlanos,
+  estatisticasOutros,
+  vendasPlanos,
+  vendasOutrosProdutos
   };
 };

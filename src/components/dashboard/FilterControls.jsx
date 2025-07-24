@@ -15,7 +15,9 @@ const FilterControls = ({
   produtos, 
   totalVendas, 
   totalFaturado, 
-  mediaVenda 
+  mediaVenda,
+  estatisticasPlanos,
+  estatisticasOutros,
 }) => {
   const [isDateRangeOpen, setIsDateRangeOpen] = useState(false);
   const [localDateRange, setLocalDateRange] = useState({
@@ -253,7 +255,71 @@ const FilterControls = ({
               )}
             </div>
           </div>
+
+          {/* Nova seção para breakdown de produtos */}
+          <div className="product-breakdown-section">
+            <div className="breakdown-grid">
+              {/* Card para Planos */}
+              <div className="breakdown-card planos">
+                <div className="breakdown-header">
+                  <div className="breakdown-content">
+                    <div className="breakdown-icon planos-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14,2 14,8 20,8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10,9 9,9 8,9"></polyline>
+                      </svg>
+                    </div>
+                    <div className="breakdown-label">Planos</div>
+                  </div>
+                  <div className="breakdown-badge planos-badge">{formatMoney(estatisticasPlanos?.valorTotal || 0)}</div>
+                </div>
+                
+                <div className="breakdown-stats">
+                  <div className="breakdown-stat">
+                    <span className="breakdown-number">{estatisticasPlanos?.quantidade || 0}</span>
+                    <span className="breakdown-desc">Vendas</span>
+                  </div>
+                  <div className="breakdown-stat">
+                    <span className="breakdown-number">{formatMoney(estatisticasPlanos?.valorMedio || 0)}</span>
+                    <span className="breakdown-desc">Média</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card para Outros Produtos */}
+              <div className="breakdown-card outros">
+                <div className="breakdown-header">
+                  <div className="breakdown-content">
+                    <div className="breakdown-icon outros-icon">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27,6.96 12,12.01 20.73,6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                      </svg>
+                    </div>
+                    <div className="breakdown-label">Outros</div>
+                  </div>
+                  <div className="breakdown-badge outros-badge">{formatMoney(estatisticasOutros?.valorTotal || 0)}</div>
+                </div>
+                
+                <div className="breakdown-stats">
+                  <div className="breakdown-stat">
+                    <span className="breakdown-number">{estatisticasOutros?.quantidade || 0}</span>
+                    <span className="breakdown-desc">Vendas</span>
+                  </div>
+                  <div className="breakdown-stat">
+                    <span className="breakdown-number">{formatMoney(estatisticasOutros?.valorMedio || 0)}</span>
+                    <span className="breakdown-desc">Média</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           
+          {/* Cards de estatísticas gerais */}
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-icon sales-icon">
@@ -296,7 +362,6 @@ const FilterControls = ({
           </div>
         </div>
       </div>
-      
       <style jsx>{`
         .filters-panel {
           background: linear-gradient(135deg, var(--bg-primary, white) 0%, var(--bg-secondary, #f8fafc) 100%);
@@ -1210,6 +1275,375 @@ const FilterControls = ({
             display: none;
           }
         }
+        .product-breakdown-section {
+          margin-top: 32px;
+          padding-top: 24px;
+          border-top: 1px solid var(--border, #e5e7eb);
+        }
+
+        .breakdown-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text-primary, #1f2937);
+          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .breakdown-title::before {
+          content: '';
+          width: 4px;
+          height: 16px;
+          background: linear-gradient(135deg, var(--accent, #6366f1), var(--accent-light, #8b5cf6));
+          border-radius: 2px;
+        }
+
+        .breakdown-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+
+        .breakdown-card {
+          background: white;
+          border-radius: 12px;
+          padding: 20px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+          border: 1px solid var(--border, #e5e7eb);
+          transition: all 0.2s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .breakdown-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, transparent, var(--card-accent), transparent);
+        }
+
+        .breakdown-card.planos::before {
+          --card-accent: #10b981; /* Green */
+        }
+
+        .breakdown-card.outros::before {
+          --card-accent: #3b82f6; /* Blue */
+        }
+
+        .breakdown-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        .breakdown-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+
+        .breakdown-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-right: 12px;
+        }
+
+        .breakdown-icon.planos-icon {
+          background: linear-gradient(135deg, #10b981, #059669);
+          color: white;
+        }
+
+        .breakdown-icon.outros-icon {
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          color: white;
+        }
+
+        .breakdown-label {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--text-secondary, #6b7280);
+          flex: 1;
+        }
+
+        .breakdown-badge {
+          font-size: 12px;
+          font-weight: 600;
+          padding: 4px 8px;
+          border-radius: 6px;
+          color: white;
+        }
+
+        .breakdown-badge.planos-badge {
+          background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .breakdown-badge.outros-badge {
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+
+        .breakdown-stats {
+          display: flex;
+          gap: 20px;
+        }
+
+        .breakdown-stat {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+        }
+
+        .breakdown-number {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--text-primary, #1f2937);
+          line-height: 1;
+        }
+
+        .breakdown-desc {
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--text-tertiary, #9ca3af);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-top: 4px;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+          .breakdown-grid {
+            grid-template-columns: 1fr;
+          }
+          
+          .breakdown-card {
+            padding: 16px;
+          }
+          
+          .breakdown-stats {
+            gap: 16px;
+          }
+          
+          .breakdown-number {
+            font-size: 16px;
+          }
+        }
+        /* ========================================================================
+        MODO ESCURO PARA BREAKDOWN DE PRODUTOS
+        ======================================================================== */
+
+      /* Seção de breakdown de produtos - Modo Escuro */
+      .dark .product-breakdown-section,
+      [data-theme="dark"] .product-breakdown-section {
+        border-top-color: var(--border-dark, #374151);
+      }
+
+      .dark .breakdown-title,
+      [data-theme="dark"] .breakdown-title {
+        color: var(--text-primary-dark, #f9fafb);
+      }
+
+      .dark .breakdown-title::before,
+      [data-theme="dark"] .breakdown-title::before {
+        background: linear-gradient(135deg, var(--accent-dark, #8b5cf6), var(--accent-light-dark, #a78bfa));
+      }
+
+      /* Cards de breakdown - Modo Escuro */
+      .dark .breakdown-card,
+      [data-theme="dark"] .breakdown-card {
+        background: linear-gradient(135deg, var(--bg-card-dark, #374151) 0%, var(--bg-card-light-dark, #4b5563) 100%);
+        border-color: var(--border-card-dark, #4b5563);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .dark .breakdown-card:hover,
+      [data-theme="dark"] .breakdown-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+      }
+
+      /* Ícones mantêm as cores originais para contraste */
+      .dark .breakdown-icon.planos-icon,
+      [data-theme="dark"] .breakdown-icon.planos-icon {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+      }
+
+      .dark .breakdown-icon.outros-icon,
+      [data-theme="dark"] .breakdown-icon.outros-icon {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+      }
+
+      /* Labels de breakdown - Modo Escuro */
+      .dark .breakdown-label,
+      [data-theme="dark"] .breakdown-label {
+        color: var(--text-secondary-dark, #d1d5db);
+      }
+
+      /* Badges mantêm as cores originais para contraste */
+      .dark .breakdown-badge.planos-badge,
+      [data-theme="dark"] .breakdown-badge.planos-badge {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+      }
+
+      .dark .breakdown-badge.outros-badge,
+      [data-theme="dark"] .breakdown-badge.outros-badge {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+      }
+
+      /* Números e estatísticas - Modo Escuro */
+      .dark .breakdown-number,
+      [data-theme="dark"] .breakdown-number {
+        color: var(--text-primary-dark, #f9fafb);
+      }
+
+      .dark .breakdown-desc,
+      [data-theme="dark"] .breakdown-desc {
+        color: var(--text-tertiary-dark, #9ca3af);
+      }
+
+      /* Variáveis CSS personalizadas para modo escuro */
+      [data-theme="dark"] {
+        --bg-card-dark: #374151;
+        --bg-card-light-dark: #4b5563;
+        --border-card-dark: #4b5563;
+        --border-dark: #374151;
+        --text-primary-dark: #f9fafb;
+        --text-secondary-dark: #d1d5db;
+        --text-tertiary-dark: #9ca3af;
+        --accent-dark: #8b5cf6;
+        --accent-light-dark: #a78bfa;
+      }
+
+      .dark {
+        --bg-card-dark: #374151;
+        --bg-card-light-dark: #4b5563;
+        --border-card-dark: #4b5563;
+        --border-dark: #374151;
+        --text-primary-dark: #f9fafb;
+        --text-secondary-dark: #d1d5db;
+        --text-tertiary-dark: #9ca3af;
+        --accent-dark: #8b5cf6;
+        --accent-light-dark: #a78bfa;
+      }
+
+      /* ========================================================================
+        RESPONSIVIDADE PARA MODO ESCURO
+        ======================================================================== */
+
+      @media (max-width: 768px) {
+        .dark .breakdown-card,
+        [data-theme="dark"] .breakdown-card {
+          background: linear-gradient(135deg, var(--bg-card-dark, #374151) 0%, var(--bg-card-light-dark, #4b5563) 100%);
+          border-color: var(--border-card-dark, #4b5563);
+        }
+        
+        .dark .breakdown-number,
+        [data-theme="dark"] .breakdown-number {
+          color: var(--text-primary-dark, #f9fafb);
+        }
+      }
+
+      @media (max-width: 480px) {
+        .dark .breakdown-card,
+        [data-theme="dark"] .breakdown-card {
+          background: linear-gradient(135deg, var(--bg-card-dark, #374151) 0%, var(--bg-card-light-dark, #4b5563) 100%);
+        }
+        
+        .dark .breakdown-desc,
+        [data-theme="dark"] .breakdown-desc {
+          color: var(--text-tertiary-dark, #9ca3af);
+        }
+      }
+
+      /* ========================================================================
+        EFEITOS ESPECIAIS PARA MODO ESCURO
+        ======================================================================== */
+
+      /* Efeito de brilho nos cards no modo escuro */
+      .dark .breakdown-card::after,
+      [data-theme="dark"] .breakdown-card::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(
+          45deg,
+          transparent,
+          rgba(255, 255, 255, 0.03),
+          transparent
+        );
+        transform: rotate(45deg);
+        transition: all 0.5s ease;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .dark .breakdown-card:hover::after,
+      [data-theme="dark"] .breakdown-card:hover::after {
+        opacity: 1;
+        animation: shimmer 1.5s ease-in-out;
+      }
+
+      @keyframes shimmer {
+        0% {
+          transform: translateX(-100%) translateY(-100%) rotate(45deg);
+        }
+        100% {
+          transform: translateX(100%) translateY(100%) rotate(45deg);
+        }
+      }
+
+      /* Melhora do contraste para acessibilidade no modo escuro */
+      @media (prefers-contrast: high) {
+        .dark .breakdown-card,
+        [data-theme="dark"] .breakdown-card {
+          border: 2px solid var(--border-card-dark, #6b7280);
+          background: var(--bg-card-dark, #374151);
+        }
+        
+        .dark .breakdown-number,
+        [data-theme="dark"] .breakdown-number {
+          color: #ffffff;
+          font-weight: 800;
+        }
+        
+        .dark .breakdown-label,
+        [data-theme="dark"] .breakdown-label {
+          color: #e5e7eb;
+        }
+      }
+
+      /* Suporte para reduced motion no modo escuro */
+      @media (prefers-reduced-motion: reduce) {
+        .dark .breakdown-card,
+        [data-theme="dark"] .breakdown-card {
+          transition: none;
+        }
+        
+        .dark .breakdown-card::after,
+        [data-theme="dark"] .breakdown-card::after {
+          display: none;
+        }
+        
+        @keyframes shimmer {
+          0%, 100% { 
+            transform: translateX(0) translateY(0) rotate(45deg);
+          }
+        }
+      }
       `}</style>
     </div>
   );

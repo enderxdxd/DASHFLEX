@@ -26,6 +26,7 @@ import PDFExporter from "../components/export/PDFExporter";
 import QuickStats from "../components/analytics/QuickStats";
 import AppliedFiltersSection from "../components/analytics/AppliedFiltersSection";
 import EnhancedTable from "../components/analytics/EnhancedTable";
+import GroupedSalesReport from "../components/reports/GroupedSalesReport";
 
 // Hooks
 import { useVendas } from "../hooks/useVendas";
@@ -705,6 +706,22 @@ const applyFilters = (filters) => {
                     filteredData={filteredData} 
                     formatMoney={formatMoney}
                   />
+                  
+                  <div className="section-card mt-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+                        <FileText className="mr-2 h-5 w-5 text-primary-600" />
+                        Relatório de Vendas Agrupadas
+                      </h2>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                      <GroupedSalesReport 
+                        vendas={filteredData}
+                        filters={activeFilters}
+                        selectedMonth={selMonth}
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

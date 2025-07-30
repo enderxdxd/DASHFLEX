@@ -13,6 +13,7 @@ import FilterControls from "../components/dashboard/FilterControls";
 import AnalyticsSummary from "../components/dashboard/AnalyticsSummary";
 import { useConfigRem } from '../hooks/useConfigRem';
 import { useUserRole } from '../hooks/useUserRole';
+import { usePersistedProdutos } from '../hooks/usePersistedProdutos';
 import Loading3D from '../components/ui/Loading3D';
 
 import dayjs from "dayjs";
@@ -24,16 +25,11 @@ const Dashboard = () => {
   const { unidade } = useParams();
   const configRem = useConfigRem(unidade) || {};
   const metaUnidade = Number(configRem.metaUnidade) || 0;
-
-
-
-
   const navigate = useNavigate();
-   
-
-
-
   const { role } = useUserRole();
+  
+  // Hook para produtos selecionados (filtros da página de metas)
+  const [produtosSelecionados, setProdutosSelecionados, produtosLoaded] = usePersistedProdutos();
   
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const saved = localStorage.getItem('selectedMonth');
@@ -68,7 +64,35 @@ const Dashboard = () => {
     error: metasError,
   } = useMetas(unidade);
 
-  // Aplica filtros e extrai métricas
+  // Filtra vendas pelos produtos selecionados na página de metas
+  const vendasFiltradas = useMemo(() => {
+    if (!vendas.length || !produtosLoaded) return vendas;
+    
+    // Se não há produtos selecionados, inclui todas as vendas
+    if (produtosSelecionados.length === 0) return vendas;
+    
+    // Filtra apenas vendas dos produtos selecionados
+    return vendas.filter(venda => {
+      const produtoVenda = (venda.produto || "").trim().toLowerCase();
+      return produtosSelecionados.some(produtoSelecionado => 
+        produtoSelecionado.toLowerCase() === produtoVenda
+      );
+    });
+  }, [vendas, produtosSelecionados, produtosLoaded]);
+
+  // Vendas excluídas (para mostrar no card adicional)
+  const vendasExcluidas = useMemo(() => {
+    if (!vendas.length || !produtosLoaded || produtosSelecionados.length === 0) return [];
+    
+    return vendas.filter(venda => {
+      const produtoVenda = (venda.produto || "").trim().toLowerCase();
+      return !produtosSelecionados.some(produtoSelecionado => 
+        produtoSelecionado.toLowerCase() === produtoVenda
+      );
+    });
+  }, [vendas, produtosSelecionados, produtosLoaded]);
+
+  // Aplica filtros usando vendas filtradas por produtos
   const {
     filters,
     dispatchFilters,
@@ -88,22 +112,35 @@ const Dashboard = () => {
     estatisticasPlanos,
     estatisticasOutros,
   } = useFilters(
-    vendas,
+    vendasFiltradas, // Usa vendas já filtradas por produtos
     metas.map(m => m.responsavel),
     selectedMonth
   );
 
-  // Faturamento mês atual
+  // Faturamento mês atual (usando vendas filtradas)
   const totalAtual = useMemo(
     () => filteredVendas.reduce((sum, v) => sum + (Number(v.valor) || 0), 0),
     [filteredVendas]
   );
 
-  // Faturamento mês anterior (mesmos consultores)
+  // Faturamento mês anterior (mesmos consultores e mesmos produtos)
   const totalAnterior = useMemo(() => {
     const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
     const responsaveisLower = metas.map(m => m.responsavel.trim().toLowerCase());
-    return vendas
+    
+    let vendasParaComparacao = vendas;
+    
+    // Aplica filtro de produtos se houver seleção
+    if (produtosSelecionados.length > 0) {
+      vendasParaComparacao = vendas.filter(venda => {
+        const produtoVenda = (venda.produto || "").trim().toLowerCase();
+        return produtosSelecionados.some(produtoSelecionado => 
+          produtoSelecionado.toLowerCase() === produtoVenda
+        );
+      });
+    }
+    
+    return vendasParaComparacao
       .filter(v => {
         if (!v.dataFormatada) return false;
         const resp = (v.responsavel || '').trim().toLowerCase();
@@ -113,7 +150,7 @@ const Dashboard = () => {
         );
       })
       .reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
-  }, [vendas, metas, selectedMonth]);
+  }, [vendas, metas, selectedMonth, produtosSelecionados]);
 
   // Variação percentual
   const percentChange = useMemo(
@@ -121,7 +158,7 @@ const Dashboard = () => {
     [totalAtual, totalAnterior]
   );
 
-  // Calcula % de consultores batendo meta
+  // Calcula % de consultores batendo meta (usando vendas filtradas)
   const pctConsultoresBatendoMeta = useMemo(() => {
     if (!metas.length) return 0;
     
@@ -139,7 +176,27 @@ const Dashboard = () => {
     return (consultoresBatendoMeta.length / metasDoMes.length) * 100;
   }, [metas, selectedMonth, filteredVendas]);
 
-  const loading = vendasLoading || metasLoading;
+  // Calcula métricas dos produtos excluídos para o mês selecionado
+  const metricasExcluidas = useMemo(() => {
+    if (!vendasExcluidas.length) return { valor: 0, quantidade: 0, media: 0 };
+
+    const vendasExcluidasMes = vendasExcluidas.filter(venda => {
+      const dataVenda = dayjs(venda.dataFormatada, "YYYY-MM-DD");
+      const resp = (venda.responsavel || '').trim().toLowerCase();
+      const responsaveisLower = metas.map(m => m.responsavel.trim().toLowerCase());
+      
+      return dataVenda.format("YYYY-MM") === selectedMonth && 
+             responsaveisLower.includes(resp);
+    });
+
+    const valor = vendasExcluidasMes.reduce((sum, venda) => sum + (Number(venda.valor) || 0), 0);
+    const quantidade = vendasExcluidasMes.length;
+    const media = quantidade > 0 ? valor / quantidade : 0;
+
+    return { valor, quantidade, media };
+  }, [vendasExcluidas, selectedMonth, metas]);
+
+  const loading = vendasLoading || metasLoading || !produtosLoaded;
   const error = vendasError || metasError;
 
   // Redireciona se sem unidade
@@ -156,6 +213,7 @@ const Dashboard = () => {
   const handleMonthChange = (newMonth) => setSelectedMonth(newMonth);
 
   if (!unidade) return <div>Redirecionando...</div>;
+  
   if (loading) {
     return (
       <div className="loading-center">
@@ -221,6 +279,8 @@ const Dashboard = () => {
             pctMedia={pctMedia}
             selectedMonth={selectedMonth}
             pctConsultoresBatendoMeta={pctConsultoresBatendoMeta}
+            metricasExcluidas={metricasExcluidas}
+            produtosSelecionados={produtosSelecionados}
           />
           
         </div>

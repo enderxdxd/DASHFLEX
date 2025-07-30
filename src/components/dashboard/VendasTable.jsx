@@ -32,8 +32,12 @@ const VendasTable = ({
   const { unidade } = useParams();
   const { role, loading: roleLoading } = useUserRole();
   
+  // Função para verificar se o usuário atual é admin
+  const isAdmin = role === "admin";
+
   // Função para lidar com mudanças nos campos editáveis
   const handleEditChange = (field, value) => {
+    if (!isAdmin) return; // Apenas admin pode editar
     setEditedVenda({
       ...editedVenda,
       [field]: value
@@ -59,12 +63,26 @@ const VendasTable = ({
     console.log(`Todos os documentos da subcoleção "${subcollectionName}" foram excluídos.`);
   }
   
+  // Iniciar edição
+  const startEdit = (venda) => {
+    if (!isAdmin) {
+      alert("Apenas administradores podem editar vendas.");
+      return;
+    }
+    setEditingId(venda.id);
+    setEditedVenda({ ...venda });
+  };
+
   // Cancelar edição
   const cancelEdit = () => {
     setEditingId(null);
     setEditedVenda({});
   };
   const handleDeleteAllClick = () => {
+    if (!isAdmin) {
+      alert("Apenas administradores podem excluir vendas.");
+      return;
+    }
     if (window.confirm("Tem certeza que deseja excluir TODAS as vendas?")) {
       onDeleteAll();
     }
@@ -87,6 +105,10 @@ const VendasTable = ({
   
   // Salvar alterações
   const saveChanges = async (id) => {
+    if (!isAdmin) {
+      alert("Apenas administradores podem editar vendas.");
+      return;
+    }
     const success = await updateVenda(id, editedVenda);
     if (success) {
       setEditingId(null);

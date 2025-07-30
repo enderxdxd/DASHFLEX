@@ -33,7 +33,9 @@ export default function App() {
           path="/metas/:unidade"
           element={
             <PrivateRoute>
-              <Metas />
+              <AdminRoute>
+                <Metas />
+              </AdminRoute>
             </PrivateRoute>
           }
         />

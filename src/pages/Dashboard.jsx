@@ -12,6 +12,7 @@ import MonthSelector from "../components/dashboard/MonthSelector";
 import FilterControls from "../components/dashboard/FilterControls";
 import AnalyticsSummary from "../components/dashboard/AnalyticsSummary";
 import { useConfigRem } from '../hooks/useConfigRem';
+import { useUserRole } from '../hooks/useUserRole';
 import Loading3D from '../components/ui/Loading3D';
 
 import dayjs from "dayjs";
@@ -32,6 +33,8 @@ const Dashboard = () => {
 
 
 
+  const { role } = useUserRole();
+  
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const saved = localStorage.getItem('selectedMonth');
     return saved || dayjs().format('YYYY-MM');
@@ -260,18 +263,20 @@ const Dashboard = () => {
           />
         </div>
 
-        <div className="dashboard-section">
-          <FileUploader
-            file={file}
-            setFile={setFile}
-            handleUpload={handleUpload}
-            uploading={uploading}
-            autoConvertAdmin={autoConvertAdmin}
-            setAutoConvertAdmin={setAutoConvertAdmin}
-            processedData={processedData} 
-            successMessage={successMessage}
-          />
-        </div>
+        {role === 'admin' && (
+          <div className="dashboard-section">
+            <FileUploader
+              file={file}
+              setFile={setFile}
+              handleUpload={handleUpload}
+              uploading={uploading}
+              autoConvertAdmin={autoConvertAdmin}
+              setAutoConvertAdmin={setAutoConvertAdmin}
+              processedData={processedData} 
+              successMessage={successMessage}
+            />
+          </div>
+        )}
       </main>
 
       <style>{`

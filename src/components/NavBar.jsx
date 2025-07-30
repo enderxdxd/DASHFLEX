@@ -89,13 +89,13 @@ export default function NavBar() {
       description: "Visão geral das vendas",
       matchPath: "/dashboard"
     },
-    {
+    ...(role === 'admin' ? [{
       path: `/metas/${unidade}`,
       icon: Target,
       label: "Metas",
       description: "Acompanhe suas metas",
       matchPath: "/metas"
-    },
+    }] : []),
     {
       path: `/analytics/${unidade}`,
       icon: BarChart3,

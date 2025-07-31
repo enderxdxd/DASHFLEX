@@ -64,6 +64,12 @@ const Dashboard = () => {
     error: metasError,
   } = useMetas(unidade);
 
+  // Lista de responsáveis oficiais da unidade
+  const responsaveisOficiais = useMemo(
+    () => metas.map(m => m.responsavel.trim().toLowerCase()),
+    [metas]
+  );
+
   // Filtra vendas pelos produtos selecionados na página de metas
   const vendasFiltradas = useMemo(() => {
     if (!vendas.length || !produtosLoaded) return vendas;
@@ -92,6 +98,75 @@ const Dashboard = () => {
     });
   }, [vendas, produtosSelecionados, produtosLoaded]);
 
+  // 🎯 NOVA LÓGICA: Dois tipos de faturamento
+
+  // 1. Faturamento DA UNIDADE (apenas vendas realizadas na unidade atual)
+  const faturamentoUnidade = useMemo(() => {
+    console.log('🏢 Calculando faturamento da unidade:', unidade);
+    console.log('📊 Vendas filtradas total:', vendasFiltradas.length);
+    
+    const vendasDaUnidade = vendasFiltradas.filter(v => 
+      (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase()
+    );
+    
+    console.log('🏢 Vendas da unidade:', vendasDaUnidade.length);
+    
+    const vendasMesAtual = vendasDaUnidade.filter(v => {
+      const resp = (v.responsavel || '').trim().toLowerCase();
+      const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth;
+      const respOficial = responsaveisOficiais.includes(resp);
+      
+      return mesCorreto && respOficial;
+    });
+
+    const vendasMesAnterior = vendasDaUnidade.filter(v => {
+      const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
+      const resp = (v.responsavel || '').trim().toLowerCase();
+      const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === prevMonth;
+      const respOficial = responsaveisOficiais.includes(resp);
+      
+      return mesCorreto && respOficial;
+    });
+
+    const totalAtual = vendasMesAtual.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+    const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+    const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
+
+    console.log('🏢 Faturamento Unidade - Atual:', totalAtual, 'Anterior:', totalAnterior);
+
+    return { totalAtual, totalAnterior, percentChange };
+  }, [vendasFiltradas, unidade, selectedMonth, responsaveisOficiais]);
+
+  // 2. Faturamento DOS CONSULTORES (todas as vendas dos consultores da unidade, mesmo que de outras unidades)
+  const faturamentoConsultores = useMemo(() => {
+    console.log('👥 Calculando faturamento dos consultores');
+    
+    const vendasMesAtual = vendasFiltradas.filter(v => {
+      const resp = (v.responsavel || '').trim().toLowerCase();
+      const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth;
+      const respOficial = responsaveisOficiais.includes(resp);
+      
+      return mesCorreto && respOficial;
+    });
+
+    const vendasMesAnterior = vendasFiltradas.filter(v => {
+      const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
+      const resp = (v.responsavel || '').trim().toLowerCase();
+      const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === prevMonth;
+      const respOficial = responsaveisOficiais.includes(resp);
+      
+      return mesCorreto && respOficial;
+    });
+
+    const totalAtual = vendasMesAtual.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+    const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+    const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
+
+    console.log('👥 Faturamento Consultores - Atual:', totalAtual, 'Anterior:', totalAnterior);
+
+    return { totalAtual, totalAnterior, percentChange };
+  }, [vendasFiltradas, selectedMonth, responsaveisOficiais]);
+
   // Aplica filtros usando vendas filtradas por produtos
   const {
     filters,
@@ -113,60 +188,24 @@ const Dashboard = () => {
     estatisticasOutros,
   } = useFilters(
     vendasFiltradas, // Usa vendas já filtradas por produtos
-    metas.map(m => m.responsavel),
+    responsaveisOficiais,
     selectedMonth
   );
 
-  // Faturamento mês atual (usando vendas filtradas)
-  const totalAtual = useMemo(
-    () => filteredVendas.reduce((sum, v) => sum + (Number(v.valor) || 0), 0),
-    [filteredVendas]
-  );
-
-  // Faturamento mês anterior (mesmos consultores e mesmos produtos)
-  const totalAnterior = useMemo(() => {
-    const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
-    const responsaveisLower = metas.map(m => m.responsavel.trim().toLowerCase());
-    
-    let vendasParaComparacao = vendas;
-    
-    // Aplica filtro de produtos se houver seleção
-    if (produtosSelecionados.length > 0) {
-      vendasParaComparacao = vendas.filter(venda => {
-        const produtoVenda = (venda.produto || "").trim().toLowerCase();
-        return produtosSelecionados.some(produtoSelecionado => 
-          produtoSelecionado.toLowerCase() === produtoVenda
-        );
-      });
-    }
-    
-    return vendasParaComparacao
-      .filter(v => {
-        if (!v.dataFormatada) return false;
-        const resp = (v.responsavel || '').trim().toLowerCase();
-        return (
-          responsaveisLower.includes(resp) &&
-          dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === prevMonth
-        );
-      })
-      .reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
-  }, [vendas, metas, selectedMonth, produtosSelecionados]);
-
-  // Variação percentual
-  const percentChange = useMemo(
-    () => (totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0),
-    [totalAtual, totalAnterior]
-  );
-
-  // Calcula % de consultores batendo meta (usando vendas filtradas)
+  // Calcula % de consultores batendo meta (usando faturamento da unidade)
   const pctConsultoresBatendoMeta = useMemo(() => {
     if (!metas.length) return 0;
     
     const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
     if (!metasDoMes.length) return 0;
 
+    const vendasDaUnidade = vendasFiltradas.filter(v => 
+      (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase() &&
+      dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth
+    );
+
     const consultoresBatendoMeta = metasDoMes.filter(m => {
-      const vendasDoConsultor = filteredVendas.filter(
+      const vendasDoConsultor = vendasDaUnidade.filter(
         v => v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase()
       );
       const totalVendas = vendasDoConsultor.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
@@ -174,7 +213,7 @@ const Dashboard = () => {
     });
 
     return (consultoresBatendoMeta.length / metasDoMes.length) * 100;
-  }, [metas, selectedMonth, filteredVendas]);
+  }, [metas, selectedMonth, vendasFiltradas, unidade]);
 
   // Calcula métricas dos produtos excluídos para o mês selecionado
   const metricasExcluidas = useMemo(() => {
@@ -183,10 +222,9 @@ const Dashboard = () => {
     const vendasExcluidasMes = vendasExcluidas.filter(venda => {
       const dataVenda = dayjs(venda.dataFormatada, "YYYY-MM-DD");
       const resp = (venda.responsavel || '').trim().toLowerCase();
-      const responsaveisLower = metas.map(m => m.responsavel.trim().toLowerCase());
       
       return dataVenda.format("YYYY-MM") === selectedMonth && 
-             responsaveisLower.includes(resp);
+             responsaveisOficiais.includes(resp);
     });
 
     const valor = vendasExcluidasMes.reduce((sum, venda) => sum + (Number(venda.valor) || 0), 0);
@@ -194,7 +232,7 @@ const Dashboard = () => {
     const media = quantidade > 0 ? valor / quantidade : 0;
 
     return { valor, quantidade, media };
-  }, [vendasExcluidas, selectedMonth, metas]);
+  }, [vendasExcluidas, selectedMonth, responsaveisOficiais]);
 
   const loading = vendasLoading || metasLoading || !produtosLoaded;
   const error = vendasError || metasError;
@@ -223,8 +261,22 @@ const Dashboard = () => {
     );
   }
 
-  const formattedMonth = dayjs(`${selectedMonth}-01`).format('MMMM [de] YYYY');
+  if (error) {
+    return (
+      <div className="dashboard-container">
+        <NavBar />
+        <div className="error-container">
+          <h2>Erro ao carregar dados</h2>
+          <p>{error}</p>
+          <button onClick={() => navigate('/dashboard')}>
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
 
+  const formattedMonth = dayjs(`${selectedMonth}-01`).format('MMMM [de] YYYY');
 
   return (
     <div className="dashboard-layout">
@@ -237,11 +289,9 @@ const Dashboard = () => {
       <main className="main-content">
         <header className="page-header">
           <div className="header-content">
-            
             <div className="badge">{unidade.toUpperCase()}</div>
           </div>
           <div className="header-actions">
-            
             <div className="last-update">
               Última atualização: {dayjs().format('DD/MM/YYYY, HH:mm:ss')}
             </div>
@@ -266,11 +316,13 @@ const Dashboard = () => {
               onChange={handleMonthChange}
             />
           </div>
+          
           <MetricCards
-            totalFaturado={totalAtual}
-            totalCurrent={totalAtual}
-            totalPrevious={totalAnterior}
-            percentChange={percentChange}
+            // Novos dados separados de faturamento
+            faturamentoUnidade={faturamentoUnidade}
+            faturamentoConsultores={faturamentoConsultores}
+            
+            // Métricas existentes
             countAtual={countAtual}
             countAnterior={countAnterior}
             pctVendas={pctVendas}
@@ -279,14 +331,12 @@ const Dashboard = () => {
             pctMedia={pctMedia}
             selectedMonth={selectedMonth}
             pctConsultoresBatendoMeta={pctConsultoresBatendoMeta}
+            
+            // Card de produtos excluídos
             metricasExcluidas={metricasExcluidas}
             produtosSelecionados={produtosSelecionados}
           />
-          
         </div>
-        {/* Resumo de Análises (tendência + projeção) */}
-        
-
 
         <div className="dashboard-section">
           <PerformanceChart
@@ -296,13 +346,14 @@ const Dashboard = () => {
             selectedMonth={selectedMonth}
           />
         </div>
+        
         <FilterControls
           filters={filters}
           dispatchFilters={dispatchFilters}
           responsaveis={responsaveis}
           produtos={produtos}
           totalVendas={filteredVendas.length}
-          totalFaturado={totalAtual}
+          totalFaturado={faturamentoConsultores.totalAtual}
           mediaVenda={mediaAtual}
           estatisticasPlanos={estatisticasPlanos}
           estatisticasOutros={estatisticasOutros}

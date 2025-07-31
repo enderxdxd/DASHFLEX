@@ -1,10 +1,11 @@
 import dayjs from "dayjs";
 
 const MetricCards = ({
-  totalFaturado,
-  totalCurrent,
-  totalPrevious,
-  percentChange,
+  // Novos dados de faturamento separados
+  faturamentoUnidade,
+  faturamentoConsultores,
+  
+  // Métricas existentes
   countAtual,
   countAnterior,
   pctVendas,
@@ -12,27 +13,37 @@ const MetricCards = ({
   mediaAnterior,
   pctMedia,
   selectedMonth,
+  pctConsultoresBatendoMeta,
+  
+  // Card de produtos excluídos
   metricasExcluidas,
   produtosSelecionados
 }) => {
-  // Formata o valor monetário
+  // Formata o valor monetário com verificação de segurança
   const formatMoney = (value) => {
+    const numValue = Number(value) || 0;
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(value);
+    }).format(numValue);
   };
 
-  // Formata percentual
+  // Formata percentual com verificação de segurança
   const formatPercent = (value) => {
-    const isPositive = value >= 0;
+    const numValue = Number(value) || 0;
+    const isPositive = numValue >= 0;
     return {
-      value: Math.abs(value).toFixed(1),
+      value: Math.abs(numValue).toFixed(1),
       isPositive,
-      icon: isPositive ? '↗' : '↘',
-      color: isPositive ? 'var(--success)' : 'var(--danger)'
+      icon: isPositive ? '↗' : '↘'
     };
   };
+
+  // Valores seguros com fallbacks
+  const safeCountAtual = Number(countAtual) || 0;
+  const safePctVendas = Number(pctVendas) || 0;
+  const safeMediaAtual = Number(mediaAtual) || 0;
+  const safePctMedia = Number(pctMedia) || 0;
 
   // Verifica se deve mostrar o card de produtos excluídos
   const shouldShowExcludedCard = metricasExcluidas && 
@@ -41,29 +52,55 @@ const MetricCards = ({
   return (
     <div className="metrics-container">
       <div className="metrics-grid">
-        {/* Card Total Faturado */}
+        {/* Card 1: Faturamento DA UNIDADE */}
         <div className="metric-card primary-card">
           <div className="card-header">
             <div className="icon-container primary-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2V22M17 5H9.5C8.57174 5 7.6815 5.36875 7.02513 6.02513C6.36875 6.6815 6 7.57174 6 8.5C6 9.42826 6.36875 10.3185 7.02513 10.9749C7.6815 11.6312 8.57174 12 9.5 12H14.5C15.4283 12 16.3185 12.3687 16.9749 13.0251C17.6312 13.6815 18 14.5717 18 15.5C18 16.4283 17.6312 17.3185 16.9749 17.9749C16.3185 18.6312 15.4283 19 14.5 19H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M9 22V12H15V22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             <div className="card-title">
-              <h3>Total Faturado</h3>
-              <p>Receita do período</p>
+              <h3>Faturamento da Unidade</h3>
+              <p>Vendas realizadas na unidade</p>
             </div>
           </div>
           <div className="card-content">
-            <div className="main-value">{formatMoney(totalFaturado)}</div>
-            <div className={`comparison-badge ${percentChange >= 0 ? 'positive' : 'negative'}`}>
-              <span className="trend-icon">{formatPercent(percentChange).icon}</span>
-              <span>{formatPercent(percentChange).value}% vs mês anterior</span>
+            <div className="main-value">{formatMoney(faturamentoUnidade?.totalAtual || 0)}</div>
+            <div className={`comparison-badge ${(faturamentoUnidade?.percentChange || 0) >= 0 ? 'positive' : 'negative'}`}>
+              <span className="trend-icon">{formatPercent(faturamentoUnidade?.percentChange || 0).icon}</span>
+              <span>{formatPercent(faturamentoUnidade?.percentChange || 0).value}% vs mês anterior</span>
             </div>
           </div>
         </div>
 
-        {/* Card Número de Vendas */}
+        {/* Card 2: Faturamento DOS CONSULTORES */}
+        <div className="metric-card secondary-card">
+          <div className="card-header">
+            <div className="icon-container secondary-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M23 21V19C23 18.1645 22.7155 17.3541 22.2094 16.7012C21.7033 16.0484 20.9998 15.5902 20.2 15.4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M16 3.13C16.8003 3.35055 17.5037 3.80875 18.0098 4.46157C18.5159 5.11439 18.8004 5.92481 18.8004 6.76C18.8004 7.59519 18.5159 8.40561 18.0098 9.05843C17.5037 9.71125 16.8003 10.1695 16 10.39" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className="card-title">
+              <h3>Faturamento dos Consultores</h3>
+              <p>Total vendido pelos consultores</p>
+            </div>
+          </div>
+          <div className="card-content">
+            <div className="main-value">{formatMoney(faturamentoConsultores?.totalAtual || 0)}</div>
+            <div className={`comparison-badge ${(faturamentoConsultores?.percentChange || 0) >= 0 ? 'positive' : 'negative'}`}>
+              <span className="trend-icon">{formatPercent(faturamentoConsultores?.percentChange || 0).icon}</span>
+              <span>{formatPercent(faturamentoConsultores?.percentChange || 0).value}% vs mês anterior</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Número de Vendas */}
         <div className="metric-card success-card">
           <div className="card-header">
             <div className="icon-container success-icon">
@@ -77,15 +114,15 @@ const MetricCards = ({
             </div>
           </div>
           <div className="card-content">
-            <div className="main-value">{countAtual.toLocaleString('pt-BR')}</div>
-            <div className={`comparison-badge ${pctVendas >= 0 ? 'positive' : 'negative'}`}>
-              <span className="trend-icon">{formatPercent(pctVendas).icon}</span>
-              <span>{formatPercent(pctVendas).value}% vs mês anterior</span>
+            <div className="main-value">{safeCountAtual.toLocaleString('pt-BR')}</div>
+            <div className={`comparison-badge ${safePctVendas >= 0 ? 'positive' : 'negative'}`}>
+              <span className="trend-icon">{formatPercent(safePctVendas).icon}</span>
+              <span>{formatPercent(safePctVendas).value}% vs mês anterior</span>
             </div>
           </div>
         </div>
 
-        {/* Card Média por Venda */}
+        {/* Card 4: Média por Venda */}
         <div className="metric-card warning-card">
           <div className="card-header">
             <div className="icon-container warning-icon">
@@ -99,15 +136,15 @@ const MetricCards = ({
             </div>
           </div>
           <div className="card-content">
-            <div className="main-value">{formatMoney(mediaAtual)}</div>
-            <div className={`comparison-badge ${pctMedia >= 0 ? 'positive' : 'negative'}`}>
-              <span className="trend-icon">{formatPercent(pctMedia).icon}</span>
-              <span>{formatPercent(pctMedia).value}% vs mês anterior</span>
+            <div className="main-value">{formatMoney(safeMediaAtual)}</div>
+            <div className={`comparison-badge ${safePctMedia >= 0 ? 'positive' : 'negative'}`}>
+              <span className="trend-icon">{formatPercent(safePctMedia).icon}</span>
+              <span>{formatPercent(safePctMedia).value}% vs mês anterior</span>
             </div>
           </div>
         </div>
 
-        {/* Card de Produtos Excluídos */}
+        {/* Card 5: Produtos Excluídos */}
         {shouldShowExcludedCard && (
           <div className="metric-card excluded-card">
             <div className="card-header">
@@ -189,6 +226,10 @@ const MetricCards = ({
           background: var(--primary);
         }
 
+        .secondary-card::before {
+          background: #6366f1;
+        }
+
         .success-card::before {
           background: var(--success);
         }
@@ -221,6 +262,11 @@ const MetricCards = ({
         .primary-icon {
           background: rgba(79, 70, 229, 0.1);
           color: var(--primary);
+        }
+
+        .secondary-icon {
+          background: rgba(99, 102, 241, 0.1);
+          color: #6366f1;
         }
 
         .success-icon {
@@ -339,7 +385,6 @@ const MetricCards = ({
           font-weight: 500;
         }
 
-        /* Animação para card excluído */
         .excluded-card {
           animation: slideInRight 0.5s ease-out;
         }
@@ -355,10 +400,10 @@ const MetricCards = ({
           }
         }
 
-        /* Responsividade para diferentes tamanhos de tela */
+        /* Responsividade melhorada */
         @media (min-width: 1440px) {
           .metrics-grid {
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 1.5rem;
           }
           
@@ -423,7 +468,7 @@ const MetricCards = ({
 
         @media (max-width: 480px) {
           .metrics-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 0.5rem;
           }
 
@@ -432,7 +477,7 @@ const MetricCards = ({
           }
 
           .main-value {
-            font-size: 1.25rem;
+            font-size: 1.125rem;
           }
 
           .card-header {
@@ -445,7 +490,7 @@ const MetricCards = ({
           }
         }
 
-        /* Tema claro (padrão) */
+        /* Sistema de cores compatível com temas existentes */
         :root {
           --primary: #4f46e5;
           --success: #10b981;
@@ -459,7 +504,6 @@ const MetricCards = ({
           --text-secondary: #64748b;
         }
 
-        /* Tema escuro */
         [data-theme="dark"] {
           --primary: #6366f1;
           --success: #34d399;
@@ -473,7 +517,6 @@ const MetricCards = ({
           --text-secondary: #94a3b8;
         }
 
-        /* Auto dark mode baseado na preferência do sistema */
         @media (prefers-color-scheme: dark) {
           :root {
             --primary: #6366f1;

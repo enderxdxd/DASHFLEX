@@ -100,32 +100,27 @@ const Dashboard = () => {
 
   // 🎯 NOVA LÓGICA: Dois tipos de faturamento
 
-  // 1. Faturamento DA UNIDADE (apenas vendas realizadas na unidade atual)
+  // 1. Faturamento DA UNIDADE (TODAS as vendas realizadas na unidade atual)
   const faturamentoUnidade = useMemo(() => {
     console.log('🏢 Calculando faturamento da unidade:', unidade);
     console.log('📊 Vendas filtradas total:', vendasFiltradas.length);
     
+    // TODAS as vendas da unidade (não filtra por responsáveis oficiais)
     const vendasDaUnidade = vendasFiltradas.filter(v => 
       (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase()
     );
     
-    console.log('🏢 Vendas da unidade:', vendasDaUnidade.length);
+    console.log('🏢 Vendas da unidade (todas):', vendasDaUnidade.length);
     
     const vendasMesAtual = vendasDaUnidade.filter(v => {
-      const resp = (v.responsavel || '').trim().toLowerCase();
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth;
-      const respOficial = responsaveisOficiais.includes(resp);
-      
-      return mesCorreto && respOficial;
+      return mesCorreto; // Remove filtro de responsáveis oficiais
     });
 
     const vendasMesAnterior = vendasDaUnidade.filter(v => {
       const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
-      const resp = (v.responsavel || '').trim().toLowerCase();
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === prevMonth;
-      const respOficial = responsaveisOficiais.includes(resp);
-      
-      return mesCorreto && respOficial;
+      return mesCorreto; // Remove filtro de responsáveis oficiais
     });
 
     const totalAtual = vendasMesAtual.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
@@ -133,9 +128,10 @@ const Dashboard = () => {
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
 
     console.log('🏢 Faturamento Unidade - Atual:', totalAtual, 'Anterior:', totalAnterior);
+    console.log('🏢 Vendas mês atual:', vendasMesAtual.length, 'Vendas mês anterior:', vendasMesAnterior.length);
 
     return { totalAtual, totalAnterior, percentChange };
-  }, [vendasFiltradas, unidade, selectedMonth, responsaveisOficiais]);
+  }, [vendasFiltradas, unidade, selectedMonth]);
 
   // 2. Faturamento DOS CONSULTORES (todas as vendas dos consultores da unidade, mesmo que de outras unidades)
   const faturamentoConsultores = useMemo(() => {
@@ -237,10 +233,22 @@ const Dashboard = () => {
   const loading = vendasLoading || metasLoading || !produtosLoaded;
   const error = vendasError || metasError;
 
-  // Redireciona se sem unidade
+  // Debug: Verificar filtros ativos
   useEffect(() => {
-    if (!unidade) navigate("/login");
-  }, [unidade, navigate]);
+    console.log('🔍 Debug - Produtos selecionados:', produtosSelecionados);
+    console.log('🔍 Debug - Total vendas brutas:', vendas.length);
+    console.log('🔍 Debug - Vendas após filtro produtos:', vendasFiltradas.length);
+    console.log('🔍 Debug - Responsáveis oficiais:', responsaveisOficiais);
+    
+    if (vendas.length > 0) {
+      const somaTotal = vendas
+        .filter(v => (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase())
+        .filter(v => dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth)
+        .reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+      
+      console.log('🔍 Debug - Soma TOTAL da unidade no mês (sem filtros):', somaTotal);
+    }
+  }, [vendas, vendasFiltradas, produtosSelecionados, responsaveisOficiais, unidade, selectedMonth]);
 
   // Sincroniza filtro de mês
   useEffect(() => {

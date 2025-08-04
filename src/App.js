@@ -29,16 +29,7 @@ export default function App() {
             </PrivateRoute>
           }
         />
-        <Route
-          path="/metas/:unidade"
-          element={
-            <PrivateRoute>
-              <AdminRoute>
-                <Metas />
-              </AdminRoute>
-            </PrivateRoute>
-          }
-        />
+        <Route path="/metas/:unidade" element={<Metas />} />
         <Route
           path="/add-sale/:unidade"
           element={

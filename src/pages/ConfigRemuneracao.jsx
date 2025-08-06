@@ -25,6 +25,7 @@ import {
   Filter
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Trophy} from 'lucide-react';
 import '../styles/ConfigRemuneracao.css';
 import Navbar from '../components/NavBar';
 // Dark mode is handled globally by useDarkMode hook
@@ -221,6 +222,116 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
 
   const dadosConsultores = analiseConsultores();
   const estatisticas = estatisticasGerais();
+  
+  // 📊 NOVA FUNCIONALIDADE: Análise detalhada por faixas de planos
+  const analisePorFaixas = () => {
+    const faixasAnalise = {};
+    
+    comissaoPlanos.forEach(plano => {
+      const faixaKey = `${plano.plano} (R$ ${plano.min?.toLocaleString('pt-BR')} - R$ ${plano.max?.toLocaleString('pt-BR')})`;
+      
+      const vendasDaFaixa = vendasFiltradas.filter(venda => {
+        const valor = Number(venda.valor || 0);
+        return venda.produto.trim().toLowerCase() === "plano" && 
+               valor >= (plano.min || 0) && 
+               valor <= (plano.max || Infinity);
+      });
+      
+      const valorTotal = vendasDaFaixa.reduce((s, v) => s + Number(v.valor || 0), 0);
+      const ticketMedio = vendasDaFaixa.length > 0 ? valorTotal / vendasDaFaixa.length : 0;
+      
+      // Calcular comissão total desta faixa
+      let comissaoTotal = 0;
+      vendasDaFaixa.forEach(venda => {
+        const consultor = dadosConsultores.find(c => 
+          c.responsavel.trim().toLowerCase() === venda.responsavel.trim().toLowerCase()
+        );
+        if (consultor) {
+          const vendaComissao = consultor.vendasPlanos.find(vp => 
+            vp.produto === venda.produto && vp.valor === venda.valor
+          );
+          if (vendaComissao) {
+            comissaoTotal += vendaComissao.comissao || 0;
+          }
+        }
+      });
+      
+      faixasAnalise[faixaKey] = {
+        planoConfig: plano,
+        vendas: vendasDaFaixa.length,
+        valorTotal,
+        ticketMedio,
+        comissaoTotal,
+        comissaoMedia: vendasDaFaixa.length > 0 ? comissaoTotal / vendasDaFaixa.length : 0,
+        participacao: estatisticas.planos.quantidade > 0 ? (vendasDaFaixa.length / estatisticas.planos.quantidade) * 100 : 0
+      };
+    });
+    
+    return Object.entries(faixasAnalise).map(([faixa, dados]) => ({ faixa, ...dados }));
+  };
+  
+  // 🏆 NOVA FUNCIONALIDADE: Ranking de performance
+  const rankingConsultores = () => {
+    return dadosConsultores
+      .map(consultor => ({
+        ...consultor,
+        scorePerformance: (
+          (consultor.percentualMeta * 0.4) + 
+          (consultor.vendasPlanos.length * 10) + 
+          (consultor.totalComissao / 100)
+        ),
+        eficiencia: consultor.totalVendas > 0 ? (consultor.totalComissao / consultor.totalVendas) * 100 : 0
+      }))
+      .sort((a, b) => b.scorePerformance - a.scorePerformance);
+  };
+  
+  // 📈 NOVA FUNCIONALIDADE: Oportunidades identificadas
+  const identificarOportunidades = () => {
+    const oportunidades = [];
+    
+    dadosConsultores.forEach(consultor => {
+      // Consultor próximo da meta (80-99%)
+      if (consultor.percentualMeta >= 80 && consultor.percentualMeta < 100) {
+        const valorNecessario = Number(consultor.meta) - consultor.totalVendas;
+        oportunidades.push({
+          tipo: 'meta_proxima',
+          consultor: consultor.responsavel,
+          descricao: `Próximo da meta - faltam R$ ${valorNecessario.toLocaleString('pt-BR')}`,
+          impacto: 'alto',
+          valor: valorNecessario
+        });
+      }
+      
+      // Consultor com muitas vendas mas baixa comissão (possível problema de faixa)
+      if (consultor.vendasPlanos.length >= 3 && consultor.totalComissaoPlanos < 500) {
+        oportunidades.push({
+          tipo: 'baixa_comissao',
+          consultor: consultor.responsavel,
+          descricao: `${consultor.vendasPlanos.length} vendas mas baixa comissão - revisar faixas`,
+          impacto: 'medio',
+          valor: consultor.totalComissaoPlanos
+        });
+      }
+    });
+    
+    // Oportunidade da unidade
+    if (!unidadeBatida && totalUnidade >= (configRem?.metaUnidade || 0) * 0.85) {
+      const valorNecessario = (configRem?.metaUnidade || 0) - totalUnidade;
+      oportunidades.push({
+        tipo: 'meta_unidade',
+        consultor: 'UNIDADE',
+        descricao: `Unidade próxima da meta TME - faltam R$ ${valorNecessario.toLocaleString('pt-BR')}`,
+        impacto: 'critico',
+        valor: valorNecessario
+      });
+    }
+    
+    return oportunidades;
+  };
+  
+  const faixasDetalhadas = analisePorFaixas();
+  const ranking = rankingConsultores();
+  const oportunidades = identificarOportunidades();
 
   return (
     <div className="planos-visualizer">
@@ -278,6 +389,27 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
         >
           <Eye size={16} />
           Por Consultor
+        </button>
+        <button 
+          className={`view-tab ${activeView === 'faixas' ? 'active' : ''}`}
+          onClick={() => setActiveView('faixas')}
+        >
+          <BarChart3 size={16} />
+          Por Faixas
+        </button>
+        <button 
+          className={`view-tab ${activeView === 'ranking' ? 'active' : ''}`}
+          onClick={() => setActiveView('ranking')}
+        >
+          <Trophy size={16} />
+          Ranking
+        </button>
+        <button 
+          className={`view-tab ${activeView === 'oportunidades' ? 'active' : ''}`}
+          onClick={() => setActiveView('oportunidades')}
+        >
+          <Target size={16} />
+          Oportunidades
         </button>
       </div>
 
@@ -388,6 +520,165 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
               </div>
             ))}
           </div>
+        </div>
+      )}
+      
+      {activeView === 'faixas' && (
+        <div className="faixas-content">
+          <div className="section-header">
+            <h4><BarChart3 size={16} /> Análise Detalhada por Faixas de Planos</h4>
+            <p>Performance e distribuição por faixa de valor</p>
+          </div>
+          
+          <div className="faixas-grid">
+            {faixasDetalhadas.map((faixa, index) => (
+              <div key={index} className="faixa-card">
+                <div className="faixa-header">
+                  <h5>{faixa.faixa}</h5>
+                  <div className="participacao-badge">
+                    {faixa.participacao.toFixed(1)}% das vendas
+                  </div>
+                </div>
+                
+                <div className="faixa-metrics">
+                  <div className="metric-row">
+                    <span className="metric-label">Vendas:</span>
+                    <span className="metric-value">{faixa.vendas}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Valor Total:</span>
+                    <span className="metric-value">R$ {faixa.valorTotal.toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Ticket Médio:</span>
+                    <span className="metric-value">R$ {faixa.ticketMedio.toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Comissão Total:</span>
+                    <span className="metric-value success">R$ {faixa.comissaoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Comissão Média:</span>
+                    <span className="metric-value">R$ {faixa.comissaoMedia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+                
+                <div className="faixa-config">
+                  <h6>Configuração de Comissão:</h6>
+                  <div className="config-row">
+                    <span>Sem Meta: R$ {faixa.planoConfig.semMeta || 0}</span>
+                    <span>Com Meta: R$ {faixa.planoConfig.comMeta || 0}</span>
+                    <span>TME: R$ {faixa.planoConfig.metaTME || 0}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {activeView === 'ranking' && (
+        <div className="ranking-content">
+          <div className="section-header">
+            <h4><Trophy size={16} /> Ranking de Performance</h4>
+            <p>Consultores ordenados por score de performance</p>
+          </div>
+          
+          <div className="ranking-list">
+            {ranking.map((consultor, index) => (
+              <div key={consultor.id || index} className={`ranking-item ${index < 3 ? 'top-performer' : ''}`}>
+                <div className="ranking-position">
+                  <span className="position-number">{index + 1}º</span>
+                  {index === 0 && <span className="trophy gold">🥇</span>}
+                  {index === 1 && <span className="trophy silver">🥈</span>}
+                  {index === 2 && <span className="trophy bronze">🥉</span>}
+                </div>
+                
+                <div className="consultor-info">
+                  <h5>{consultor.responsavel}</h5>
+                  <div className="performance-metrics">
+                    <div className="metric-chip">
+                      <span className="chip-label">Meta:</span>
+                      <span className={`chip-value ${consultor.percentualMeta >= 100 ? 'success' : 'warning'}`}>
+                        {consultor.percentualMeta.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="metric-chip">
+                      <span className="chip-label">Vendas:</span>
+                      <span className="chip-value">{consultor.vendasPlanos.length}</span>
+                    </div>
+                    <div className="metric-chip">
+                      <span className="chip-label">Comissão:</span>
+                      <span className="chip-value success">R$ {consultor.totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="metric-chip">
+                      <span className="chip-label">Eficiência:</span>
+                      <span className="chip-value">{consultor.eficiencia.toFixed(2)}%</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="performance-score">
+                  <span className="score-label">Score</span>
+                  <span className="score-value">{consultor.scorePerformance.toFixed(1)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {activeView === 'oportunidades' && (
+        <div className="oportunidades-content">
+          <div className="section-header">
+            <h4><Target size={16} /> Oportunidades Identificadas</h4>
+            <p>Insights e ações recomendadas baseadas nos dados</p>
+          </div>
+          
+          {oportunidades.length === 0 ? (
+            <div className="empty-oportunidades">
+              <Target size={48} />
+              <h5>Nenhuma oportunidade crítica identificada</h5>
+              <p>Todos os consultores estão performando dentro do esperado.</p>
+            </div>
+          ) : (
+            <div className="oportunidades-list">
+              {oportunidades.map((oportunidade, index) => (
+                <div key={index} className={`oportunidade-card ${oportunidade.impacto}`}>
+                  <div className="oportunidade-header">
+                    <div className={`impacto-badge ${oportunidade.impacto}`}>
+                      {oportunidade.impacto === 'critico' && '🔴'}
+                      {oportunidade.impacto === 'alto' && '🟡'}
+                      {oportunidade.impacto === 'medio' && '🟢'}
+                      <span>{oportunidade.impacto.toUpperCase()}</span>
+                    </div>
+                    <h5>{oportunidade.consultor}</h5>
+                  </div>
+                  
+                  <div className="oportunidade-content">
+                    <p>{oportunidade.descricao}</p>
+                    {oportunidade.valor && (
+                      <div className="valor-destaque">
+                        <strong>Valor: R$ {oportunidade.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="oportunidade-actions">
+                    {oportunidade.tipo === 'meta_proxima' && (
+                      <small>💡 Foque em vendas de maior valor para maximizar o resultado</small>
+                    )}
+                    {oportunidade.tipo === 'baixa_comissao' && (
+                      <small>💡 Revisar se as vendas estão nas faixas corretas de comissão</small>
+                    )}
+                    {oportunidade.tipo === 'meta_unidade' && (
+                      <small>💡 Esforço conjunto pode desbloquear comissões TME para todos</small>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

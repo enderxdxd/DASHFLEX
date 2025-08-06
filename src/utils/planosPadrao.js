@@ -1,3 +1,118 @@
+// Função para gerar faixas de premiação com lógica progressiva corrigida
+export function gerarFaixasPremiacao(unidade) {
+  const isAlphaville = unidade.toLowerCase() === 'alphaville';
+  const faixas = [];
+  
+  // Configurações base
+  const inicio = 35; // Começa em 35%
+  const incremento = 5; // Incremento de 5%
+  const valorBase = isAlphaville ? 200 : 180; // Valor base por faixa
+  const valorMeta = isAlphaville ? 220 : 200; // Valor quando atinge 100%
+  
+  // Gera faixas até 95% (antes da meta)
+  for (let percentual = inicio; percentual < 100; percentual += incremento) {
+    faixas.push({
+      percentual: percentual,
+      premio: valorBase
+    });
+  }
+  
+  // Adiciona faixa de 100% (meta atingida)
+  faixas.push({
+    percentual: 100,
+    premio: valorMeta
+  });
+  
+  // Adiciona faixas acima de 100% (superação da meta)
+  for (let percentual = 105; percentual <= 200; percentual += incremento) {
+    faixas.push({
+      percentual: percentual,
+      premio: valorMeta
+    });
+  }
+  
+  return faixas;
+}
+
+// Função para simular e mostrar como a premiação será calculada
+export function simularPremiacao(percentualAtingido, unidade) {
+  const faixas = gerarFaixasPremiacao(unidade);
+  const faixasAtingidas = faixas
+    .filter(f => f.percentual <= percentualAtingido)
+    .sort((a, b) => a.percentual - b.percentual);
+  
+  const premioTotal = faixasAtingidas.reduce((soma, faixa) => soma + faixa.premio, 0);
+  
+  return {
+    percentualAtingido,
+    faixasAtingidas,
+    premioTotal,
+    detalhamento: faixasAtingidas.map(f => `${f.percentual}% → +R$ ${f.premio}`),
+    resumo: `${percentualAtingido}% da meta = R$ ${premioTotal} (${faixasAtingidas.length} faixas)`
+  };
+}
+
+// Exemplo de uso e teste
+export function exemploCalculoPremiacao() {
+  console.log("=== EXEMPLO DE CÁLCULO DE PREMIAÇÃO ===");
+  
+  const exemplos = [35, 45, 60, 100, 150];
+  const unidades = ['alphaville', 'buena vista'];
+  
+  unidades.forEach(unidade => {
+    console.log(`\n--- ${unidade.toUpperCase()} ---`);
+    
+    exemplos.forEach(percentual => {
+      const resultado = simularPremiacao(percentual, unidade);
+      console.log(resultado.resumo);
+      console.log(`  Faixas: ${resultado.detalhamento.join(', ')}`);
+    });
+  });
+}
+
+// Função para validar se as faixas estão configuradas corretamente
+export function validarFaixasPremiacao(faixas) {
+  const problemas = [];
+  
+  // Verifica se as faixas estão ordenadas
+  const faixasOrdenadas = [...faixas].sort((a, b) => a.percentual - b.percentual);
+  const estaOrdenado = faixas.every((faixa, index) => 
+    faixa.percentual === faixasOrdenadas[index].percentual
+  );
+  
+  if (!estaOrdenado) {
+    problemas.push("Faixas não estão ordenadas por percentual");
+  }
+  
+  // Verifica duplicatas
+  const percentuais = faixas.map(f => f.percentual);
+  const percentuaisUnicos = [...new Set(percentuais)];
+  if (percentuais.length !== percentuaisUnicos.length) {
+    problemas.push("Existem faixas com percentuais duplicados");
+  }
+  
+  // Verifica se tem faixa de 100%
+  const temMeta = faixas.some(f => f.percentual === 100);
+  if (!temMeta) {
+    problemas.push("Não há faixa configurada para 100% da meta");
+  }
+  
+  // Verifica valores zerados
+  const valoresZerados = faixas.filter(f => !f.premio || f.premio === 0);
+  if (valoresZerados.length > 0) {
+    problemas.push(`${valoresZerados.length} faixa(s) com valor zero ou indefinido`);
+  }
+  
+  return {
+    valido: problemas.length === 0,
+    problemas,
+    totalFaixas: faixas.length,
+    menorPercentual: Math.min(...percentuais),
+    maiorPercentual: Math.max(...percentuais)
+  };
+}
+
+// Dados dos planos por unidade (mantém a estrutura original)
 export default function gerarPlanosPadrao(unidade) {
   switch (unidade.toLowerCase()) {
     case "alphaville":
@@ -30,39 +145,4 @@ export default function gerarPlanosPadrao(unidade) {
     default:
       return [];
   }
-}
-
-export function gerarFaixasPremiacao(unidade) {
-  const isAlphaville = unidade.toLowerCase() === 'alphaville';
-  const faixas = [];
-  
-  // Configurações base
-  const inicio = 35; // Começa em 35%
-  const incremento = 5; // Incremento de 5%
-  const valorBase = isAlphaville ? 200 : 180; // Valor base diferente por unidade
-  const valorMeta = isAlphaville ? 220 : 200; // Valor quando atinge meta diferente por unidade
-  
-  // Gera faixas até 100%
-  for (let percentual = inicio; percentual < 100; percentual += incremento) {
-    faixas.push({
-      percentual: percentual,
-      premio: valorBase
-    });
-  }
-  
-  // Adiciona faixa de 100%
-  faixas.push({
-    percentual: 100,
-    premio: valorMeta
-  });
-  
-  // Adiciona faixas acima de 100%
-  for (let percentual = 105; percentual <= 200; percentual += incremento) {
-    faixas.push({
-      percentual: percentual,
-      premio: valorMeta
-    });
-  }
-  
-  return faixas;
 }

@@ -45,9 +45,8 @@ const MetricCards = ({
   const safeMediaAtual = Number(mediaAtual) || 0;
   const safePctMedia = Number(pctMedia) || 0;
 
-  // Verifica se deve mostrar o card de produtos excluídos
-  const shouldShowExcludedCard = metricasExcluidas && 
-    (metricasExcluidas.valor > 0 || produtosSelecionados?.length > 0);
+  // Mostra o card de produtos excluídos se houver produtos selecionados ou valores excluídos
+  const shouldShowExcludedCard = produtosSelecionados?.length > 0 || (metricasExcluidas?.valor || 0) > 0;
 
   return (
     <div className="metrics-container">
@@ -504,7 +503,8 @@ const MetricCards = ({
           --text-secondary: #64748b;
         }
 
-        [data-theme="dark"] {
+        [data-theme="dark"],
+        .dark {
           --primary: #6366f1;
           --success: #34d399;
           --warning: #fbbf24;
@@ -517,6 +517,85 @@ const MetricCards = ({
           --text-secondary: #94a3b8;
         }
 
+        /* Dark mode specific fixes for excluded card */
+        .dark .excluded-card,
+        [data-theme="dark"] .excluded-card {
+          background: var(--card) !important;
+          border-color: var(--border) !important;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+        }
+        
+        .dark .excluded-card .main-value,
+        [data-theme="dark"] .excluded-card .main-value {
+          color: var(--text-primary) !important;
+        }
+        
+        .dark .excluded-card .card-title h3,
+        [data-theme="dark"] .excluded-card .card-title h3 {
+          color: var(--text-primary) !important;
+        }
+        
+        .dark .excluded-card .card-title p,
+        [data-theme="dark"] .excluded-card .card-title p {
+          color: var(--text-secondary) !important;
+        }
+        
+        .dark .excluded-card .excluded-details,
+        [data-theme="dark"] .excluded-card .excluded-details {
+          background: var(--bg-secondary) !important;
+          border: 1px solid var(--border) !important;
+        }
+        
+        .dark .excluded-details,
+        [data-theme="dark"] .excluded-details {
+          background: #334155 !important;
+          border: 1px solid #475569 !important;
+        }
+        
+        /* More aggressive dark mode fixes */
+        html.dark .excluded-details,
+        html[data-theme="dark"] .excluded-details,
+        body.dark .excluded-details,
+        body[data-theme="dark"] .excluded-details {
+          background: #334155 !important;
+          background-color: #334155 !important;
+        }
+        
+        .dark .metric-card .excluded-details,
+        [data-theme="dark"] .metric-card .excluded-details {
+          background: #334155 !important;
+          background-color: #334155 !important;
+        }
+        
+        .excluded-card .excluded-details {
+          background: var(--bg-secondary);
+        }
+        
+        .dark .excluded-card .excluded-details {
+          background: #334155 !important;
+          background-color: #334155 !important;
+        }
+        
+        .dark .excluded-card .detail-label,
+        [data-theme="dark"] .excluded-card .detail-label {
+          color: var(--text-secondary) !important;
+        }
+        
+        .dark .excluded-card .detail-value,
+        [data-theme="dark"] .excluded-card .detail-value {
+          color: var(--text-primary) !important;
+        }
+        
+        .dark .excluded-card .card-footer,
+        [data-theme="dark"] .excluded-card .card-footer {
+          border-color: var(--border) !important;
+        }
+        
+        .dark .excluded-card .card-footer span,
+        [data-theme="dark"] .excluded-card .card-footer span {
+          color: var(--text-secondary) !important;
+        }
+        
         @media (prefers-color-scheme: dark) {
           :root {
             --primary: #6366f1;

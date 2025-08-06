@@ -42,7 +42,7 @@ export default function App() {
           element={
             <PrivateRoute>
               <AdminRoute>
-                <ConfigRemuneracao/>
+                <ConfigRemuneracao />
               </AdminRoute>
             </PrivateRoute>
           }
@@ -55,10 +55,11 @@ export default function App() {
             </PrivateRoute>
           }
         />
-
+        
         {/* Redireciona tudo mais para login */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+
     </BrowserRouter>
   );
 }

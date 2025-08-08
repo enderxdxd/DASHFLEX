@@ -36,10 +36,18 @@ import Navbar from '../components/NavBar';
 // Dark mode is handled globally by useDarkMode hook
 
 const gerarPlanosPadraoLocal = (unidade) => {
-  if (!unidade) return [];
+  console.log('🔍 DEBUG gerarPlanosPadraoLocal - Recebeu unidade:', unidade);
+  if (!unidade) {
+    console.log('🔍 DEBUG gerarPlanosPadraoLocal - Unidade vazia, retornando []');
+    return [];
+  }
   
-  switch (unidade.toLowerCase()) {
+  const unidadeLower = unidade.toLowerCase();
+  console.log('🔍 DEBUG gerarPlanosPadraoLocal - unidadeLower:', unidadeLower);
+  
+  switch (unidadeLower) {
     case "alphaville":
+      console.log('🔍 DEBUG - Matched case: alphaville');
       return [
         { plano: "Semestral", min: 2700, max: 3474, semMeta: 21, comMeta: 23, metaTME: 25 },
         { plano: "Bianual", min: 10000, max: 11496, semMeta: 61, comMeta: 67, metaTME: 71 },
@@ -49,6 +57,8 @@ const gerarPlanosPadraoLocal = (unidade) => {
         { plano: "Anual", min: 5200, max: 6264, semMeta: 38, comMeta: 42, metaTME: 45 },
       ];
     case "buena vista":
+    case "buenavista":
+      console.log('🔍 DEBUG - Matched case: buena vista/buenavista');
       return [
         { plano: "Semestral", min: 2300, max: 2496, semMeta: 21, comMeta: 23, metaTME: 25 },
         { plano: "Bianual", min: 7364, max: 8112, semMeta: 61, comMeta: 67, metaTME: 71 },
@@ -58,6 +68,7 @@ const gerarPlanosPadraoLocal = (unidade) => {
         { plano: "Anual", min: 4000, max: 4356, semMeta: 38, comMeta: 42, metaTME: 45 },
       ];
     case "marista":
+      console.log('🔍 DEBUG - Matched case: marista');
       return [
         { plano: "Semestral", min: 3000, max: 3324, semMeta: 21, comMeta: 23, metaTME: 25 },
         { plano: "Bianual", min: 9000, max: 9816, semMeta: 61, comMeta: 67, metaTME: 71 },
@@ -67,6 +78,7 @@ const gerarPlanosPadraoLocal = (unidade) => {
         { plano: "Anual", min: 5000, max: 5508, semMeta: 38, comMeta: 42, metaTME: 45 },
       ];
     default:
+      console.log('🔍 DEBUG - No case matched, going to default. unidadeLower was:', unidadeLower);
       return [];
   }
 };
@@ -80,15 +92,25 @@ const gerarFaixasPremiacaoLocal = (unidade) => {
   const incremento = 5;
   const valorBase = isAlphaville ? 200 : 180;
   const valorMeta = isAlphaville ? 220 : 200;
+  const valorSuperacao = isAlphaville ? 320 : 300; // Valor para faixas "especiais"
   
   for (let percentual = inicio; percentual < 100; percentual += incremento) {
     faixas.push({ percentual: percentual, premio: valorBase });
   }
   
-  faixas.push({ percentual: 100, premio: valorMeta });
+  faixas.push({ percentual: 100, premio: valorBase }); // Todos: Alphaville: 200, Buena Vista/Marista: 180
   
+  // Lógica alternada para faixas acima de 100%
   for (let percentual = 105; percentual <= 200; percentual += incremento) {
-    faixas.push({ percentual: percentual, premio: valorMeta });
+    // 105%, 115%, 125%... = valorMeta (220/200)
+    // 110%, 120%, 130%... = valorSuperacao (320/300)
+    const faixaIndex = (percentual - 105) / incremento; // 0, 1, 2, 3, 4...
+    const isEspecial = faixaIndex % 2 === 1; // 1, 3, 5... (110%, 120%, 130%...)
+    
+    faixas.push({ 
+      percentual: percentual, 
+      premio: isEspecial ? valorSuperacao : valorMeta 
+    });
   }
   
   return faixas;
@@ -1149,7 +1171,10 @@ const ConfigRemuneracao = () => {
 
   const carregarPlanosPadrao = () => {
     if (!unidade) return;
+    console.log('🔍 DEBUG - Carregando planos para unidade:', unidade);
+    console.log('🔍 DEBUG - Unidade toLowerCase():', unidade.toLowerCase());
     const planosPadrao = gerarPlanosPadraoLocal(unidade);
+    console.log('🔍 DEBUG - Planos retornados:', planosPadrao);
     setComissaoPlanos(planosPadrao);
     setSuccessMessage('Planos padrão carregados!');
     setTimeout(() => setSuccessMessage(''), 3000);

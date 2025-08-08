@@ -20,14 +20,21 @@ export function gerarFaixasPremiacao(unidade) {
   // Adiciona faixa de 100% (meta atingida)
   faixas.push({
     percentual: 100,
-    premio: valorMeta
+    premio: valorBase // Todos: Alphaville: 200, Buena Vista/Marista: 180
   });
   
-  // Adiciona faixas acima de 100% (superação da meta)
+  // Adiciona faixas acima de 100% (superação da meta) com lógica alternada
+  const valorSuperacao = isAlphaville ? 320 : 300; // Valor para faixas "especiais"
+  
   for (let percentual = 105; percentual <= 200; percentual += incremento) {
+    // Lógica alternada: 105%, 115%, 125%... = valorMeta (220/200)
+    // 110%, 120%, 130%... = valorSuperacao (320/300)
+    const faixaIndex = (percentual - 105) / incremento; // 0, 1, 2, 3, 4...
+    const isEspecial = faixaIndex % 2 === 1; // 1, 3, 5... (110%, 120%, 130%...)
+    
     faixas.push({
       percentual: percentual,
-      premio: valorMeta
+      premio: isEspecial ? valorSuperacao : valorMeta
     });
   }
   

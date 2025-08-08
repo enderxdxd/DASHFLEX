@@ -43,18 +43,31 @@ export default function Metas() {
   const [metas, setMetas]     = useState([]);
   const [vendas, setVendas]   = useState([]);
   const [produtos, setProdutos] = useState([]);
+  const [editingData, setEditingData] = useState({});
+  const [showProductFilter, setShowProductFilter] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
+  const [crossUnitPeriod, setCrossUnitPeriod] = useState(dayjs().format("YYYY-MM"));
   const [configRem, setConfigRem] = useState({
     premiacao: [],
     comissaoPlanos: [],
     metaUnidade: 0
   });
+
+  // Variáveis auxiliares
+  const unidadeParam = unidade;
+  
+  // Função para formatar moeda
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value || 0);
+  };
   
 
   // --- Filtros e persistência ---
   const [produtosSelecionados, setProdutosSelecionados, produtosLoaded] =
     usePersistedProdutos();
-  const [showProductFilter, setShowProductFilter] = useState(false);
-  const [selectedMonth, setSelectedMonth]         = useState(dayjs().format("YYYY-MM"));
 
   /**
    * Calcula a remuneração com base no tipo (comissão ou premiação)
@@ -776,11 +789,19 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
     });
   }, [vendas, produtosSelecionados, selectedMonth, produtosLoaded]);
 
-  // --- Checa meta da unidade ---
-  const totalUnidade = useMemo(
-    () => vendasParaMeta.reduce((s, v) => s + Number(v.valor || 0), 0),
-    [vendasParaMeta]
-  );
+  // --- Checa meta da unidade (apenas vendas dos responsáveis da unidade) ---
+  const totalUnidade = useMemo(() => {
+    // Obter lista de responsáveis que têm metas na unidade atual
+    const responsaveisUnidade = metas.map(m => m.responsavel?.trim().toLowerCase()).filter(Boolean);
+    
+    // Filtrar vendas apenas dos responsáveis da unidade atual
+    const vendasDaUnidade = vendasParaMeta.filter(v => {
+      const responsavel = (v.responsavel || '').trim().toLowerCase();
+      return responsaveisUnidade.includes(responsavel);
+    });
+    
+    return vendasDaUnidade.reduce((s, v) => s + Number(v.valor || 0), 0);
+  }, [vendasParaMeta, metas]);
   
   // metaUnidade vem do configRem.metaUnidade
   const unidadeBatida = totalUnidade >= Number(configRem?.metaUnidade || 0);
@@ -1161,70 +1182,159 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
         <NavBar />
       </aside>
       <main className="metas-content">
-      <header className="metas-header">
-      <div className="header-content">
-        <h1>
-          <span className="decorative-line"></span>
-          Metas de Vendas - {unidade.toUpperCase()}
-        </h1>
-        <form onSubmit={handleAddMeta} className="meta-form">
-          <div className="form-group">
-            <div className="form-row">
-              {/* Campo para selecionar o Responsável */}
-              <div className="input-group">
-                <label htmlFor="responsavel">Responsável</label>
-                <input
-                  id="responsavel"
-                  type="text"
-                  list="responsaveisList"
-                  placeholder="Selecione ou digite o Responsável"
-                  value={newResponsavel}
-                  onChange={(e) => setNewResponsavel(e.target.value)}
-                  className="modern-input"
-                />
-                <datalist id="responsaveisList">
-                  {responsaveisUnicos.map((nome) => (
-                    <option key={nome} value={nome} />
-                  ))}
-                </datalist>
+      {/* Header Moderno com Gradiente */}
+      <div className="modern-metas-header">
+        <div className="header-background">
+          <div className="gradient-overlay"></div>
+          <div className="floating-shapes">
+            <div className="shape shape-1"></div>
+            <div className="shape shape-2"></div>
+            <div className="shape shape-3"></div>
+          </div>
+        </div>
+        
+        <div className="header-content">
+          <div className="header-main">
+            <div className="header-text">
+              <h1 className="page-title">
+                <svg className="title-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                Metas & Performance - {unidade.toUpperCase()}
+              </h1>
+              <p className="page-subtitle">
+                Gerencie metas e visualize performance cruzada entre unidades
+              </p>
+            </div>
+            
+            {/* Status da unidade */}
+            <div className={`unit-status-card ${unidadeBatida ? 'success' : 'warning'}`}>
+              <div className="status-icon">
+                {unidadeBatida ? '🎯' : '📊'}
               </div>
-
-              {/* Campo para digitar o valor da meta */}
-              <div className="input-group">
-                <label htmlFor="meta">Valor da Meta</label>
-                <div className="currency-input-wrapper">
-                  <span className="currency-symbol">R$</span>
+              <div className="status-info">
+                <h3 className="status-title">
+                  {unidadeBatida ? 'Meta da Unidade Atingida!' : 'Acompanhando Progresso'}
+                </h3>
+                <div className="status-value">
+                  {totalUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </div>
+                <div className="status-meta">
+                  Meta: {(configRem?.metaUnidade || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Formulário moderno para adicionar metas */}
+      <div className="add-meta-section">
+        <div className="section-card">
+          <div className="card-header">
+            <h2 className="card-title">
+              <svg className="card-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+              Nova Meta
+            </h2>
+            <p className="card-subtitle">Defina uma nova meta para um consultor</p>
+          </div>
+          
+          <form onSubmit={handleAddMeta} className="modern-form">
+            <div className="form-grid">
+              <div className="form-field">
+                <label className="field-label">
+                  <svg className="label-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                  Responsável
+                </label>
+                <div className="input-wrapper">
                   <input
-                    id="meta"
+                    type="text"
+                    list="responsaveisList"
+                    placeholder="Selecione ou digite o nome"
+                    value={newResponsavel}
+                    onChange={(e) => setNewResponsavel(e.target.value)}
+                    className="modern-input"
+                  />
+                  <datalist id="responsaveisList">
+                    {responsaveisUnicos.map((nome) => (
+                      <option key={nome} value={nome} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
+              
+              <div className="form-field">
+                <label className="field-label">
+                  <svg className="label-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+                  </svg>
+                  Valor da Meta
+                </label>
+                <div className="input-wrapper currency-wrapper">
+                  <span className="currency-prefix">R$</span>
+                  <input
                     type="number"
                     placeholder="0,00"
                     value={newMeta}
                     onChange={(e) => setNewMeta(e.target.value)}
+                    step="0.01"
+                    className="modern-input currency-input"
+                  />
+                </div>
+              </div>
+              
+              <div className="form-field">
+                <label className="field-label">
+                  <svg className="label-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9 11H7v6h2v-6zm4 0h-2v6h2v-6zm4 0h-2v6h2v-6zm2-7h-3V2h-2v2H8V2H6v2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H3V8h14v12z"/>
+                  </svg>
+                  Período
+                </label>
+                <div className="input-wrapper">
+                  <input
+                    type="month"
+                    value={metaPeriodo}
+                    onChange={(e) => setMetaPeriodo(e.target.value)}
                     className="modern-input"
                   />
                 </div>
               </div>
-
-              {/* Campo para selecionar o período da meta */}
-              <div className="input-group">
-                <label htmlFor="periodo">Período</label>
-                <input 
-                  id="periodo"
-                  type="month"
-                  value={metaPeriodo}
-                  onChange={(e) => setMetaPeriodo(e.target.value)}
-                  className="modern-input"
-                />
+              
+              <div className="form-field">
+                <label className="field-label">
+                  <svg className="label-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                  Tipo de Remuneração
+                </label>
+                <div className="input-wrapper">
+                  <select
+                    value={newRemType}
+                    onChange={(e) => setNewRemType(e.target.value)}
+                    className="modern-select"
+                  >
+                    <option value="comissao">Comissão</option>
+                    <option value="premiacao">Premiação</option>
+                  </select>
+                </div>
               </div>
             </div>
-
-            <button type="submit" className="submit-button">
-              Adicionar Meta
-            </button>
-          </div>
-        </form>
+            
+            <div className="form-actions">
+              <button type="submit" className="submit-btn">
+                <svg className="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                <span>Adicionar Meta</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </header>
   
         {(error || successMessage) && (
           <div className={`alert ${error ? 'error' : 'success'}`}>
@@ -1440,13 +1550,149 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
           </table>
         </section>
         
-
+        {/* Nova Seção: Performance Cruzada entre Unidades */}
+        <section className="cross-unit-performance">
+          <div className="section-card">
+            <div className="card-header">
+              <h2 className="card-title">
+                <svg className="card-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                </svg>
+                Performance Cruzada por Unidade
+              </h2>
+              <p className="card-subtitle">Visualize vendas de consultores em diferentes unidades</p>
+            </div>
+            
+            <div className="performance-content">
+              <div className="period-selector">
+                <label className="selector-label">
+                  <svg className="label-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9 11H7v6h2v-6zm4 0h-2v6h2v-6zm4 0h-2v6h2v-6zm2-7h-3V2h-2v2H8V2H6v2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H3V8h14v12z"/>
+                  </svg>
+                  Período de Análise
+                </label>
+                <div className="selector-wrapper">
+                  <input
+                    type="month"
+                    value={crossUnitPeriod}
+                    onChange={(e) => setCrossUnitPeriod(e.target.value)}
+                    className="period-input"
+                  />
+                </div>
+              </div>
+              
+              {/* Grid de Cards de Performance */}
+              <div className="performance-grid">
+                {responsaveisUnicos.map((consultor) => {
+                  // Calcular vendas do consultor em todas as unidades
+                  const vendasConsultor = vendas.filter(v => 
+                    v.responsavel?.trim().toLowerCase() === consultor.trim().toLowerCase() &&
+                    dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === crossUnitPeriod &&
+                    (produtosSelecionados.length === 0 || produtosSelecionados.includes(v.produto))
+                  );
+                  
+                  // Agrupar vendas por unidade
+                  const vendasPorUnidade = vendasConsultor.reduce((acc, venda) => {
+                    const unidadeVenda = venda.unidade || 'Não Informado';
+                    if (!acc[unidadeVenda]) {
+                      acc[unidadeVenda] = {
+                        vendas: [],
+                        total: 0,
+                        count: 0
+                      };
+                    }
+                    acc[unidadeVenda].vendas.push(venda);
+                    acc[unidadeVenda].total += Number(venda.valor || 0);
+                    acc[unidadeVenda].count += 1;
+                    return acc;
+                  }, {});
+                  
+                  const totalGeral = Object.values(vendasPorUnidade).reduce((sum, u) => sum + u.total, 0);
+                  const metaConsultor = metas.find(m => 
+                    m.responsavel?.trim().toLowerCase() === consultor.trim().toLowerCase() &&
+                    m.periodo === crossUnitPeriod
+                  );
+                  
+                  if (Object.keys(vendasPorUnidade).length === 0) return null;
+                  
+                  return (
+                    <div key={consultor} className="consultant-performance-card">
+                      <div className="card-header">
+                        <div className="consultant-info">
+                          <div className="consultant-avatar">
+                            {consultor.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="consultant-details">
+                            <h4 className="consultant-name">{consultor}</h4>
+                            <div className="consultant-stats">
+                              <div className="total-sales">
+                                {formatCurrency(totalGeral)}
+                              </div>
+                              {metaConsultor && (
+                                <div className="meta-progress">
+                                  {((totalGeral / metaConsultor.valor) * 100).toFixed(1)}% da meta
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="performance-summary">
+                          <div className="units-count">
+                            <div className="count">{Object.keys(vendasPorUnidade).length}</div>
+                            <div className="label">Unidades</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="card-body">
+                        <div className="units-breakdown">
+                          {Object.entries(vendasPorUnidade)
+                            .sort(([,a], [,b]) => b.total - a.total)
+                            .map(([unidade, dados]) => {
+                              const isCurrentUnit = unidade === unidadeParam;
+                              const percentage = totalGeral > 0 ? (dados.total / totalGeral * 100) : 0;
+                              
+                              return (
+                                <div key={unidade} className={`unit-item ${isCurrentUnit ? 'current-unit' : ''}`}>
+                                  <div className="unit-header">
+                                    <div className="unit-info">
+                                      <div className="unit-name">
+                                        {isCurrentUnit && (
+                                          <svg className="current-icon" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                          </svg>
+                                        )}
+                                        {unidade}
+                                      </div>
+                                      <div className="unit-count">
+                                        {dados.count} {dados.count === 1 ? 'venda' : 'vendas'}
+                                      </div>
+                                    </div>
+                                    <div className="unit-value">
+                                      <div className="value">{formatCurrency(dados.total)}</div>
+                                      <div className="percentage">{percentage.toFixed(1)}%</div>
+                                    </div>
+                                  </div>
+                                  <div className="unit-progress">
+                                    <div 
+                                      className={`progress-bar ${isCurrentUnit ? 'current' : 'other'}`}
+                                      style={{ width: `${percentage}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
         
-
-
-
-
-  
         <section className="product-filter-section">
           <button
             className="toggle-product-filter"
@@ -2100,50 +2346,622 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
     opacity: 1;
   }
 
+  /* Modern Header with Gradient */
+  .modern-metas-header {
+    position: relative;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 20px;
+    margin-bottom: 2rem;
+    overflow: hidden;
+    min-height: 200px;
+  }
+  
+  .header-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  
+  .gradient-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%);
+  }
+  
+  .floating-shapes {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+  }
+  
+  .shape {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .shape-1 {
+    width: 80px;
+    height: 80px;
+    top: 20%;
+    left: 10%;
+    animation-delay: 0s;
+  }
+  
+  .shape-2 {
+    width: 120px;
+    height: 120px;
+    top: 60%;
+    right: 15%;
+    animation-delay: 2s;
+  }
+  
+  .shape-3 {
+    width: 60px;
+    height: 60px;
+    bottom: 20%;
+    left: 60%;
+    animation-delay: 4s;
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(180deg); }
+  }
+  
+  .header-content {
+    position: relative;
+    z-index: 2;
+    padding: 2rem;
+  }
+  
+  .header-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  
+  .header-text {
+    flex: 1;
+    min-width: 300px;
+  }
+  
+  .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .title-icon {
+    width: 2rem;
+    height: 2rem;
+    color: rgba(255, 255, 255, 0.9);
+  }
+  
+  .page-subtitle {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    font-weight: 400;
+  }
+  
+  .unit-status-card {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 280px;
+    transition: all 0.3s ease;
+  }
+  
+  .unit-status-card:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  .unit-status-card.success {
+    border-color: rgba(34, 197, 94, 0.3);
+  }
+  
+  .unit-status-card.warning {
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+  
+  .status-icon {
+    font-size: 2rem;
+    line-height: 1;
+  }
+  
+  .status-info {
+    flex: 1;
+  }
+  
+  .status-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    margin: 0 0 0.5rem 0;
+  }
+  
+  .status-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 0.25rem 0;
+  }
+  
+  .status-meta {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0;
+  }
+  
+  /* Add Meta Section */
+  .add-meta-section {
+    margin-bottom: 2rem;
+  }
+  
+  .section-card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .section-card:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  .card-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .card-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--primary-color);
+  }
+  
+  .card-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-light);
+    margin: 0;
+  }
+  
+  .modern-form {
+    padding: 2rem;
+  }
+  
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .field-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .label-icon {
+    width: 1rem;
+    height: 1rem;
+    color: var(--text-light);
+  }
+  
+  .input-wrapper {
+    position: relative;
+  }
+  
+  .modern-input, .modern-select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border-input);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: var(--text-color);
+    background-color: var(--input-bg);
+    transition: all 0.2s ease;
+  }
+  
+  .modern-input:focus, .modern-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    background-color: var(--input-focus-bg);
+  }
+  
+  .currency-wrapper {
+    position: relative;
+  }
+  
+  .currency-prefix {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light);
+    font-size: 0.875rem;
+    pointer-events: none;
+    z-index: 1;
+  }
+  
+  .currency-input {
+    padding-left: 2.5rem;
+  }
+  
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  .submit-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+  
+  .btn-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+  
+  /* Cross-Unit Performance Section */
+  .cross-unit-performance {
+    margin-bottom: 2rem;
+  }
+  
+  .performance-content {
+    padding: 2rem;
+  }
+  
+  .period-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    max-width: 300px;
+  }
+  
+  .selector-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .selector-wrapper {
+    position: relative;
+  }
+  
+  .period-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-input);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: var(--text-color);
+    background-color: var(--input-bg);
+    transition: all 0.2s ease;
+  }
+  
+  .period-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+  }
+  
+  .performance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .consultant-performance-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+  
+  .consultant-performance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  }
+  
+  .consultant-performance-card .card-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  
+  .consultant-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+  }
+  
+  .consultant-avatar {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  
+  .consultant-details {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .consultant-name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0 0 0.25rem 0;
+    word-break: break-word;
+  }
+  
+  .consultant-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+  
+  .total-sales {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--success-color);
+  }
+  
+  .meta-progress {
+    font-size: 0.75rem;
+    color: var(--text-light);
+  }
+  
+  .performance-summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .units-count {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+  }
+  
+  .units-count .count {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    line-height: 1;
+  }
+  
+  .units-count .label {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .consultant-performance-card .card-body {
+    padding: 1.5rem;
+  }
+  
+  .units-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .unit-item {
+    padding: 1rem;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    transition: all 0.2s ease;
+  }
+  
+  .unit-item.current-unit {
+    background: var(--primary-light);
+    border-color: var(--primary-color);
+  }
+  
+  .unit-item:hover {
+    background: var(--bg-hover);
+  }
+  
+  .unit-item.current-unit:hover {
+    background: var(--primary-lighter);
+  }
+  
+  .unit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+  }
+  
+  .unit-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .unit-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .current-icon {
+    width: 1rem;
+    height: 1rem;
+    color: var(--primary-color);
+  }
+  
+  .unit-count {
+    font-size: 0.75rem;
+    color: var(--text-light);
+  }
+  
+  .unit-value {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.125rem;
+  }
+  
+  .unit-value .value {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-color);
+  }
+  
+  .unit-value .percentage {
+    font-size: 0.75rem;
+    color: var(--text-light);
+  }
+  
+  .unit-progress {
+    height: 6px;
+    background: var(--bg-color);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  
+  .unit-progress .progress-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+  
+  .unit-progress .progress-bar.current {
+    background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  }
+  
+  .unit-progress .progress-bar.other {
+    background: linear-gradient(90deg, var(--accent-color) 0%, #34d399 100%);
+  }
+
   /* Chart Section */
   .chart-section {
-    background-color: var(--card-bg);
-    border-radius: var(--radius);
+    background: var(--card-bg);
+    border-radius: 16px;
     box-shadow: var(--shadow);
-    padding: 2rem;
-    margin-bottom: 2rem;
     border: 1px solid var(--border-color);
-    transition: var(--transition);
+    margin-bottom: 2rem;
+    overflow: hidden;
   }
 
   .chart-wrapper {
+    padding: 2rem;
     height: 400px;
-    position: relative;
   }
 
   .chart-legend {
     display: flex;
-    gap: 1.5rem;
-    flex-wrap: wrap;
+    gap: 1rem;
   }
 
   .legend-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 14px;
+    gap: 0.5rem;
+    font-size: 0.875rem;
     color: var(--text-light);
   }
 
   .color-box {
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
   }
 
   .color-box.achieved {
-    background-color: var(--primary-color);
+    background-color: var(--success-color);
   }
 
   .color-box.pending {
     background-color: var(--accent-color);
   }
-
+{{ ... }}
   /* Custom tipo-group for editing */
   .tipo-group {
     display: flex;

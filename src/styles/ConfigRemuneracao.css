@@ -1447,6 +1447,112 @@
     box-shadow: var(--shadow);
     transform: translateY(-1px);
   }
+
+  /* Share Buttons Styles */
+  .filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .filters-header h4 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--gray-900);
+  }
+
+  .share-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .share-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+    text-decoration: none;
+  }
+
+  .email-btn {
+    background: #3b82f6;
+    color: white;
+  }
+
+  .email-btn:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  }
+
+  .whatsapp-btn {
+    background: #25d366;
+    color: white;
+  }
+
+  .whatsapp-btn:hover {
+    background: #22c55e;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+  }
+
+  .pdf-whatsapp-btn {
+    background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+    color: white;
+    font-weight: 600;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pdf-whatsapp-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+  }
+
+  .pdf-whatsapp-btn:hover::before {
+    left: 100%;
+  }
+
+  .pdf-whatsapp-btn:hover {
+    background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+  }
+
+  @media (max-width: 768px) {
+    .filters-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .share-buttons {
+      width: 100%;
+      justify-content: flex-start;
+    }
+    
+    .share-btn {
+      flex: 1;
+      justify-content: center;
+      max-width: 150px;
+    }
+  }
   
   .plano-card-header {
     margin-bottom: 1rem;

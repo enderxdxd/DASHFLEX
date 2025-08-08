@@ -6,6 +6,7 @@ import { useParams } from 'react-router-dom';
 import { useVendas } from '../hooks/useVendas';
 import { useConfigRem } from '../hooks/useConfigRem';
 import { useMetas } from '../hooks/useMetas';
+import { usePersistedProdutos } from '../hooks/usePersistedProdutos';
 import { 
   Settings, 
   Target, 
@@ -22,10 +23,14 @@ import {
   Eye,
   BarChart3,
   Info,
-  Filter
+  Filter,
+  Mail,
+  MessageCircle
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Trophy} from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import '../styles/ConfigRemuneracao.css';
 import Navbar from '../components/NavBar';
 // Dark mode is handled globally by useDarkMode hook
@@ -93,19 +98,56 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
   const [selectedConsultor, setSelectedConsultor] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'));
   const [activeView, setActiveView] = useState('overview');
-
-  const vendasDoMes = vendas.filter(v => {
-    const dataVenda = dayjs(v.dataFormatada, 'YYYY-MM-DD');
-    return dataVenda.format('YYYY-MM') === selectedMonth;
-  });
   
-  const totalUnidade = vendasDoMes.reduce((soma, v) => soma + Number(v.valor || 0), 0);
+  // Hook para produtos selecionados (mesmo filtro do Dashboard/Analytics)
+  const [produtosSelecionados, setProdutosSelecionados, produtosLoaded] = usePersistedProdutos(unidade);
+
+  // Filtrar vendas por mês e produtos selecionados (igual ao Dashboard/Analytics)
+  const vendasParaMeta = React.useMemo(() => {
+    if (!produtosLoaded) return [];
+    return vendas.filter(v => {
+      const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
+      return (
+        v.produto &&
+        produtosSelecionados.includes(v.produto.trim()) &&
+        mes === selectedMonth
+      );
+    });
+  }, [vendas, produtosSelecionados, selectedMonth, produtosLoaded]);
+
+  // Calcular total da unidade (apenas vendas dos responsáveis da unidade)
+  const totalUnidade = React.useMemo(() => {
+    // Obter lista de responsáveis que têm metas na unidade atual
+    const responsaveisUnidade = metas.map(m => m.responsavel?.trim().toLowerCase()).filter(Boolean);
+    
+    // Filtrar vendas apenas dos responsáveis da unidade atual
+    const vendasDaUnidade = vendasParaMeta.filter(v => {
+      const responsavel = (v.responsavel || '').trim().toLowerCase();
+      return responsaveisUnidade.includes(responsavel);
+    });
+    
+    return vendasDaUnidade.reduce((soma, v) => soma + Number(v.valor || 0), 0);
+  }, [vendasParaMeta, metas]);
+  
   const unidadeBatida = totalUnidade >= Number(configRem?.metaUnidade || 0);
 
-  const vendasFiltradas = vendasDoMes.filter(venda => {
-    if (selectedConsultor && venda.responsavel !== selectedConsultor) return false;
-    return true;
-  });
+  // Filtrar vendas para análise (apenas responsáveis da unidade + filtro de consultor)
+  const vendasFiltradas = React.useMemo(() => {
+    // Obter lista de responsáveis que têm metas na unidade atual
+    const responsaveisUnidade = metas.map(m => m.responsavel?.trim().toLowerCase()).filter(Boolean);
+    
+    return vendasParaMeta.filter(venda => {
+      const responsavel = (venda.responsavel || '').trim().toLowerCase();
+      
+      // Filtrar apenas responsáveis da unidade
+      if (!responsaveisUnidade.includes(responsavel)) return false;
+      
+      // Filtrar por consultor específico se selecionado
+      if (selectedConsultor && venda.responsavel !== selectedConsultor) return false;
+      
+      return true;
+    });
+  }, [vendasParaMeta, metas, selectedConsultor]);
 
   const calcularRemuneracaoDetalhada = (metaValor, vendasArr, unidadeBatida, configRem) => {
     const { comissaoPlanos = [], taxaSem = 0.012, taxaCom = 0.015 } = configRem || {};
@@ -333,6 +375,314 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
   const ranking = rankingConsultores();
   const oportunidades = identificarOportunidades();
 
+  // Funções de compartilhamento
+  const formatMoney = (value) => {
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value || 0);
+  };
+
+  const formatPlanosData = () => {
+    const header = `📋 RELATÓRIO PLANOS - ${unidade.toUpperCase()}\n`;
+    const date = `📅 Período: ${dayjs(selectedMonth).format('MMMM/YYYY')}\n`;
+    const timestamp = `🕒 Gerado em: ${dayjs().format('DD/MM/YYYY HH:mm')}\n`;
+    const separator = '─'.repeat(50) + '\n';
+
+    let content = '';
+    
+    // Status da meta (dados reais)
+    content += '🎯 STATUS DA META\n';
+    content += `• Meta da Unidade: ${unidadeBatida ? 'ATINGIDA ✅' : 'NÃO ATINGIDA ⚠️'}\n`;
+    content += `• Meta: R$ ${formatMoney(configRem?.metaUnidade || 0)}\n`;
+    content += `• Realizado: R$ ${formatMoney(totalUnidade)}\n`;
+    content += `• Percentual: ${configRem?.metaUnidade > 0 ? (totalUnidade / configRem.metaUnidade * 100).toFixed(1) : '0'}%\n\n`;
+
+    // Resumo real das vendas do período
+    content += '📊 RESUMO DO PERÍODO\n';
+    content += `• Total de Vendas: ${vendasFiltradas.length}\n`;
+    content += `• Valor Total: R$ ${formatMoney(totalUnidade)}\n`;
+    content += `• Planos Configurados: ${comissaoPlanos.length}\n`;
+    if (selectedConsultor) {
+      const vendasConsultor = vendasFiltradas.filter(v => v.responsavel === selectedConsultor);
+      content += `• Consultor: ${selectedConsultor} (${vendasConsultor.length} vendas)\n`;
+    }
+    content += '\n';
+
+    // Estatísticas reais das vendas
+    const vendasValores = vendasFiltradas.map(v => Number(v.valor || 0)).filter(v => v > 0);
+    const ticketMedio = vendasValores.length > 0 ? vendasValores.reduce((a, b) => a + b, 0) / vendasValores.length : 0;
+    const maiorVenda = vendasValores.length > 0 ? Math.max(...vendasValores) : 0;
+    const menorVenda = vendasValores.length > 0 ? Math.min(...vendasValores) : 0;
+    
+    content += '📈 ESTATÍSTICAS DE VENDAS\n';
+    content += `• Ticket Médio: R$ ${formatMoney(ticketMedio)}\n`;
+    content += `• Maior Venda: R$ ${formatMoney(maiorVenda)}\n`;
+    content += `• Menor Venda: R$ ${formatMoney(menorVenda)}\n\n`;
+
+    // Ranking real de consultores (baseado em dadosConsultores)
+    const consultoresOrdenados = dadosConsultores
+      .filter(c => c.responsavel && c.totalVendas > 0)
+      .sort((a, b) => b.totalVendas - a.totalVendas);
+    
+    if (consultoresOrdenados.length > 0) {
+      content += '🏆 RANKING DE CONSULTORES\n';
+      consultoresOrdenados.slice(0, 5).forEach((consultor, index) => {
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}º`;
+        const percentualMeta = consultor.meta > 0 ? (consultor.totalVendas / consultor.meta * 100).toFixed(1) : '0';
+        content += `${medal} ${consultor.responsavel}\n`;
+        content += `   Vendas: R$ ${formatMoney(consultor.totalVendas)} (${percentualMeta}% da meta)\n`;
+        content += `   Comissão: R$ ${formatMoney(consultor.totalComissao)}\n\n`;
+      });
+    }
+
+    // Análise real por tipo de produto
+    const vendasPlanos = vendasFiltradas.filter(v => 
+      v.produto && (v.produto.toLowerCase().includes('plano') || v.produto.toLowerCase() === 'plano')
+    );
+    const vendasOutros = vendasFiltradas.filter(v => 
+      v.produto && !(v.produto.toLowerCase().includes('plano') || v.produto.toLowerCase() === 'plano')
+    );
+    
+    const valorPlanos = vendasPlanos.reduce((s, v) => s + Number(v.valor || 0), 0);
+    const valorOutros = vendasOutros.reduce((s, v) => s + Number(v.valor || 0), 0);
+    
+    content += '📊 ANÁLISE POR PRODUTO\n';
+    content += `• Planos: ${vendasPlanos.length} vendas - R$ ${formatMoney(valorPlanos)}\n`;
+    content += `• Outros: ${vendasOutros.length} vendas - R$ ${formatMoney(valorOutros)}\n`;
+    
+    if (totalUnidade > 0) {
+      const percPlanos = (valorPlanos / totalUnidade * 100).toFixed(1);
+      const percOutros = (valorOutros / totalUnidade * 100).toFixed(1);
+      content += `• Distribuição: ${percPlanos}% Planos | ${percOutros}% Outros\n`;
+    }
+    content += '\n';
+
+    // Informações dos planos configurados
+    if (comissaoPlanos && comissaoPlanos.length > 0) {
+      content += '📋 PLANOS CONFIGURADOS\n';
+      comissaoPlanos.forEach(plano => {
+        const vendasDoPlano = vendasPlanos.filter(v => 
+          v.produto && v.produto.toLowerCase().includes(plano.plano.toLowerCase())
+        );
+        const valorDoPlano = vendasDoPlano.reduce((s, v) => s + Number(v.valor || 0), 0);
+        
+        if (vendasDoPlano.length > 0) {
+          content += `• ${plano.plano}: ${vendasDoPlano.length} vendas - R$ ${formatMoney(valorDoPlano)}\n`;
+        }
+      });
+    }
+
+    return header + date + timestamp + separator + content;
+  };
+
+  const handleShareEmail = () => {
+    const formattedData = formatPlanosData();
+    const subject = `Relatório Planos - ${unidade} - ${dayjs(selectedMonth).format('MM/YYYY')}`;
+    const body = encodeURIComponent(formattedData);
+    
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`;
+    window.open(mailtoLink, '_blank');
+  };
+
+  const handleShareWhatsApp = () => {
+    const formattedData = formatPlanosData();
+    const message = encodeURIComponent(formattedData);
+    
+    const whatsappUrl = `https://wa.me/?text=${message}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  // Função para gerar PDF profissional
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const margin = 20;
+    let yPosition = 30;
+
+    // Configuração de fontes
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(51, 51, 51);
+
+    // Cabeçalho
+    doc.text(`RELATÓRIO PLANOS - ${unidade.toUpperCase()}`, margin, yPosition);
+    yPosition += 10;
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Período: ${dayjs(selectedMonth).format('MMMM/YYYY')}`, margin, yPosition);
+    doc.text(`Gerado em: ${dayjs().format('DD/MM/YYYY HH:mm')}`, pageWidth - 80, yPosition);
+    yPosition += 20;
+
+    // Linha separadora
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += 15;
+
+    // Status da Meta
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(51, 51, 51);
+    doc.text('🎯 STATUS DA META', margin, yPosition);
+    yPosition += 10;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    const metaStatus = unidadeBatida ? 'ATINGIDA ✓' : 'NÃO ATINGIDA ⚠';
+    const metaColor = unidadeBatida ? [34, 197, 94] : [239, 68, 68];
+    
+    doc.setTextColor(...metaColor);
+    doc.text(`Meta da Unidade: ${metaStatus}`, margin + 5, yPosition);
+    yPosition += 8;
+    
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Meta: R$ ${formatMoney(configRem?.metaUnidade || 0)}`, margin + 5, yPosition);
+    yPosition += 6;
+    doc.text(`Realizado: R$ ${formatMoney(totalUnidade)}`, margin + 5, yPosition);
+    yPosition += 6;
+    doc.text(`Percentual: ${configRem?.metaUnidade > 0 ? (totalUnidade / configRem.metaUnidade * 100).toFixed(1) : '0'}%`, margin + 5, yPosition);
+    yPosition += 15;
+
+    // Resumo dos Planos
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(51, 51, 51);
+    doc.text('📊 RESUMO DOS PLANOS', margin, yPosition);
+    yPosition += 10;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Total de Planos: ${comissaoPlanos.length}`, margin + 5, yPosition);
+    yPosition += 6;
+    doc.text(`Vendas Totais: R$ ${formatMoney(totalUnidade)}`, margin + 5, yPosition);
+    yPosition += 6;
+    if (selectedConsultor) {
+      doc.text(`Consultor Selecionado: ${selectedConsultor}`, margin + 5, yPosition);
+      yPosition += 6;
+    }
+    yPosition += 10;
+
+    // Estatísticas Gerais
+    const stats = estatisticasGerais();
+    if (stats) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(51, 51, 51);
+      doc.text('📈 ESTATÍSTICAS GERAIS', margin, yPosition);
+      yPosition += 10;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Total de Vendas: ${stats.totalVendas}`, margin + 5, yPosition);
+      yPosition += 6;
+      doc.text(`Valor Total: R$ ${formatMoney(stats.totalValor)}`, margin + 5, yPosition);
+      yPosition += 15;
+    }
+
+    // Ranking de Consultores (se houver)
+    if (ranking && ranking.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(51, 51, 51);
+      doc.text('🏆 TOP CONSULTORES', margin, yPosition);
+      yPosition += 10;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      
+      ranking.slice(0, 5).forEach((consultor, index) => {
+        if (yPosition < 260) {
+          const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}º`;
+          const nome = consultor.nome || 'N/A';
+          const vendas = formatMoney(consultor.vendas || 0);
+          const quantidade = consultor.totalVendas || 0;
+          
+          doc.text(`${medal} ${nome}`, margin + 5, yPosition);
+          doc.text(`R$ ${vendas} (${quantidade} vendas)`, margin + 80, yPosition);
+          yPosition += 8;
+        }
+      });
+      
+      yPosition += 10;
+    }
+
+    // Oportunidades
+    if (oportunidades && oportunidades.length > 0 && yPosition < 250) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(51, 51, 51);
+      doc.text('💡 OPORTUNIDADES', margin, yPosition);
+      yPosition += 10;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      oportunidades.slice(0, 3).forEach(op => {
+        if (yPosition < 270) {
+          doc.text(`• ${op.tipo}: ${op.descricao}`, margin + 5, yPosition);
+          yPosition += 8;
+        }
+      });
+    }
+
+    // Rodapé
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Gerado automaticamente pelo DASHFLEX', margin, doc.internal.pageSize.height - 10);
+    doc.text(`Página 1`, pageWidth - 30, doc.internal.pageSize.height - 10);
+
+    return doc;
+  };
+
+  // Função para gerar PDF e enviar para WhatsApp automaticamente
+  const handleSharePDFWhatsApp = async () => {
+    try {
+      // Gerar o PDF
+      const doc = generatePDF();
+      
+      // Converter PDF para blob
+      const pdfBlob = doc.output('blob');
+      
+      // Criar URL temporária para o arquivo
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      
+      // Criar link para download
+      const link = document.createElement('a');
+      link.href = pdfUrl;
+      link.download = `relatorio-planos-${unidade}-${dayjs(selectedMonth).format('MM-YYYY')}.pdf`;
+      
+      // Fazer download automático
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Limpar URL temporária
+      URL.revokeObjectURL(pdfUrl);
+      
+      // Aguardar um pouco e abrir WhatsApp com mensagem
+      setTimeout(() => {
+        const message = `📊 *RELATÓRIO PLANOS - ${unidade.toUpperCase()}*\n\n` +
+                       `📅 *Período:* ${dayjs(selectedMonth).format('MMMM/YYYY')}\n` +
+                       `🎯 *Meta:* ${unidadeBatida ? 'ATINGIDA ✅' : 'NÃO ATINGIDA ⚠️'}\n` +
+                       `💰 *Realizado:* R$ ${formatMoney(totalUnidade)}\n\n` +
+                       `📄 *PDF do relatório completo foi baixado automaticamente!*\n` +
+                       `Anexe o arquivo PDF baixado para enviar os detalhes completos.`;
+        
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      alert('Erro ao gerar PDF. Tente novamente.');
+    }
+  };
+
   return (
     <div className="planos-visualizer">
       <div className={`meta-status ${unidadeBatida ? 'success' : 'warning'}`}>
@@ -350,7 +700,28 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
       </div>
 
       <div className="filters-section">
-        <h4><Filter size={16} /> Filtros de Análise</h4>
+        <div className="filters-header">
+          <h4><Filter size={16} /> Filtros de Análise</h4>
+          <div className="share-buttons">
+            <button 
+              className="share-btn email-btn" 
+              onClick={handleShareEmail}
+              title="Enviar por Email"
+            >
+              <Mail size={16} />
+              Email
+            </button>
+            <button 
+              className="share-btn whatsapp-btn" 
+              onClick={handleShareWhatsApp}
+              title="Enviar por WhatsApp"
+            >
+              <MessageCircle size={16} />
+              WhatsApp
+            </button>
+
+          </div>
+        </div>
         <div className="filters-grid">
           <div className="filter-group">
             <label>Mês:</label>
@@ -418,21 +789,21 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
           <div className="stats-grid">
             <div className="stat-card">
               <h5>Total de Vendas</h5>
-              <span className="stat-number">{estatisticas.totalVendas}</span>
+              <span className="stat-number">{estatisticas.totalVendas.toLocaleString('pt-BR')}</span>
             </div>
             <div className="stat-card">
               <h5>Valor Total</h5>
-              <span className="stat-value">R$ {estatisticas.totalValor.toLocaleString('pt-BR')}</span>
+              <span className="stat-value">R$ {estatisticas.totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
             <div className="stat-card">
               <h5>Vendas de Planos</h5>
-              <span className="stat-number">{estatisticas.planos.quantidade}</span>
-              <small>{estatisticas.planos.percentual.toFixed(1)}% do total</small>
+              <span className="stat-number">{estatisticas.planos.quantidade.toLocaleString('pt-BR')}</span>
+              <small>R$ {estatisticas.planos.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({estatisticas.planos.percentual.toFixed(1)}% do total)</small>
             </div>
             <div className="stat-card">
               <h5>Outros Produtos</h5>
-              <span className="stat-number">{estatisticas.outros.quantidade}</span>
-              <small>{estatisticas.outros.percentual.toFixed(1)}% do total</small>
+              <span className="stat-number">{estatisticas.outros.quantidade.toLocaleString('pt-BR')}</span>
+              <small>R$ {estatisticas.outros.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ({estatisticas.outros.percentual.toFixed(1)}% do total)</small>
             </div>
           </div>
 

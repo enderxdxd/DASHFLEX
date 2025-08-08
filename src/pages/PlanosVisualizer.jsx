@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Eye, Info, TrendingUp, AlertCircle, User, Calendar, Filter } from 'lucide-react';
+import { Eye, Info, TrendingUp, AlertCircle, User, Calendar, Filter, Mail, MessageCircle } from 'lucide-react';
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import dayjs from 'dayjs';
+import ShareService from '../components/export/ShareService';
+import { useShareData } from '../hooks/useShareData';
 
 const PlanosVisualizer = ({ comissaoPlanos = [], unidade }) => {
   // Early return se unidade não estiver definida
@@ -427,6 +429,81 @@ const PlanosVisualizer = ({ comissaoPlanos = [], unidade }) => {
 
   const problemas = verificarProblemas();
 
+  // Dados para compartilhamento
+  const shareData = useShareData('planos', {
+    planos: dadosAnalise,
+    vendasReais,
+    comissaoPlanos: configRem.comissaoPlanos,
+    metaUnidade: configRem.metaUnidade,
+    analiseFinanceira: {
+      receitaTotal: dadosAnalise.reduce((sum, p) => sum + p.valorTotal, 0),
+      comissoesPagas: dadosAnalise.reduce((sum, p) => sum + p.comissaoTotal, 0)
+    }
+  }, unidade, selectedMonth);
+
+  const [showShareModal, setShowShareModal] = useState(false);
+
+  // Funções de compartilhamento
+  const formatMoney = (value) => {
+    return new Intl.NumberFormat('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value || 0);
+  };
+
+  const formatPlanosData = () => {
+    const header = `📋 RELATÓRIO PLANOS - ${unidade.toUpperCase()}\n`;
+    const date = `📅 Período: ${dayjs(selectedMonth).format('MMMM/YYYY')}\n`;
+    const timestamp = `🕒 Gerado em: ${dayjs().format('DD/MM/YYYY HH:mm')}\n`;
+    const separator = '─'.repeat(50) + '\n';
+
+    let content = '';
+    
+    // Resumo dos planos
+    content += '📊 RESUMO DOS PLANOS\n';
+    content += `• Total de Planos Analisados: ${configRem.comissaoPlanos.length}\n`;
+    content += `• Comissão Total: R$ ${formatMoney(totais.comissao)}\n`;
+    content += `• Vendas Totais: R$ ${formatMoney(totais.valor)}\n`;
+    content += `• Meta da Unidade: ${metaInfo.unidadeBatida ? 'ATINGIDA ✅' : 'NÃO ATINGIDA ⚠️'}\n\n`;
+
+    // Detalhes por plano
+    if (dadosAnalise && dadosAnalise.length > 0) {
+      content += '📈 DETALHES POR PLANO\n';
+      dadosAnalise.forEach(plano => {
+        content += `\n• ${plano.plano}:\n`;
+        content += `  - Vendas: R$ ${formatMoney(plano.valorTotal)}\n`;
+        content += `  - Comissão: R$ ${formatMoney(plano.comissaoTotal)}\n`;
+        content += `  - Quantidade: ${plano.totalVendas} vendas\n`;
+      });
+      content += '\n';
+    }
+
+    // Análise financeira
+    content += '💰 ANÁLISE FINANCEIRA\n';
+    content += `• Receita Total: R$ ${formatMoney(totais.valor)}\n`;
+    content += `• Comissões Pagas: R$ ${formatMoney(totais.comissao)}\n`;
+    content += `• Planos vs Outros: ${resumoPlanos.percentualValor.toFixed(1)}% vs ${outrosProdutos.percentualValor.toFixed(1)}%\n\n`;
+
+    return header + date + timestamp + separator + content;
+  };
+
+  const handleShareEmail = () => {
+    const formattedData = formatPlanosData();
+    const subject = `Relatório Planos - ${unidade} - ${dayjs(selectedMonth).format('MM/YYYY')}`;
+    const body = encodeURIComponent(formattedData);
+    
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${body}`;
+    window.open(mailtoLink, '_blank');
+  };
+
+  const handleShareWhatsApp = () => {
+    const formattedData = formatPlanosData();
+    const message = encodeURIComponent(formattedData);
+    
+    const whatsappUrl = `https://wa.me/?text=${message}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
   if (loading || loadingConfig) {
     return (
       <div className="planos-visualizer">
@@ -466,7 +543,27 @@ const PlanosVisualizer = ({ comissaoPlanos = [], unidade }) => {
 
       {/* Filtros */}
       <div className="filters-section">
-        <h3><Filter size={20} /> Filtros de Análise</h3>
+        <div className="filters-header">
+          <h3><Filter size={20} /> Filtros de Análise</h3>
+          <div className="share-buttons">
+            <button 
+              className="share-btn email-btn" 
+              onClick={() => handleShareEmail()}
+              title="Enviar por Email"
+            >
+              <Mail size={16} />
+              Email
+            </button>
+            <button 
+              className="share-btn whatsapp-btn" 
+              onClick={() => handleShareWhatsApp()}
+              title="Enviar por WhatsApp"
+            >
+              <MessageCircle size={16} />
+              WhatsApp
+            </button>
+          </div>
+        </div>
         <div className="filters-grid">
           <div className="filter-group">
             <label>Mês de Análise:</label>
@@ -1387,6 +1484,58 @@ const PlanosVisualizer = ({ comissaoPlanos = [], unidade }) => {
 
         .venda-item:last-child {
           border-bottom: none;
+        }
+
+        .filters-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+
+        .filters-header h3 {
+          margin: 0;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .share-buttons {
+          display: flex;
+          gap: 0.5rem;
+        }
+
+        .share-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 1rem;
+          border: none;
+          border-radius: 6px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-size: 0.875rem;
+        }
+
+        .email-btn {
+          background: #3b82f6;
+          color: white;
+        }
+
+        .email-btn:hover {
+          background: #2563eb;
+          transform: translateY(-1px);
+        }
+
+        .whatsapp-btn {
+          background: #25d366;
+          color: white;
+        }
+
+        .whatsapp-btn:hover {
+          background: #22c55e;
+          transform: translateY(-1px);
         }
 
         @media (max-width: 768px) {

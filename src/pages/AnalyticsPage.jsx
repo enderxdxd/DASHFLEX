@@ -6,7 +6,8 @@ import 'dayjs/locale/pt-br';
 import {
   TrendingUp, BarChart2, PieChart, Users, Calendar, ChevronDown,
   AlertCircle, RefreshCw, Download, FileText, Filter,
-  ArrowUpRight, ArrowDownRight, DollarSign, Percent, User, Package
+  ArrowUpRight, ArrowDownRight, DollarSign, Percent, User, Package,
+  Mail, MessageCircle
 } from "lucide-react";
 import "../styles/AnalyticsPage.css";
 import jsPDF from 'jspdf';
@@ -27,11 +28,13 @@ import QuickStats from "../components/analytics/QuickStats";
 import AppliedFiltersSection from "../components/analytics/AppliedFiltersSection";
 import EnhancedTable from "../components/analytics/EnhancedTable";
 import GroupedSalesReport from "../components/reports/GroupedSalesReport";
+import ShareService from "../components/export/ShareService";
 
 // Hooks
 import { useVendas } from "../hooks/useVendas";
 import { useMetas } from "../hooks/useMetas";
 import { useConfigRem } from "../hooks/useConfigRem";
+import { usePersistedProdutos } from "../hooks/usePersistedProdutos";
 import {
   useMonthlyTrend,
   useDailyProductivity,
@@ -39,6 +42,7 @@ import {
   useProductBreakdown
 } from "../hooks/useAnalytics";
 import { useProjectionFromFiltered } from "../hooks/useProjectionFromFiltered";
+import { useShareData } from "../hooks/useShareData";
 import { ExpandButton, ChartModal } from "../components/ui/ExpandableChart";
 
 // Configurar dayjs para português
@@ -95,6 +99,34 @@ export default function AnalyticsPage() {
     [vendasRaw, lowerUni]
   );
 
+  // Hook para produtos selecionados (igual ao Dashboard)
+  const [produtosSelecionados, , produtosLoaded] = usePersistedProdutos();
+
+  // Filtra vendas pelos produtos selecionados (IGUAL AO DASHBOARD)
+  const vendasFiltradas = useMemo(() => {
+    const todasVendas = Array.isArray(vendasRaw) ? vendasRaw : [];
+    
+    if (!todasVendas.length || !produtosLoaded) return todasVendas;
+    
+    // Se não há produtos selecionados, inclui todas as vendas
+    if (produtosSelecionados.length === 0) return todasVendas;
+    
+    // Filtra apenas vendas dos produtos selecionados (MESMA LÓGICA DO DASHBOARD)
+    const vendasComFiltro = todasVendas.filter(venda => {
+      const produtoVenda = (venda.produto || "").trim().toLowerCase();
+      return produtosSelecionados.some(produtoSelecionado => 
+        produtoSelecionado.toLowerCase() === produtoVenda
+      );
+    });
+    
+    console.log('📊 Analytics - Aplicando filtro de produtos:');
+    console.log('📊 Analytics - Produtos selecionados:', produtosSelecionados);
+    console.log('📊 Analytics - Vendas antes do filtro:', todasVendas.length);
+    console.log('📊 Analytics - Vendas após filtro:', vendasComFiltro.length);
+    
+    return vendasComFiltro;
+  }, [vendasRaw, produtosSelecionados, produtosLoaded]);
+
   // Clientes oficiais
   const responsaveisOficiais = useMemo(
     () => metas.map(m => m.responsavel.trim().toLowerCase()),
@@ -108,22 +140,67 @@ export default function AnalyticsPage() {
   const top5       = useTopPerformers(vendasUnidade, metas, selMonth,5);
   const breakdown  = useProductBreakdown(vendasUnidade, selMonth);
 
-  // KPIs
+  // Dados para compartilhamento
+  const shareData = useShareData('analytics', {
+    vendas: vendasUnidade,
+    metas,
+    metaUnidade,
+    topPerformers: top5,
+    productBreakdown: breakdown
+  }, unidade, selMonth);
+
+  // Estado para modal de compartilhamento
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
+  // Dados filtrados (incluindo filtros de produto como no Dashboard)
+  // IMPORTANTE: Usar vendasFiltradas (todas as vendas dos consultores) igual ao Dashboard
+  const dadosFiltrados = useMemo(() => {
+    return filteredData || vendasFiltradas;
+  }, [filteredData, vendasFiltradas]);
+
+  // KPIs - Agora usa TODAS as vendas dos consultores (como no Dashboard)
   const totalVendasMes = useMemo(() => {
-    return vendasUnidade
-      .filter(v => 
-        v.dataFormatada?.startsWith(selMonth) &&
-        responsaveisOficiais.includes((v.responsavel||"").trim().toLowerCase())
-      )
-      .reduce((sum, v) => sum + Number(v.valor||0), 0);
-  }, [vendasUnidade, selMonth, responsaveisOficiais]);
+    console.log('📊 Analytics - Calculando total de vendas');
+    console.log('📊 Analytics - dadosFiltrados total:', dadosFiltrados.length);
+    console.log('📊 Analytics - selMonth:', selMonth);
+    console.log('📊 Analytics - responsaveisOficiais:', responsaveisOficiais);
+    
+    const vendasDoMes = dadosFiltrados.filter(v => {
+      const resp = (v.responsavel || '').trim().toLowerCase();
+      const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selMonth;
+      const respOficial = responsaveisOficiais.includes(resp);
+      
+      if (mesCorreto && respOficial) {
+        console.log('📊 Analytics - Venda incluída:', {
+          responsavel: resp,
+          valor: v.valor,
+          data: v.dataFormatada,
+          produto: v.produto
+        });
+      }
+      
+      return mesCorreto && respOficial;
+    });
+    
+    const total = vendasDoMes.reduce((sum, v) => sum + Number(v.valor||0), 0);
+    console.log('📊 Analytics - Total calculado:', total);
+    console.log('📊 Analytics - Vendas do mês:', vendasDoMes.length);
+    
+    return total;
+  }, [dadosFiltrados, selMonth, responsaveisOficiais]);
 
   const totalVendasMesAnterior = useMemo(() => {
     const mesAnt = dayjs(selMonth + "-01","YYYY-MM-DD").subtract(1,"month").format("YYYY-MM");
-    return vendasUnidade
-      .filter(v => v.dataFormatada?.startsWith(mesAnt))
+    return dadosFiltrados
+      .filter(v => {
+        const resp = (v.responsavel || '').trim().toLowerCase();
+        const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === mesAnt;
+        const respOficial = responsaveisOficiais.includes(resp);
+        
+        return mesCorreto && respOficial;
+      })
       .reduce((sum, v) => sum + Number(v.valor||0), 0);
-  }, [vendasUnidade, selMonth]);
+  }, [dadosFiltrados, selMonth, responsaveisOficiais]);
 
   const crescimentoPercentual = totalVendasMesAnterior > 0
     ? ((totalVendasMes - totalVendasMesAnterior) / totalVendasMesAnterior) * 100
@@ -356,6 +433,174 @@ const applyFilters = (filters) => {
     }
   };
 
+  // Funções de compartilhamento
+  const formatAnalyticsData = () => {
+    const header = `📊 RELATÓRIO ANALYTICS - ${unidade.toUpperCase()}\n`;
+    const date = `📅 Período: ${dayjs(selMonth).format('MMMM/YYYY')}\n`;
+    const timestamp = `🕒 Gerado em: ${dayjs().format('DD/MM/YYYY HH:mm')}\n`;
+    const separator = '─'.repeat(50) + '\n';
+
+    let content = '';
+    
+    // Resumo geral
+    content += '📈 RESUMO GERAL\n';
+    content += `• Total de Vendas: R$ ${totalVendasMes.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+    content += `• Meta da Unidade: R$ ${metaUnidade.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+    content += `• Atingimento: ${metaAtingidaPercent.toFixed(1)}%\n`;
+    
+    // Calcular número de vendas do mês atual corretamente
+    const vendasDoMesAtual = dadosFiltrados.filter(v => {
+      const resp = (v.responsavel || '').trim().toLowerCase();
+      const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selMonth;
+      const respOficial = responsaveisOficiais.includes(resp);
+      return mesCorreto && respOficial;
+    });
+    
+    content += `• Número de Vendas: ${vendasDoMesAtual.length}\n`;
+    content += `• Crescimento vs Mês Anterior: ${crescimentoPercentual >= 0 ? '+' : ''}${crescimentoPercentual.toFixed(1)}%\n\n`;
+
+    // Top performers
+    if (top5 && top5.length > 0) {
+      content += '🏆 TOP PERFORMERS\n';
+      top5.forEach((performer, index) => {
+        // Acessar propriedades corretas: pode ser 'nome', 'name', 'responsavel'
+        const nome = performer.nome || performer.name || performer.responsavel || 'Nome não disponível';
+        const valor = performer.total || performer.value || performer.vendas || 0;
+        const valorFormatado = valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        content += `${index + 1}. ${nome}: R$ ${valorFormatado}\n`;
+      });
+      content += '\n';
+    } else {
+      content += '🏆 TOP PERFORMERS\n';
+      content += 'Nenhum dado disponível para o período selecionado.\n\n';
+    }
+
+    // Breakdown por produto
+    if (breakdown && breakdown.length > 0) {
+      content += '📦 VENDAS POR PRODUTO\n';
+      
+      // Filtrar apenas produtos com vendas significativas e calcular quantidade corretamente
+      const produtosComVendas = breakdown
+        .filter(product => {
+          const valor = product.value || product.total || product.valor || 0;
+          return valor > 0;
+        })
+        .map(product => {
+          const nome = product.name || product.produto || product.label || 'Produto não identificado';
+          const valor = product.value || product.total || product.valor || 0;
+          let quantidade = product.count || product.quantidade || product.vendas || 0;
+          
+          // Se quantidade é 0 mas há valor, calcular quantidade baseada nas vendas reais
+          if (quantidade === 0 && valor > 0) {
+            // Contar vendas reais do produto no período
+            const vendasDoProduto = dadosFiltrados.filter(v => {
+              const resp = (v.responsavel || '').trim().toLowerCase();
+              const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selMonth;
+              const respOficial = responsaveisOficiais.includes(resp);
+              const produtoMatch = (v.produto || '').trim().toLowerCase() === nome.toLowerCase();
+              return mesCorreto && respOficial && produtoMatch;
+            });
+            quantidade = vendasDoProduto.length;
+          }
+          
+          return { nome, valor, quantidade };
+        })
+        .sort((a, b) => b.valor - a.valor) // Ordenar por valor decrescente
+        .slice(0, 10); // Limitar a 10 produtos principais
+      
+      if (produtosComVendas.length > 0) {
+        produtosComVendas.forEach(product => {
+          const valorFormatado = product.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          content += `• ${product.nome}: R$ ${valorFormatado} (${product.quantidade} vendas)\n`;
+        });
+      } else {
+        content += 'Nenhuma venda significativa encontrada para o período.\n';
+      }
+      content += '\n';
+    } else {
+      content += '📦 VENDAS POR PRODUTO\n';
+      content += 'Nenhum dado disponível para o período selecionado.\n\n';
+    }
+    
+    // Adicionar informações adicionais
+    content += '📊 INFORMAÇÕES ADICIONAIS\n';
+    content += `• Média Diária: R$ ${(proj.avgDaily || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+    content += `• Projeção de Fechamento: R$ ${(proj.projectedTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+    content += `• Falta para Meta: R$ ${Math.max(0, metaUnidade - totalVendasMes).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n\n`;
+    
+    content += '📝 Relatório gerado automaticamente pelo DASHFLEX Analytics';
+
+    return header + date + timestamp + separator + content;
+  };
+
+  const handleShareEmail = () => {
+    try {
+      const formattedData = formatAnalyticsData();
+      const subject = `Relatório Analytics - ${unidade.toUpperCase()} - ${dayjs(selMonth).format('MM/YYYY')}`;
+      
+      // Verificar se os dados foram formatados corretamente
+      if (!formattedData || formattedData.length < 50) {
+        alert('Erro: Dados insuficientes para gerar o relatório. Verifique se há vendas no período selecionado.');
+        return;
+      }
+      
+      const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(formattedData)}`;
+      
+      // Verificar se o link não é muito longo (limite de alguns navegadores)
+      if (mailtoLink.length > 2000) {
+        alert('Relatório muito extenso para email. Tente filtrar os dados ou use a função de exportar PDF.');
+        return;
+      }
+      
+      window.open(mailtoLink, '_blank');
+      
+      // Feedback visual
+      console.log('📧 Email compartilhado com sucesso:', {
+        unidade,
+        periodo: selMonth,
+        totalVendas: totalVendasMes,
+        dataLength: formattedData.length
+      });
+      
+    } catch (error) {
+      console.error('Erro ao compartilhar por email:', error);
+      alert('Erro ao compartilhar por email. Tente novamente.');
+    }
+  };
+
+  const handleShareWhatsApp = () => {
+    try {
+      const formattedData = formatAnalyticsData();
+      
+      // Verificar se os dados foram formatados corretamente
+      if (!formattedData || formattedData.length < 50) {
+        alert('Erro: Dados insuficientes para gerar o relatório. Verifique se há vendas no período selecionado.');
+        return;
+      }
+      
+      // WhatsApp tem limite de caracteres, então vamos truncar se necessário
+      let message = formattedData;
+      if (message.length > 1500) {
+        message = message.substring(0, 1500) + '\n\n... (relatório truncado devido ao limite do WhatsApp)';
+      }
+      
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+      
+      // Feedback visual
+      console.log('📱 WhatsApp compartilhado com sucesso:', {
+        unidade,
+        periodo: selMonth,
+        totalVendas: totalVendasMes,
+        dataLength: message.length
+      });
+      
+    } catch (error) {
+      console.error('Erro ao compartilhar por WhatsApp:', error);
+      alert('Erro ao compartilhar por WhatsApp. Tente novamente.');
+    }
+  };
+
   // Componente principal
   return (
     <div className="dashboard-container">
@@ -406,8 +651,22 @@ const applyFilters = (filters) => {
                       <span className="filter-badge">{Object.keys(activeFilters).length}</span>
                     )}
                   </button>
-                  <button className="icon-button">
+                  <button className="icon-button" onClick={exportToPDF}>
                     <Download className="button-icon" />
+                  </button>
+                  <button 
+                    className="icon-button share-button" 
+                    onClick={() => handleShareEmail()}
+                    title="Enviar por Email"
+                  >
+                    <Mail className="button-icon" />
+                  </button>
+                  <button 
+                    className="icon-button share-button" 
+                    onClick={() => handleShareWhatsApp()}
+                    title="Enviar por WhatsApp"
+                  >
+                    <MessageCircle className="button-icon" />
                   </button>
                 </div>
               </div>

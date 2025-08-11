@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { signInWithEmailAndPassword,getAuth,getIdTokenResult } from "firebase/auth";
+import { useState, useEffect } from "react";
+import { signInWithEmailAndPassword, getAuth, getIdTokenResult, onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -11,8 +11,23 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
   const fbAuth = getAuth();
+
+  // Verifica se o usuário já está autenticado
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(fbAuth, (user) => {
+      if (user) {
+        // Se já está logado, redireciona para UnidadeSelector
+        navigate("/unidade");
+      } else {
+        setCheckingAuth(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [fbAuth, navigate]);
 
   const login = async () => {
     if (!email || !senha) {
@@ -41,6 +56,64 @@ export default function Login() {
       login();
     }
   };
+
+  // Mostra loading enquanto verifica se já está autenticado
+  if (checkingAuth) {
+    return (
+      <div className="auth-check-container">
+        <div className="auth-check-content">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+          </div>
+          <p>Verificando autenticação...</p>
+        </div>
+        
+        <style jsx>{`
+          .auth-check-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+          }
+
+          .auth-check-content {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+          }
+
+          .loading-spinner {
+            width: 60px;
+            height: 60px;
+            position: relative;
+          }
+
+          .spinner {
+            width: 100%;
+            height: 100%;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+          }
+
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+
+          p {
+            font-size: 16px;
+            font-weight: 500;
+            margin: 0;
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div className="login-container">
@@ -356,20 +429,17 @@ export default function Login() {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 2rem;
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(20px);
-        }
-
-        .login-card {
-          width: 100%;
-          max-width: 420px;
-          background: white;
-          border-radius: 24px;
-          padding: 2.5rem;
-          box-shadow: 
-            0 25px 50px -12px rgba(0, 0, 0, 0.25),
-            0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+          .login-card {
+            background: var(--card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 3rem 2.5rem;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 440px;
+            transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+          }
         }
 
         .card-header {
@@ -380,12 +450,12 @@ export default function Login() {
         .card-header h2 {
           font-size: 1.875rem;
           font-weight: 700;
-          color: #1f2937;
+          color: var(--text-primary);
           margin-bottom: 0.5rem;
         }
 
         .card-header p {
-          color: #6b7280;
+          color: var(--text-secondary);
           font-size: 1rem;
         }
 
@@ -403,7 +473,7 @@ export default function Login() {
 
         .form-group label {
           font-weight: 600;
-          color: #374151;
+          color: var(--text-primary);
           font-size: 0.875rem;
         }
 
@@ -416,7 +486,7 @@ export default function Login() {
         .input-icon {
           position: absolute;
           left: 1rem;
-          color: #9ca3af;
+          color: var(--text-secondary);
           z-index: 2;
           transition: color 0.2s;
         }
@@ -424,23 +494,24 @@ export default function Login() {
         .form-input {
           width: 100%;
           padding: 0.875rem 1rem 0.875rem 3rem;
-          border: 2px solid #e5e7eb;
+          border: 2px solid var(--border);
           border-radius: 12px;
           font-size: 1rem;
           transition: all 0.2s;
-          background: #fafafa;
+          background: var(--background);
+          color: var(--text-primary);
         }
 
         .form-input:focus {
           outline: none;
-          border-color: #6366f1;
-          background: white;
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+          border-color: var(--primary);
+          background: var(--card);
+          box-shadow: 0 0 0 3px var(--primary-light);
         }
 
         .form-input:focus + .input-icon,
         .input-container:hover .input-icon {
-          color: #6366f1;
+          color: var(--primary);
         }
 
         .password-toggle {
@@ -448,7 +519,7 @@ export default function Login() {
           right: 1rem;
           background: none;
           border: none;
-          color: #9ca3af;
+          color: var(--text-secondary);
           cursor: pointer;
           padding: 0.25rem;
           border-radius: 6px;
@@ -457,8 +528,8 @@ export default function Login() {
         }
 
         .password-toggle:hover {
-          color: #6366f1;
-          background: #f3f4f6;
+          color: var(--primary);
+          background: var(--secondary-light);
         }
 
         .error-alert {
@@ -466,10 +537,10 @@ export default function Login() {
           align-items: center;
           gap: 0.5rem;
           padding: 0.875rem 1rem;
-          background: #fef2f2;
-          border: 1px solid #fecaca;
+          background: var(--error-light);
+          border: 1px solid var(--danger);
           border-radius: 12px;
-          color: #dc2626;
+          color: var(--danger);
           font-size: 0.875rem;
         }
 
@@ -540,23 +611,23 @@ export default function Login() {
           text-align: center;
           margin-top: 2rem;
           padding-top: 1.5rem;
-          border-top: 1px solid #e5e7eb;
+          border-top: 1px solid var(--border);
         }
 
         .card-footer p {
-          color: #6b7280;
+          color: var(--text-secondary);
           font-size: 0.875rem;
         }
 
         .card-footer a {
-          color: #6366f1;
+          color: var(--primary);
           text-decoration: none;
           font-weight: 600;
           transition: color 0.2s;
         }
 
         .card-footer a:hover {
-          color: #4f46e5;
+          color: var(--primary-hover);
           text-decoration: underline;
         }
 

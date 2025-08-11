@@ -18,7 +18,13 @@ export default function App() {
       <Routes>
         {/* Páginas públicas */}
         <Route path="/login" element={<Login />} />
-        <Route path="/unidade" element={<UnidadeSelector />} />
+        
+        {/* Página de seleção de unidade - requer autenticação */}
+        <Route path="/unidade" element={
+          <PrivateRoute>
+            <UnidadeSelector />
+          </PrivateRoute>
+        } />
 
         {/* Páginas protegidas: login + permissão de unidade */}
         <Route

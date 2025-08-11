@@ -18,7 +18,11 @@ import {
   ChevronRight,
   User,
   LogOut,
-  Bell
+  Bell,
+  Users,
+  Activity,
+  FileText,
+  ArrowLeft
 } from "lucide-react";
 import useDarkMode from "../hooks/useDarkMode";
 
@@ -32,6 +36,13 @@ export default function NavBar() {
   const [theme, toggleTheme] = useDarkMode();
   const [userInfo, setUserInfo] = useState(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Detecta qual módulo está ativo baseado na URL
+  const currentModule = location.pathname.includes('/personal/') ? 'personal' : 'vendas';
+  
+  // Verifica se a unidade é válida
+  const isValidUnidade = ['alphaville', 'buenavista', 'marista'].includes(unidade?.toLowerCase());
+  const currentUnidade = isValidUnidade ? unidade : null;
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -81,60 +92,113 @@ export default function NavBar() {
     }
   };
 
-  const navItems = [
-    {
-      path: `/dashboard/${unidade}`,
-      icon: Home,
-      label: "Dashboard",
-      description: "Visão geral das vendas",
-      matchPath: "/dashboard"
-    },
-    {
-      path: `/metas/${unidade}`,
-      icon: Target,
-      label: "Metas",
-      description: "Acompanhe suas metas",
-      matchPath: "/metas"
-    },
-    {
-      path: `/analytics/${unidade}`,
-      icon: BarChart3,
-      label: "Analytics",
-      description: "Análises detalhadas",
-      matchPath: "/analytics"
-    },
-    {
-      path: `/add-sale/${unidade}`,
-      icon: Plus,
-      label: "Nova Venda",
-      description: "Registrar venda",
-      highlight: true,
-      matchPath: "/add-sale"
-    },
-    {
-      path: `/unidade`,
-      icon: MapPin,
-      label: "Unidade",
-      description: "Configurações da unidade",
-      matchPath: "/unidade"
+  const handleBackToModules = () => {
+    navigate("/modules");
+  };
+
+  const handleBackToUnits = () => {
+    if (currentModule === 'personal') {
+      navigate("/personal/unidade");
+    } else {
+      navigate("/unidade");
     }
-  ];
+  };
 
-  if (role === "admin") {
-    navItems.push({
-      path: `/config-remuneracao/${unidade}`,
-      icon: Settings,
-      label: "Remuneração",
-      description: "Configurar comissões",
-      admin: true,
-      matchPath: "/config-remuneracao"
-    });
-  }
+  // Configuração dos itens de navegação baseado no módulo
+  const getNavItems = () => {
+    if (currentModule === 'personal') {
+      // Items para módulo Personal
+      const personalItems = [
+        {
+          path: `/personal/dashboard/${unidade}`,
+          icon: Users,
+          label: "Dashboard",
+          description: "Visão geral dos personals",
+          matchPath: "/personal/dashboard"
+        },
+        {
+          path: `/personal/relatorios/${unidade}`,
+          icon: FileText,
+          label: "Relatórios",
+          description: "Relatórios de performance",
+          matchPath: "/personal/relatorios",
+          disabled: true // Funcionalidade futura
+        },
+        {
+          path: `/personal/configuracoes/${unidade}`,
+          icon: Settings,
+          label: "Configurações",
+          description: "Configurações do módulo",
+          matchPath: "/personal/configuracoes",
+          admin: true,
+          disabled: true // Funcionalidade futura
+        }
+      ];
 
-  // Não renderizar se não tiver unidade (exceto na página de seleção de unidade)
-  if (!unidade && !location.pathname.includes('/unidade')) {
+      return personalItems.filter(item => !item.admin || role === 'admin');
+    } else {
+      // Items para módulo Vendas (existente)
+      const vendasItems = [
+        {
+          path: `/dashboard/${unidade}`,
+          icon: Home,
+          label: "Dashboard",
+          description: "Visão geral das vendas",
+          matchPath: "/dashboard"
+        },
+        {
+          path: `/metas/${unidade}`,
+          icon: Target,
+          label: "Metas",
+          description: "Acompanhe suas metas",
+          matchPath: "/metas"
+        },
+        {
+          path: `/analytics/${unidade}`,
+          icon: BarChart3,
+          label: "Analytics",
+          description: "Análises detalhadas",
+          matchPath: "/analytics"
+        },
+        {
+          path: `/add-sale/${unidade}`,
+          icon: Plus,
+          label: "Nova Venda",
+          description: "Registrar venda",
+          highlight: true,
+          matchPath: "/add-sale"
+        }
+      ];
+
+      if (role === "admin") {
+        vendasItems.push({
+          path: `/config-remuneracao/${unidade}`,
+          icon: Settings,
+          label: "Remuneração",
+          description: "Configurar comissões",
+          admin: true,
+          matchPath: "/config-remuneracao"
+        });
+      }
+
+      return vendasItems;
+    }
+  };
+
+  const navItems = getNavItems();
+
+  // Não renderizar se não houver unidade válida (exceto em páginas especiais)
+  if (!currentUnidade && !location.pathname.includes('/unidade') && !location.pathname.includes('/modules') && !location.pathname.includes('/personal/dashboard')) {
     return null;
   }
+
+  const getModuleTitle = () => {
+    return currentModule === 'personal' ? 'Personal Manager' : 'Sales Dashboard';
+  };
+
+  const getModuleIcon = () => {
+    return currentModule === 'personal' ? Users : BarChart3;
+  };
 
   return (
     <>
@@ -150,17 +214,17 @@ export default function NavBar() {
       {/* Overlay para mobile */}
       {menuOpen && <div className="mobile-overlay" onClick={toggleMenu} />}
 
-      <nav className={`navbar ${menuOpen ? 'menu-open' : ''} ${isCollapsed ? 'collapsed' : ''} ${theme}`}>
+      <nav className={`navbar ${menuOpen ? 'menu-open' : ''} ${isCollapsed ? 'collapsed' : ''} ${theme} ${currentModule}`}>
         {/* Header da navbar */}
         <div className="navbar-header">
           <div className="navbar-brand">
             <div className="brand-icon">
-              <BarChart3 size={24} />
+              {React.createElement(getModuleIcon(), { size: 24 })}
             </div>
             {!isCollapsed && (
               <div className="brand-text">
                 <span className="company-name">FlexApp</span>
-                <span className="company-subtitle">Sales Dashboard</span>
+                <span className="company-subtitle">{getModuleTitle()}</span>
               </div>
             )}
           </div>
@@ -172,6 +236,29 @@ export default function NavBar() {
               title="Recolher menu"
             >
               <ChevronRight size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Module navigation buttons */}
+        <div className="module-navigation">
+          <button 
+            className="nav-button module-btn"
+            onClick={handleBackToModules}
+            title="Voltar aos módulos"
+          >
+            <ArrowLeft size={16} />
+            {!isCollapsed && <span>Módulos</span>}
+          </button>
+          
+          {currentUnidade && (
+            <button 
+              className="nav-button unit-btn"
+              onClick={handleBackToUnits}
+              title="Trocar unidade"
+            >
+              <MapPin size={16} />
+              {!isCollapsed && <span>{currentUnidade.toUpperCase()}</span>}
             </button>
           )}
         </div>
@@ -203,26 +290,34 @@ export default function NavBar() {
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.matchPath);
+              const isDisabled = item.disabled;
               
               return (
                 <Link
                   key={item.path}
-                  to={item.path}
-                  className={`nav-link ${active ? "active" : ""} ${item.highlight ? "highlight" : ""} ${item.admin ? "admin" : ""}`}
-                  onClick={() => setMenuOpen(false)}
+                  to={isDisabled ? '#' : item.path}
+                  className={`nav-link ${active ? "active" : ""} ${item.highlight ? "highlight" : ""} ${item.admin ? "admin" : ""} ${isDisabled ? "disabled" : ""}`}
+                  onClick={(e) => {
+                    if (isDisabled) {
+                      e.preventDefault();
+                      return;
+                    }
+                    setMenuOpen(false);
+                  }}
                   title={isCollapsed ? item.label : undefined}
                 >
                   <div className="nav-link-icon">
                     <Icon size={20} />
-                    {item.highlight && <div className="highlight-dot"></div>}
+                    {item.highlight && !isDisabled && <div className="highlight-dot"></div>}
                   </div>
                   {!isCollapsed && (
                     <div className="nav-link-content">
                       <span className="nav-link-label">{item.label}</span>
                       <span className="nav-link-description">{item.description}</span>
+                      {isDisabled && <span className="coming-soon">Em breve</span>}
                     </div>
                   )}
-                  {active && <div className="active-indicator"></div>}
+                  {active && !isDisabled && <div className="active-indicator"></div>}
                 </Link>
               );
             })}
@@ -283,6 +378,29 @@ export default function NavBar() {
           overflow: hidden;
         }
         
+        /* Tema específico para Personal */
+        .navbar.personal {
+          background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+          border-right-color: #bbf7d0;
+        }
+
+        .navbar.personal .brand-icon {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .navbar.personal .nav-link.highlight {
+          background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+          color: #065f46;
+          border: 1px solid #10b981;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+
+        .navbar.personal .nav-link.highlight:hover {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+        }
+        
         .navbar.collapsed {
           width: 72px;
         }
@@ -290,6 +408,11 @@ export default function NavBar() {
         .navbar.dark {
           background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
           border-right-color: #334155;
+        }
+
+        .navbar.dark.personal {
+          background: linear-gradient(180deg, #1e293b 0%, #0f1f13 100%);
+          border-right-color: #22543d;
         }
         
         .navbar-header {
@@ -351,6 +474,49 @@ export default function NavBar() {
         .navbar.dark .company-subtitle {
           color: #94a3b8;
         }
+
+        /* Module navigation */
+        .module-navigation {
+          padding: 0 1rem;
+          margin-bottom: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .nav-button {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1rem;
+          background: rgba(100, 116, 139, 0.1);
+          border: 1px solid rgba(100, 116, 139, 0.2);
+          border-radius: 0.5rem;
+          color: #64748b;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-size: 0.875rem;
+          font-weight: 500;
+          width: 100%;
+          text-align: left;
+        }
+
+        .nav-button:hover {
+          background: rgba(100, 116, 139, 0.15);
+          color: #475569;
+          transform: translateX(2px);
+        }
+
+        .navbar.dark .nav-button {
+          background: rgba(71, 85, 105, 0.2);
+          border-color: rgba(71, 85, 105, 0.3);
+          color: #94a3b8;
+        }
+
+        .navbar.dark .nav-button:hover {
+          background: rgba(71, 85, 105, 0.3);
+          color: #e2e8f0;
+        }
         
         .collapse-btn {
           display: flex;
@@ -395,10 +561,21 @@ export default function NavBar() {
           position: relative;
           box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
         }
+
+        .navbar.personal .user-section {
+          background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+          border-color: #86efac;
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+        }
         
         .navbar.dark .user-section {
           background: linear-gradient(135deg, #1e3a8a20 0%, #1e40af20 100%);
           border-color: #3b82f6;
+        }
+
+        .navbar.dark.personal .user-section {
+          background: linear-gradient(135deg, #064e3b20 0%, #065f4620 100%);
+          border-color: #10b981;
         }
         
         .user-avatar {
@@ -413,6 +590,11 @@ export default function NavBar() {
           flex-shrink: 0;
           overflow: hidden;
           box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+        }
+
+        .navbar.personal .user-avatar {
+          background-color: #10b981;
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
         }
         
         .user-avatar img {
@@ -437,9 +619,17 @@ export default function NavBar() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+
+        .navbar.personal .user-name {
+          color: #064e3b;
+        }
         
         .navbar.dark .user-name {
           color: #93c5fd;
+        }
+
+        .navbar.dark.personal .user-name {
+          color: #6ee7b7;
         }
         
         .user-role {
@@ -447,9 +637,17 @@ export default function NavBar() {
           color: #0369a1;
           font-weight: 500;
         }
+
+        .navbar.personal .user-role {
+          color: #047857;
+        }
         
         .navbar.dark .user-role {
           color: #60a5fa;
+        }
+
+        .navbar.dark.personal .user-role {
+          color: #34d399;
         }
         
         .user-email {
@@ -460,9 +658,17 @@ export default function NavBar() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+
+        .navbar.personal .user-email {
+          color: #047857;
+        }
         
         .navbar.dark .user-email {
           color: #60a5fa;
+        }
+
+        .navbar.dark.personal .user-email {
+          color: #34d399;
         }
         
         .user-status {
@@ -508,6 +714,12 @@ export default function NavBar() {
           position: relative;
           overflow: hidden;
         }
+
+        .nav-link.disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          pointer-events: none;
+        }
         
         .navbar.dark .nav-link {
           color: #94a3b8;
@@ -529,16 +741,27 @@ export default function NavBar() {
           opacity: 1;
         }
         
-        .nav-link:hover {
+        .nav-link:hover:not(.disabled) {
           background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
           color: #0369a1;
           transform: translateX(4px);
           box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
         }
+
+        .navbar.personal .nav-link:hover:not(.disabled) {
+          background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+          color: #047857;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        }
         
-        .navbar.dark .nav-link:hover {
+        .navbar.dark .nav-link:hover:not(.disabled) {
           background: linear-gradient(135deg, #1e40af20 0%, #3b82f620 100%);
           color: #60a5fa;
+        }
+
+        .navbar.dark.personal .nav-link:hover:not(.disabled) {
+          background: linear-gradient(135deg, #064e3b20 0%, #065f4620 100%);
+          color: #34d399;
         }
         
         .nav-link.active {
@@ -548,11 +771,24 @@ export default function NavBar() {
           border: 1px solid #93c5fd;
           box-shadow: 0 4px 12px rgba(29, 78, 216, 0.2);
         }
+
+        .navbar.personal .nav-link.active {
+          background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+          color: #065f46;
+          border-color: #10b981;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
         
         .navbar.dark .nav-link.active {
           background: linear-gradient(135deg, #1e40af40 0%, #3b82f640 100%);
           color: #93c5fd;
           border-color: #3b82f6;
+        }
+
+        .navbar.dark.personal .nav-link.active {
+          background: linear-gradient(135deg, #064e3b40 0%, #065f4640 100%);
+          color: #6ee7b7;
+          border-color: #10b981;
         }
         
         .nav-link.highlight {
@@ -562,7 +798,7 @@ export default function NavBar() {
           box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
         }
         
-        .nav-link.highlight:hover {
+        .nav-link.highlight:hover:not(.disabled) {
           background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
           color: #78350f;
           transform: translateX(4px) scale(1.02);
@@ -575,7 +811,7 @@ export default function NavBar() {
           box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
         }
         
-        .nav-link.admin:hover {
+        .nav-link.admin:hover:not(.disabled) {
           background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
           color: #6d28d9;
         }
@@ -625,6 +861,16 @@ export default function NavBar() {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+
+        .coming-soon {
+          font-size: 0.625rem;
+          background: #f59e0b;
+          color: white;
+          padding: 0.125rem 0.375rem;
+          border-radius: 0.25rem;
+          margin-top: 0.125rem;
+          align-self: flex-start;
+        }
         
         .active-indicator {
           position: absolute;
@@ -637,9 +883,17 @@ export default function NavBar() {
           border-radius: 50%;
           animation: pulse 2s infinite;
         }
+
+        .navbar.personal .active-indicator {
+          background-color: #065f46;
+        }
         
         .navbar.dark .active-indicator {
           background-color: #93c5fd;
+        }
+
+        .navbar.dark.personal .active-indicator {
+          background-color: #6ee7b7;
         }
         
         .navbar-footer {
@@ -859,6 +1113,10 @@ export default function NavBar() {
           
           .navbar-footer {
             padding: 1rem 0.5rem;
+          }
+
+          .module-navigation {
+            padding: 0 0.5rem;
           }
         }
       `}</style>

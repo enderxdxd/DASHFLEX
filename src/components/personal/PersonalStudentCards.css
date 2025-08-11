@@ -1,0 +1,343 @@
+/* src/components/personal/PersonalStudentCards.css */
+.personal-student-cards {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Cards de Resumo */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.summary-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.summary-card .card-icon {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  padding: 12px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.summary-card .card-content h3 {
+  margin: 0 0 5px 0;
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.summary-card .card-number {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+/* Seção de Cards de Personals */
+.personal-cards-grid {
+  margin-top: 30px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.unit-badge {
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+/* Grid de Cards de Personals */
+.personal-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.personal-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.personal-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--unit-color, #8b5cf6);
+}
+
+.personal-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border-color: var(--unit-color, #8b5cf6);
+}
+
+.personal-card.top-performer {
+  background: linear-gradient(135deg, #fef3c7 0%, #fef9e7 100%);
+  border-color: #f59e0b;
+}
+
+.personal-card.top-performer::before {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+}
+
+/* Header do Card */
+.personal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.personal-info {
+  flex: 1;
+}
+
+.personal-name {
+  margin: 0 0 5px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.3;
+}
+
+.unit-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.rank-badge {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+/* Contador de Alunos - Destaque Principal */
+.student-count {
+  text-align: center;
+  margin: 20px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.count-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.count-main svg {
+  color: var(--unit-color, #8b5cf6);
+}
+
+.count-number {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--unit-color, #8b5cf6);
+  line-height: 1;
+}
+
+.count-label {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Detalhes do Personal */
+.personal-details {
+  display: flex;
+  justify-content: space-between;
+  margin: 15px 0;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.detail-item svg {
+  color: var(--unit-color, #8b5cf6);
+}
+
+/* Preview dos Alunos */
+.students-preview {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.preview-title {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.students-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.student-name {
+  background: var(--unit-color, #8b5cf6);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.more-students {
+  background: #6b7280;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Estado vazio */
+.no-data {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+.no-data svg {
+  margin-bottom: 15px;
+  color: #d1d5db;
+}
+
+.no-data p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* Dark mode */
+.dark .summary-card,
+.dark .personal-card {
+  background: var(--gray-800);
+  border-color: var(--gray-700);
+}
+
+.dark .summary-card .card-number,
+.dark .personal-name {
+  color: var(--gray-100);
+}
+
+.dark .summary-card .card-content h3,
+.dark .section-title,
+.dark .count-label,
+.dark .detail-item,
+.dark .preview-title {
+  color: var(--gray-300);
+}
+
+.dark .student-count {
+  background: var(--gray-700);
+  border-color: var(--gray-600);
+}
+
+.dark .personal-details {
+  background: var(--gray-700);
+}
+
+.dark .students-preview {
+  border-color: var(--gray-600);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .personal-student-cards {
+    padding: 15px;
+  }
+  
+  .summary-cards {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+  
+  .personal-cards {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .personal-card {
+    padding: 15px;
+  }
+  
+  .personal-details {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .count-number {
+    font-size: 28px;
+  }
+}

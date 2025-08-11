@@ -186,7 +186,284 @@ app.post("/", (req, res) => {
   req.rawBody ? busboy.end(req.rawBody) : req.pipe(busboy);
 });
 
+// ==========================================
+// FUNÇÃO PARA PERSONAL 
+// ==========================================
+const appPersonal = express();
+appPersonal.use(cors({ origin: true }));
+
+appPersonal.post("/", (req, res) => {
+  const busboy = new Busboy({ headers: req.headers });
+  let fileBuffer = null;
+  let fileName = "";
+  let unidade = "";
+
+  busboy.on("field", (fieldname, val) => {
+    if (fieldname === "unidade") {
+      unidade = val.trim().toLowerCase();
+      console.log(`Unidade recebida para Personal: ${unidade}`);
+    }
+  });
+
+  busboy.on("file", (fieldname, file, filename) => {
+    if (fieldname === "file") {
+      fileName = filename;
+      const buffers = [];
+      file.on("data", (data) => buffers.push(data));
+      file.on("end", () => {
+        fileBuffer = Buffer.concat(buffers);
+      });
+    }
+  });
+
+  busboy.on("finish", async () => {
+    try {
+      // Validações iniciais
+      if (!fileBuffer) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Nenhum arquivo recebido" 
+        });
+      }
+
+      const ext = fileName.split(".").pop().toLowerCase();
+      if (!["xls", "xlsx"].includes(ext)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Apenas arquivos Excel (.xls, .xlsx) são permitidos" 
+        });
+      }
+
+      if (!unidade) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Unidade não especificada" 
+        });
+      }
+
+      const unidadesValidas = ["alphaville", "buenavista", "marista"];
+      if (!unidadesValidas.includes(unidade)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Unidade inválida. Valores aceitos: ${unidadesValidas.join(", ")}` 
+        });
+      }
+
+      // Lê o Excel
+      let workbook;
+      try {
+        workbook = XLSX.read(fileBuffer, { 
+          type: "buffer",
+          cellStyles: true,
+          cellFormulas: true,
+          cellDates: true
+        });
+      } catch (err) {
+        console.error("Erro ao ler Excel:", err);
+        return res.status(400).json({ 
+          success: false, 
+          error: "Formato de arquivo Excel inválido" 
+        });
+      }
+
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      
+      // Converte para array de arrays para análise da estrutura
+      const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      if (!rawData || rawData.length < 3) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Planilha vazia ou sem dados suficientes" 
+        });
+      }
+
+      // Detecta estrutura da planilha de personal
+      let dataStartRow = 2; // dados começam na linha 3 (índice 2)
+      let headers = rawData[1]; // Headers na linha 2 (índice 1)
+
+      if (!headers || !Array.isArray(headers)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Estrutura de planilha inválida - headers não encontrados" 
+        });
+      }
+
+      // Estrutura específica para a planilha de personal
+      // A planilha tem headers fixos: ["personal", "aluno", "produto", "valor", "desconto", "valorFinal", "situacao"]
+      
+      console.log("Headers da planilha:", headers);
+      console.log("Número de colunas:", headers.length);
+      
+      // Verifica se tem pelo menos 7 colunas
+      if (!headers || headers.length < 7) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Planilha deve ter pelo menos 7 colunas. Encontradas: ${headers?.length || 0}` 
+        });
+      }
+
+      // Assume posições fixas baseadas na estrutura da planilha
+      const headerMap = {
+        personal: 0,      // Coluna A
+        aluno: 1,         // Coluna B  
+        produto: 2,       // Coluna C
+        valor: 3,         // Coluna D
+        desconto: 4,      // Coluna E
+        valorFinal: 5,    // Coluna F
+        situacao: 6       // Coluna G
+      };
+
+      console.log("Usando mapeamento fixo:", headerMap);
+
+      // Verifica se as colunas têm os nomes esperados (opcional, só para log)
+      const expectedNames = ["personal", "aluno", "produto", "valor", "desconto", "valorFinal", "situacao"];
+      expectedNames.forEach((name, index) => {
+        const actualHeader = headers[index];
+        console.log(`Coluna ${index}: esperado "${name}", encontrado "${actualHeader}"`);
+      });
+
+      // Processa os dados usando o mapeamento correto
+      const personals = [];
+      const currentDate = new Date().toISOString();
+
+      for (let i = dataStartRow; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || row.length < 7) continue;
+
+        // Usa o mapeamento para acessar as colunas corretas
+        const personal = (row[headerMap.personal] || "").toString().trim();
+        const aluno = (row[headerMap.aluno] || "").toString().trim();
+        const produto = (row[headerMap.produto] || "").toString().trim();
+        const valor = parseFloat(row[headerMap.valor]) || 0;
+        const desconto = parseFloat(row[headerMap.desconto]) || 0;
+        const valorFinal = parseFloat(row[headerMap.valorFinal]) || valor - desconto;
+        const situacao = (row[headerMap.situacao] || "").toString().trim();
+
+        // Filtra registros válidos
+        if (!personal || personal === "-" || !aluno || aluno === "-") {
+          continue;
+        }
+
+        // Determina se é um contrato ou aluno real
+        const isContrato = aluno.toLowerCase().includes("assinar contrato");
+        const isAtivo = situacao.toLowerCase() === "pago";
+        const hasValue = valorFinal > 0;
+
+        personals.push({
+          personal,
+          aluno,
+          produto: produto === "-" ? "" : produto,
+          valor,
+          desconto,
+          valorFinal,
+          situacao: situacao || "Livre",
+          
+          // Campos adicionais
+          isContrato,
+          isAtivo,
+          hasValue,
+          dataImportacao: currentDate,
+          unidade,
+          
+          // Metadados
+          fileName,
+          rowIndex: i + 1,
+          
+          // Campos calculados
+          personalNormalizado: personal.toLowerCase().trim(),
+          alunoNormalizado: aluno.toLowerCase().trim(),
+          
+          // Data de processamento
+          processedAt: dayjs().format("YYYY-MM-DD HH:mm:ss")
+        });
+      }
+
+      if (!personals.length) {
+        return res.status(200).json({
+          success: true,
+          message: "Nenhum registro válido encontrado na planilha.",
+          fileName,
+          unidade,
+          totalProcessed: 0
+        });
+      }
+
+      // Salva no Firestore
+      const personalsRef = db.collection("faturamento")
+        .doc(unidade)
+        .collection("personals");
+
+      // Processa em batches de 500
+      const batchSize = 500;
+      const commits = [];
+      
+      for (let i = 0; i < personals.length; i += batchSize) {
+        const batch = db.batch();
+        const batchData = personals.slice(i, i + batchSize);
+        
+        batchData.forEach((personal) => {
+          const docRef = personalsRef.doc();
+          batch.set(docRef, personal);
+        });
+        
+        commits.push(batch.commit());
+      }
+
+      // Executa todos os commits
+      await Promise.all(commits);
+
+      // Estatísticas para retorno
+      const statistics = {
+        totalRegistros: personals.length,
+        personalsUnicos: [...new Set(personals.map(p => p.personal))].length,
+        alunosUnicos: [...new Set(personals.filter(p => !p.isContrato).map(p => p.aluno))].length,
+        registrosPagos: personals.filter(p => p.isAtivo).length,
+        registrosComValor: personals.filter(p => p.hasValue).length,
+        valorTotalFaturamento: personals.reduce((sum, p) => sum + p.valorFinal, 0),
+        situacoes: [...new Set(personals.map(p => p.situacao))],
+        produtos: [...new Set(personals.filter(p => p.produto).map(p => p.produto))]
+      };
+
+      console.log(`Personal Import - Unidade: ${unidade}`);
+      console.log(`Total de registros salvos: ${personals.length}`);
+      console.log(`Personals únicos: ${statistics.personalsUnicos}`);
+      console.log(`Valor total: R$ ${statistics.valorTotalFaturamento.toFixed(2)}`);
+
+      return res.status(200).json({
+        success: true,
+        message: `Arquivo processado com sucesso! ${personals.length} registro(s) de personal importado(s).`,
+        fileName,
+        unidade,
+        statistics,
+        totalProcessed: personals.length
+      });
+
+    } catch (err) {
+      console.error("Erro no processamento da planilha de personal:", err);
+      return res.status(500).json({ 
+        success: false, 
+        error: "Erro interno no servidor: " + err.message 
+      });
+    }
+  });
+
+  req.rawBody ? busboy.end(req.rawBody) : req.pipe(busboy);
+});
+
+
+
+
+
 exports.uploadXLS = functions
   .region("southamerica-east1")
   .runWith({ timeoutSeconds: 540, memory: "2GB" })
   .https.onRequest(app);
+
+
+
+exports.uploadPersonal = functions
+  .region("southamerica-east1")
+  .runWith({ timeoutSeconds: 540, memory: "2GB" })
+  .https.onRequest(appPersonal);

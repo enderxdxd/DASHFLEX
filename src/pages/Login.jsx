@@ -1,3 +1,4 @@
+// src/pages/Login.jsx - Versão Atualizada
 import { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, getAuth, getIdTokenResult, onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase";
@@ -19,8 +20,8 @@ export default function Login() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(fbAuth, (user) => {
       if (user) {
-        // Se já está logado, redireciona para UnidadeSelector
-        navigate("/unidade");
+        // Se já está logado, redireciona para seleção de módulos
+        navigate("/modules");
       } else {
         setCheckingAuth(false);
       }
@@ -42,7 +43,9 @@ export default function Login() {
       const { user } = await signInWithEmailAndPassword(auth, email, senha);
       // força o refresh do token para que os custom claims apareçam
       const idTokenResult = await getIdTokenResult(user, /*forceRefresh=*/ true);
-      navigate("/unidade");
+      
+      // Redireciona para seleção de módulos
+      navigate("/modules");
     } catch (e) {
       setError("Credenciais inválidas. Tente novamente.");
       console.error(e);
@@ -96,19 +99,14 @@ export default function Login() {
             width: 100%;
             height: 100%;
             border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
             border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
+            animation: spin 1s linear infinite;
           }
 
           @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-
-          p {
-            font-size: 16px;
-            font-weight: 500;
-            margin: 0;
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
           }
         `}</style>
       </div>
@@ -117,51 +115,37 @@ export default function Login() {
 
   return (
     <div className="login-container">
-      {/* Background Elements */}
-      <div className="bg-gradient"></div>
-      <div className="floating-shapes">
-        <div className="shape shape-1"></div>
-        <div className="shape shape-2"></div>
-        <div className="shape shape-3"></div>
-      </div>
-      
-      {/* Main Content */}
-      <div className="content-wrapper">
-        {/* Left Side - Branding */}
-        <motion.div 
-          initial={{ opacity: 0, x: -50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="branding-section"
-        >
-          <div className="brand-content">
-            <div className="logo-section">
-              <div className="logo-icon">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="url(#brandGradient1)"/>
-                  <path d="M2 17L12 22L22 17" stroke="url(#brandGradient2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M2 12L12 17L22 12" stroke="url(#brandGradient2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <defs>
-                    <linearGradient id="brandGradient1" x1="2" y1="2" x2="22" y2="12">
-                      <stop stopColor="#6366f1"/>
-                      <stop offset="1" stopColor="#8b5cf6"/>
-                    </linearGradient>
-                    <linearGradient id="brandGradient2" x1="2" y1="12" x2="22" y2="22">
-                      <stop stopColor="#3b82f6"/>
-                      <stop offset="1" stopColor="#6366f1"/>
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-              <h1 className="brand-title">DASHFLEX</h1>
+      {/* Left Side - Branding */}
+      <motion.div 
+        initial={{ opacity: 0, x: -50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.8 }}
+        className="branding-section"
+      >
+        <div className="branding-content">
+          <div className="logo-section">
+            <div className="main-logo">
+              <span className="logo-text">FLEXAPP</span>
+              <span className="logo-subtitle">Business Suite</span>
             </div>
-            <p className="brand-subtitle">
-              Transforme dados em decisões inteligentes com nossa plataforma de analytics avançada.
+          </div>
+          
+          <div className="hero-content">
+            <h1 className="hero-title">
+              Gestão Completa do Seu Negócio
+            </h1>
+            <p className="hero-description">
+              Módulos integrados para vendas, personal trainers e muito mais. 
+              Controle total na palma da sua mão.
             </p>
             <div className="features-list">
               <div className="feature-item">
                 <div className="feature-icon">📊</div>
-                <span>Analytics em tempo real</span>
+                <span>Dashboard de Vendas</span>
+              </div>
+              <div className="feature-item">
+                <div className="feature-icon">💪</div>
+                <span>Gerenciamento de Personal</span>
               </div>
               <div className="feature-item">
                 <div className="feature-icon">🎯</div>
@@ -173,234 +157,182 @@ export default function Login() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
+      </motion.div>
 
-        {/* Right Side - Login Form */}
-        <motion.div 
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="login-section"
-        >
-          <div className="login-card">
-            <div className="card-header">
-              <h2>Bem-vindo de volta</h2>
-              <p>Entre na sua conta para continuar</p>
-            </div>
-
-            <form className="login-form" onSubmit={(e) => { e.preventDefault(); login(); }}>
-              {/* Email Field */}
-              <div className="form-group">
-                <label htmlFor="email">E-mail</label>
-                <div className="input-container">
-                  <Mail className="input-icon" size={20} />
-                  <input
-                    id="email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="form-input"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Password Field */}
-              <div className="form-group">
-                <label htmlFor="senha">Senha</label>
-                <div className="input-container">
-                  <Lock className="input-icon" size={20} />
-                  <input
-                    id="senha"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={senha}
-                    onChange={(e) => setSenha(e.target.value)}
-                    className="form-input"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="password-toggle"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="error-alert"
-                >
-                  <AlertCircle size={16} />
-                  <span>{error}</span>
-                </motion.div>
-              )}
-
-              {/* Submit Button */}
-              <motion.button
-                type="submit"
-                disabled={loading}
-                className="submit-button"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                {loading ? (
-                  <div className="loading-spinner"></div>
-                ) : (
-                  <>
-                    <span>Entrar</span>
-                    <ArrowRight size={20} />
-                  </>
-                )}
-              </motion.button>
-            </form>
-
-            <div className="card-footer">
-              <p>Esqueceu sua senha? <a href="#">Recuperar acesso</a></p>
-            </div>
+      {/* Right Side - Login Form */}
+      <motion.div 
+        initial={{ opacity: 0, x: 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.8, delay: 0.4 }}
+        className="login-section"
+      >
+        <div className="login-card">
+          <div className="card-header">
+            <h2>Bem-vindo de volta</h2>
+            <p>Entre na sua conta para acessar os módulos</p>
           </div>
-        </motion.div>
-      </div>
+
+          <form className="login-form" onSubmit={(e) => { e.preventDefault(); login(); }}>
+            {/* Email Field */}
+            <div className="form-group">
+              <label htmlFor="email">E-mail</label>
+              <div className="input-container">
+                <Mail className="input-icon" size={20} />
+                <input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="form-input"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password Field */}
+            <div className="form-group">
+              <label htmlFor="senha">Senha</label>
+              <div className="input-container">
+                <Lock className="input-icon" size={20} />
+                <input
+                  id="senha"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  className="form-input"
+                  required
+                  onKeyPress={handleKeyPress}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="password-toggle"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="error-message"
+              >
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </motion.div>
+            )}
+
+            {/* Submit Button */}
+            <motion.button
+              type="submit"
+              className="login-button"
+              disabled={loading}
+              whileHover={{ scale: loading ? 1 : 1.02 }}
+              whileTap={{ scale: loading ? 1 : 0.98 }}
+            >
+              {loading ? (
+                <div className="button-loading">
+                  <div className="loading-spinner"></div>
+                  <span>Entrando...</span>
+                </div>
+              ) : (
+                <>
+                  <span>Entrar</span>
+                  <ArrowRight size={20} />
+                </>
+              )}
+            </motion.button>
+          </form>
+
+          <div className="login-footer">
+            <p>🔒 Acesso seguro e criptografado</p>
+          </div>
+        </div>
+      </motion.div>
 
       <style jsx>{`
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
         .login-container {
-          min-height: 100vh;
-          position: relative;
-          overflow: hidden;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        }
-
-        .bg-gradient {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, 
-            #667eea 0%, 
-            #764ba2 25%, 
-            #f093fb 50%, 
-            #f5576c 75%, 
-            #4facfe 100%
-          );
-          background-size: 400% 400%;
-          animation: gradientShift 15s ease infinite;
-        }
-
-        @keyframes gradientShift {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-
-        .floating-shapes {
-          position: absolute;
-          inset: 0;
-          overflow: hidden;
-        }
-
-        .shape {
-          position: absolute;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(10px);
-          animation: float 20s infinite linear;
-        }
-
-        .shape-1 {
-          width: 100px;
-          height: 100px;
-          top: 20%;
-          left: 10%;
-          animation-delay: 0s;
-        }
-
-        .shape-2 {
-          width: 150px;
-          height: 150px;
-          top: 60%;
-          right: 10%;
-          animation-delay: -7s;
-        }
-
-        .shape-3 {
-          width: 80px;
-          height: 80px;
-          bottom: 20%;
-          left: 20%;
-          animation-delay: -14s;
-        }
-
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          33% { transform: translateY(-30px) rotate(120deg); }
-          66% { transform: translateY(30px) rotate(240deg); }
-        }
-
-        .content-wrapper {
-          position: relative;
-          z-index: 1;
           min-height: 100vh;
           display: grid;
           grid-template-columns: 1fr 1fr;
-          max-width: 1400px;
-          margin: 0 auto;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
         .branding-section {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 2rem;
+          padding: 4rem 2rem;
           color: white;
+          position: relative;
+          overflow: hidden;
         }
 
-        .brand-content {
+        .branding-section::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+          opacity: 0.3;
+        }
+
+        .branding-content {
+          position: relative;
+          z-index: 1;
           max-width: 500px;
         }
 
         .logo-section {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          margin-bottom: 2rem;
+          margin-bottom: 3rem;
         }
 
-        .logo-icon {
-          padding: 1rem;
-          background: rgba(255, 255, 255, 0.15);
-          border-radius: 20px;
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+        .main-logo {
+          text-align: center;
         }
 
-        .brand-title {
-          font-size: 2.5rem;
+        .logo-text {
+          display: block;
+          font-size: 3rem;
           font-weight: 800;
-          background: linear-gradient(135deg, #fff 0%, #f0f0f0 100%);
+          letter-spacing: 2px;
+          margin-bottom: 0.5rem;
+          background: linear-gradient(45deg, #ffffff, #e2e8f0);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          letter-spacing: -0.02em;
         }
 
-        .brand-subtitle {
-          font-size: 1.125rem;
-          line-height: 1.7;
+        .logo-subtitle {
+          font-size: 1.2rem;
+          font-weight: 300;
+          opacity: 0.9;
+          letter-spacing: 1px;
+        }
+
+        .hero-title {
+          font-size: 2.5rem;
+          font-weight: 700;
+          margin-bottom: 1.5rem;
+          line-height: 1.2;
+        }
+
+        .hero-description {
+          font-size: 1.2rem;
           opacity: 0.9;
           margin-bottom: 2.5rem;
+          line-height: 1.6;
         }
 
         .features-list {
-          display: flex;
-          flex-direction: column;
+          display: grid;
           gap: 1rem;
         }
 
@@ -408,17 +340,10 @@ export default function Login() {
           display: flex;
           align-items: center;
           gap: 1rem;
-          padding: 1rem;
+          padding: 0.75rem;
           background: rgba(255, 255, 255, 0.1);
           border-radius: 12px;
           backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          transition: all 0.3s ease;
-        }
-
-        .feature-item:hover {
-          background: rgba(255, 255, 255, 0.15);
-          transform: translateX(5px);
         }
 
         .feature-icon {
@@ -429,17 +354,19 @@ export default function Login() {
           display: flex;
           align-items: center;
           justify-content: center;
-          .login-card {
-            background: var(--card);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 3rem 2.5rem;
-            box-shadow: var(--shadow);
-            width: 100%;
-            max-width: 440px;
-            transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-          }
+          padding: 2rem;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(20px);
+        }
+
+        .login-card {
+          width: 100%;
+          max-width: 400px;
+          padding: 2.5rem;
+          background: white;
+          border-radius: 24px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .card-header {
@@ -448,15 +375,15 @@ export default function Login() {
         }
 
         .card-header h2 {
-          font-size: 1.875rem;
+          font-size: 1.75rem;
           font-weight: 700;
-          color: var(--text-primary);
+          color: #1e293b;
           margin-bottom: 0.5rem;
         }
 
         .card-header p {
-          color: var(--text-secondary);
-          font-size: 1rem;
+          color: #64748b;
+          margin: 0;
         }
 
         .login-form {
@@ -473,8 +400,8 @@ export default function Login() {
 
         .form-group label {
           font-weight: 600;
-          color: var(--text-primary);
-          font-size: 0.875rem;
+          color: #374151;
+          font-size: 0.9rem;
         }
 
         .input-container {
@@ -486,32 +413,25 @@ export default function Login() {
         .input-icon {
           position: absolute;
           left: 1rem;
-          color: var(--text-secondary);
-          z-index: 2;
-          transition: color 0.2s;
+          color: #9ca3af;
+          z-index: 1;
         }
 
         .form-input {
           width: 100%;
-          padding: 0.875rem 1rem 0.875rem 3rem;
-          border: 2px solid var(--border);
+          padding: 1rem 1rem 1rem 3rem;
+          border: 2px solid #e5e7eb;
           border-radius: 12px;
           font-size: 1rem;
-          transition: all 0.2s;
-          background: var(--background);
-          color: var(--text-primary);
+          transition: all 0.3s ease;
+          background: #fafafa;
         }
 
         .form-input:focus {
           outline: none;
-          border-color: var(--primary);
-          background: var(--card);
-          box-shadow: 0 0 0 3px var(--primary-light);
-        }
-
-        .form-input:focus + .input-icon,
-        .input-container:hover .input-icon {
-          color: var(--primary);
+          border-color: #667eea;
+          background: white;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         .password-toggle {
@@ -519,168 +439,138 @@ export default function Login() {
           right: 1rem;
           background: none;
           border: none;
-          color: var(--text-secondary);
+          color: #9ca3af;
           cursor: pointer;
           padding: 0.25rem;
           border-radius: 6px;
-          transition: all 0.2s;
-          z-index: 2;
+          transition: all 0.2s ease;
         }
 
         .password-toggle:hover {
-          color: var(--primary);
-          background: var(--secondary-light);
+          color: #667eea;
+          background: rgba(102, 126, 234, 0.1);
         }
 
-        .error-alert {
+        .error-message {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          padding: 0.875rem 1rem;
-          background: var(--error-light);
-          border: 1px solid var(--danger);
-          border-radius: 12px;
-          color: var(--danger);
-          font-size: 0.875rem;
+          padding: 0.75rem 1rem;
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.2);
+          color: #dc2626;
+          border-radius: 8px;
+          font-size: 0.9rem;
         }
 
-        .submit-button {
+        .login-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
           width: 100%;
           padding: 1rem 1.5rem;
-          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
           border: none;
           border-radius: 12px;
           font-size: 1rem;
           font-weight: 600;
           cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .login-button:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+          transform: none !important;
+        }
+
+        .login-button:hover:not(:disabled) {
+          box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .button-loading {
           display: flex;
           align-items: center;
-          justify-content: center;
           gap: 0.5rem;
-          transition: all 0.2s;
-          position: relative;
-          overflow: hidden;
-        }
-
-        .submit-button::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-          opacity: 0;
-          transition: opacity 0.2s;
-        }
-
-        .submit-button:hover::before {
-          opacity: 1;
-        }
-
-        .submit-button:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
-        }
-
-        .submit-button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-          transform: none;
-          box-shadow: none;
-        }
-
-        .submit-button span,
-        .submit-button svg {
-          position: relative;
-          z-index: 1;
         }
 
         .loading-spinner {
-          width: 20px;
-          height: 20px;
+          width: 16px;
+          height: 16px;
           border: 2px solid rgba(255, 255, 255, 0.3);
+          border-top: 2px solid white;
           border-radius: 50%;
-          border-top-color: white;
-          animation: spin 1s ease-in-out infinite;
+          animation: spin 1s linear infinite;
         }
 
         @keyframes spin {
-          to { transform: rotate(360deg); }
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
 
-        .card-footer {
+        .login-footer {
           text-align: center;
-          margin-top: 2rem;
+          margin-top: 1.5rem;
           padding-top: 1.5rem;
-          border-top: 1px solid var(--border);
+          border-top: 1px solid #e5e7eb;
         }
 
-        .card-footer p {
-          color: var(--text-secondary);
-          font-size: 0.875rem;
+        .login-footer p {
+          color: #6b7280;
+          font-size: 0.9rem;
+          margin: 0;
         }
 
-        .card-footer a {
-          color: var(--primary);
-          text-decoration: none;
-          font-weight: 600;
-          transition: color 0.2s;
-        }
-
-        .card-footer a:hover {
-          color: var(--primary-hover);
-          text-decoration: underline;
-        }
-
-        @media (max-width: 1024px) {
-          .content-wrapper {
+        @media (max-width: 768px) {
+          .login-container {
             grid-template-columns: 1fr;
             grid-template-rows: auto 1fr;
           }
 
           .branding-section {
-            padding: 1.5rem;
+            padding: 2rem 1rem;
+            min-height: auto;
           }
 
-          .brand-title {
+          .hero-title {
             font-size: 2rem;
           }
 
-          .features-list {
-            flex-direction: row;
-            gap: 0.75rem;
+          .logo-text {
+            font-size: 2.5rem;
           }
 
-          .feature-item {
-            flex: 1;
-            flex-direction: column;
-            text-align: center;
-            padding: 0.75rem;
-          }
-
-          .feature-item span {
-            font-size: 0.875rem;
-          }
-        }
-
-        @media (max-width: 768px) {
           .login-section {
             padding: 1rem;
           }
 
           .login-card {
-            padding: 2rem 1.5rem;
+            padding: 2rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .branding-section {
+            padding: 1.5rem 1rem;
+          }
+
+          .hero-title {
+            font-size: 1.75rem;
+          }
+
+          .hero-description {
+            font-size: 1rem;
+          }
+
+          .login-card {
+            padding: 1.5rem;
           }
 
           .card-header h2 {
             font-size: 1.5rem;
-          }
-
-          .brand-content {
-            text-align: center;
-          }
-
-          .logo-section {
-            justify-content: center;
           }
         }
       `}</style>

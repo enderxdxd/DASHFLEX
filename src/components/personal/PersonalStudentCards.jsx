@@ -39,7 +39,7 @@ export default function PersonalStudentCards({ personalStats, selectedUnidade })
             <Users size={24} />
           </div>
           <div className="card-content">
-            <h3>Total de Personals</h3>
+            <h3>Total de Personais</h3>
             <p className="card-number">{totalPersonals}</p>
           </div>
         </div>

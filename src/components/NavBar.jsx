@@ -113,7 +113,7 @@ export default function NavBar() {
           path: `/personal/dashboard/${unidade}`,
           icon: Users,
           label: "Dashboard",
-          description: "Visão geral dos personals",
+          description: "Visão geral dos personais",
           matchPath: "/personal/dashboard"
         },
         {

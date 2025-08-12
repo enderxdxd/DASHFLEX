@@ -134,7 +134,7 @@ export default function UnifiedPersonalStats({ stats, selectedUnidade }) {
                     </div>
                     <div className="metric-content">
                       <span className="metric-value">{unitStats.personals}</span>
-                      <span className="metric-label">Personals</span>
+                      <span className="metric-label">Personais</span>
                     </div>
                   </div>
 

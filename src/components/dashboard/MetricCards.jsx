@@ -99,49 +99,9 @@ const MetricCards = ({
           </div>
         </div>
 
-        {/* Card 3: Número de Vendas */}
-        <div className="metric-card success-card">
-          <div className="card-header">
-            <div className="icon-container success-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.7 15.3C4.3 15.7 4.6 16.5 5.1 16.5H17M17 13V17C17 17.5 17.4 18 18 18S19 17.5 19 17V13M9 19.5C9.8 19.5 10.5 20.2 10.5 21S9.8 22.5 9 22.5 7.5 21.8 7.5 21 8.2 19.5 9 19.5ZM20 19.5C20.8 19.5 21.5 20.2 21.5 21S20.8 22.5 20 22.5 18.5 21.8 18.5 21 19.2 19.5 20 19.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <div className="card-title">
-              <h3>Número de Vendas</h3>
-              <p>Total de transações</p>
-            </div>
-          </div>
-          <div className="card-content">
-            <div className="main-value">{safeCountAtual.toLocaleString('pt-BR')}</div>
-            <div className={`comparison-badge ${safePctVendas >= 0 ? 'positive' : 'negative'}`}>
-              <span className="trend-icon">{formatPercent(safePctVendas).icon}</span>
-              <span>{formatPercent(safePctVendas).value}% vs mês anterior</span>
-            </div>
-          </div>
-        </div>
 
-        {/* Card 4: Média por Venda */}
-        <div className="metric-card warning-card">
-          <div className="card-header">
-            <div className="icon-container warning-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9 11H15M9 15H15M17 21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3H12.5858C12.851 3 13.1054 3.10536 13.2929 3.29289L19.7071 9.70711C19.8946 9.89464 20 10.149 20 10.4142V19C20 20.1046 19.1046 21 18 21H17ZM17 21V10L13 6H7V19H17Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <div className="card-title">
-              <h3>Média por Venda</h3>
-              <p>Ticket médio</p>
-            </div>
-          </div>
-          <div className="card-content">
-            <div className="main-value">{formatMoney(safeMediaAtual)}</div>
-            <div className={`comparison-badge ${safePctMedia >= 0 ? 'positive' : 'negative'}`}>
-              <span className="trend-icon">{formatPercent(safePctMedia).icon}</span>
-              <span>{formatPercent(safePctMedia).value}% vs mês anterior</span>
-            </div>
-          </div>
-        </div>
+
+
 
         {/* Card 5: Produtos Excluídos */}
         {shouldShowExcludedCard && (
@@ -191,7 +151,7 @@ const MetricCards = ({
 
         .metrics-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          grid-template-columns: repeat(3, 1fr);
           gap: 1.5rem;
           margin-bottom: 2rem;
         }
@@ -460,7 +420,7 @@ const MetricCards = ({
         /* Responsividade melhorada */
         @media (min-width: 1440px) {
           .metrics-grid {
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 1.5rem;
           }
           
@@ -480,19 +440,13 @@ const MetricCards = ({
 
         @media (max-width: 1200px) {
           .metrics-grid {
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
           }
         }
-
+        
         @media (max-width: 768px) {
           .metrics-grid {
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 0.75rem;
-          }
-
-          .metric-card {
-            padding: 0.875rem;
-          }
+            grid-template-columns: 1fr;
 
           .card-header {
             gap: 0.5rem;

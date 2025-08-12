@@ -9,11 +9,13 @@ import {
   FiTarget,
   FiUserCheck
 } from "react-icons/fi";
+import { useUserRole } from "../hooks/useUserRole";
 
 export default function ModuleSelector() {
   const navigate = useNavigate();
+  const { role, loading } = useUserRole();
 
-  const modules = [
+  const allModules = [
     { 
       id: "vendas", 
       name: "Dashboard de Vendas", 
@@ -33,6 +35,20 @@ export default function ModuleSelector() {
       features: ["Cadastro de personals", "Gestão de alunos", "Controle de produtos", "Relatórios personalizados"]
     }
   ];
+
+  // Filtrar módulos baseado na role do usuário
+  const modules = allModules.filter(module => {
+    if (module.id === "personal") {
+      // Módulo de Personal só é visível para admin ou tesouraria
+      return role === "admin" || role === "tesouraria";
+    }
+    if (module.id === "vendas") {
+      // Módulo de Vendas não é visível para tesouraria (apenas personal)
+      return role !== "tesouraria";
+    }
+    // Outros módulos são visíveis para todos os usuários autenticados (exceto tesouraria)
+    return role !== "tesouraria";
+  });
 
   const handleModuleSelect = (moduleId) => {
     if (moduleId === "vendas") {
@@ -61,6 +77,34 @@ export default function ModuleSelector() {
       transition: { duration: 0.6, ease: "easeOut" }
     }
   };
+
+  // Mostrar loading enquanto verifica a role do usuário
+  if (loading) {
+    return (
+      <div className="module-selector-container">
+        <div className="selector-wrapper" style={{ textAlign: 'center', padding: '80px 48px' }}>
+          <div style={{ 
+            width: '48px', 
+            height: '48px', 
+            border: '4px solid #f3f4f6', 
+            borderTop: '4px solid #6366f1', 
+            borderRadius: '50%', 
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 24px'
+          }}></div>
+          <h2 style={{ color: '#64748b', fontSize: '18px', fontWeight: '500', margin: 0 }}>
+            Carregando módulos...
+          </h2>
+          <style jsx>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="module-selector-container">

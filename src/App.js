@@ -12,6 +12,7 @@ import ConfigRemuneracao from "./pages/ConfigRemuneracao";
 import PrivateRoute from "./auth/PrivateRoute";
 import "./styles/variables.css";
 import AdminRoute from "./auth/AdminRoute";
+import PersonalRoute from "./auth/PersonalRoute";
 import AnalyticsPage from "./pages/AnalyticsPage";
 
 export default function App() {
@@ -82,9 +83,9 @@ export default function App() {
         <Route
           path="/personal/dashboard"
           element={
-            <PrivateRoute>
+            <PersonalRoute>
               <UnifiedPersonalDashboard />
-            </PrivateRoute>
+            </PersonalRoute>
           }
         />
 

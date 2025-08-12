@@ -10,6 +10,7 @@ import {
   TrendingUp,
   FileSpreadsheet,
   AlertCircle,
+  AlertTriangle,
   CheckCircle,
   MapPin,
   Activity,
@@ -17,11 +18,13 @@ import {
   Star,
   DollarSign,
   Eye,
-  ChevronRight
+  ChevronRight,
+  Trash2
 } from 'lucide-react';
 import NavBar from '../components/NavBar.jsx';
 import UnifiedPersonalUploader from '../components/personal/UnifiedPersonalUploader';
 import PersonalStudentTable from '../components/personal/PersonalStudentTable';
+import TaxValidationReport from '../components/personal/TaxValidationReport';
 import { usePersonals } from '../hooks/usePersonals';
 
 export default function UnifiedPersonalDashboard() {
@@ -31,6 +34,8 @@ export default function UnifiedPersonalDashboard() {
   const [selectedPersonal, setSelectedPersonal] = useState('');
   const [selectedSituacao, setSelectedSituacao] = useState('');
   const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'table'
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Hooks para cada unidade
   const alphaville = usePersonals('alphaville');
@@ -86,6 +91,61 @@ export default function UnifiedPersonalDashboard() {
     return allPersonalsData.filter(item => isRealStudent(item.aluno));
   }, [allPersonalsData]);
 
+  // Função para validar se o produto/taxa aplicado está correto para a quantidade de alunos
+  const validateTaxProduct = (studentCount, taxProduct) => {
+    if (!taxProduct) return { isValid: false, expectedProduct: 'Produto não informado' };
+    
+    const productLower = taxProduct.toLowerCase();
+    
+    // Padrões de produtos de taxa baseados na quantidade de alunos
+    const taxPatterns = [
+      {
+        pattern: /até\s*(\d+)\s*alunos?/i,
+        validate: (count, match) => count <= parseInt(match[1]),
+        getDescription: (match) => `Até ${match[1]} alunos`
+      },
+      {
+        pattern: /acima\s*(\d+)\s*alunos?/i,
+        validate: (count, match) => count > parseInt(match[1]),
+        getDescription: (match) => `Acima de ${match[1]} alunos`
+      },
+      {
+        pattern: /(\d+)\s*a\s*(\d+)\s*alunos?/i,
+        validate: (count, match) => count >= parseInt(match[1]) && count <= parseInt(match[2]),
+        getDescription: (match) => `${match[1]} a ${match[2]} alunos`
+      },
+      {
+        pattern: /(\d+)\s*\+\s*alunos?/i,
+        validate: (count, match) => count >= parseInt(match[1]),
+        getDescription: (match) => `${match[1]}+ alunos`
+      }
+    ];
+
+    // Verifica cada padrão
+    for (const patternObj of taxPatterns) {
+      const match = productLower.match(patternObj.pattern);
+      if (match) {
+        const isValid = patternObj.validate(studentCount, match);
+        return {
+          isValid,
+          expectedProduct: taxProduct,
+          description: patternObj.getDescription(match),
+          studentCount,
+          requirement: match[0]
+        };
+      }
+    }
+
+    // Se não encontrou padrão específico, assume que está correto
+    return {
+      isValid: true,
+      expectedProduct: taxProduct,
+      description: 'Produto personalizado',
+      studentCount,
+      requirement: 'Verificação manual necessária'
+    };
+  };
+
   // Estatísticas focadas em alunos reais por personal
   const personalStats = useMemo(() => {
     const filteredData = selectedUnidade === 'all' 
@@ -99,9 +159,9 @@ export default function UnifiedPersonalDashboard() {
         acc[personal] = {
           personal,
           alunos: new Set(),
+          alunosPagos: new Set(),
+          alunosLivres: new Set(),
           totalFaturamento: 0,
-          alunosPagos: 0,
-          alunosLivres: 0,
           unidade: item.unidade
         };
       }
@@ -109,8 +169,13 @@ export default function UnifiedPersonalDashboard() {
       acc[personal].alunos.add(item.aluno);
       acc[personal].totalFaturamento += (item.valorFinal || 0);
       
-      if (item.situacao === 'Pago') acc[personal].alunosPagos++;
-      if (item.situacao === 'Livre') acc[personal].alunosLivres++;
+      // Adiciona alunos únicos por situação
+      if (item.situacao === 'Pago') {
+        acc[personal].alunosPagos.add(item.aluno);
+      }
+      if (item.situacao === 'Livre') {
+        acc[personal].alunosLivres.add(item.aluno);
+      }
       
       return acc;
     }, {});
@@ -119,6 +184,8 @@ export default function UnifiedPersonalDashboard() {
     const personalArray = Object.values(personalGroups).map(group => ({
       ...group,
       totalAlunos: group.alunos.size,
+      alunosPagos: group.alunosPagos.size,
+      alunosLivres: group.alunosLivres.size,
       alunos: Array.from(group.alunos)
     })).sort((a, b) => b.totalAlunos - a.totalAlunos);
 
@@ -132,6 +199,36 @@ export default function UnifiedPersonalDashboard() {
     };
   }, [realStudentsData, selectedUnidade]);
 
+  // Dados com validação de taxa para o TaxValidationReport
+  const dataWithTaxValidation = useMemo(() => {
+    return personalStats.personalsData?.map(personal => {
+      // Buscar o produto/taxa aplicado ao personal nos dados originais
+      const personalData = realStudentsData.find(item => 
+        item.personal === personal.personal && item.unidade === personal.unidade
+      );
+      
+      const taxProduct = personalData?.produto || personalData?.plano || 'Produto não informado';
+      const validation = validateTaxProduct(personal.totalAlunos, taxProduct);
+
+      return {
+        ...personal,
+        aluno: `${personal.totalAlunos} alunos`, // Para compatibilidade com o componente
+        taxaValidation: {
+          isValid: validation.isValid,
+          totalAlunos: personal.totalAlunos,
+          currentTaxa: taxProduct,
+          expectedTaxa: validation.expectedProduct,
+          expectedRange: {
+            min: 0, // Não usado mais, mas mantido para compatibilidade
+            max: 999, // Não usado mais, mas mantido para compatibilidade
+            description: validation.description,
+            requirement: validation.requirement
+          }
+        }
+      };
+    }) || [];
+  }, [personalStats.personalsData, realStudentsData]);
+
   // Estatísticas unificadas
   const unifiedStats = useMemo(() => {
     const filteredData = selectedUnidade === 'all' 
@@ -141,8 +238,10 @@ export default function UnifiedPersonalDashboard() {
     const personalsUnicos = [...new Set(filteredData.map(item => item.personal))].filter(p => p && p !== '-');
     const alunosUnicos = [...new Set(filteredData.map(item => item.aluno))].filter(a => a && a !== '-' && !a.includes('Assinar Contrato'));
     const totalFaturamento = filteredData.reduce((sum, item) => sum + (item.valorFinal || 0), 0);
-    const registrosPagos = filteredData.filter(item => item.situacao === 'Pago').length;
-    const registrosLivres = filteredData.filter(item => item.situacao === 'Livre').length;
+    
+    // Contar alunos únicos por situação, não registros
+    const alunosPagosUnicos = [...new Set(filteredData.filter(item => item.situacao === 'Pago').map(item => item.aluno))].filter(a => a && a !== '-' && !a.includes('Assinar Contrato'));
+    const alunosLivresUnicos = [...new Set(filteredData.filter(item => item.situacao === 'Livre').map(item => item.aluno))].filter(a => a && a !== '-' && !a.includes('Assinar Contrato'));
 
     // Estatísticas por unidade
     const statsByUnidade = {
@@ -167,8 +266,8 @@ export default function UnifiedPersonalDashboard() {
       totalPersonals: personalsUnicos.length,
       totalAlunos: alunosUnicos.length,
       totalFaturamento,
-      registrosPagos,
-      registrosLivres,
+      alunosPagos: alunosPagosUnicos.length,
+      alunosLivres: alunosLivresUnicos.length,
       personalsUnicos,
       statsByUnidade
     };
@@ -220,8 +319,8 @@ export default function UnifiedPersonalDashboard() {
       totalAlunos: unifiedStats.totalAlunos,
       totalPersonals: unifiedStats.totalPersonals,
       totalFaturamento: unifiedStats.totalFaturamento,
-      alunosPagos: unifiedStats.registrosPagos,
-      alunosLivres: unifiedStats.registrosLivres,
+      alunosPagos: unifiedStats.alunosPagos,
+      alunosLivres: unifiedStats.alunosLivres,
       personalName: null,
       unidade: null
     };
@@ -258,6 +357,45 @@ export default function UnifiedPersonalDashboard() {
     { id: 'buenavista', name: 'Buena Vista', color: '#10b981' },
     { id: 'marista', name: 'Marista', color: '#f59e0b' }
   ];
+
+  // Função para abrir modal de exclusão
+  const handleDeleteAllData = () => {
+    setShowDeleteModal(true);
+    setDeleteConfirmText('');
+  };
+
+  // Função para confirmar exclusão
+  const confirmDeleteAllData = async () => {
+    if (deleteConfirmText !== "CONFIRMAR EXCLUSÃO") {
+      return;
+    }
+
+    try {
+      // Excluir dados de todas as unidades
+      await Promise.all([
+        alphaville.clearPersonals(),
+        buenavista.clearPersonals(),
+        marista.clearPersonals()
+      ]);
+      
+      // Limpar estados locais
+      setSearchTerm('');
+      setSelectedPersonal('');
+      setSelectedSituacao('');
+      setSelectedUnidade('all');
+      setShowDeleteModal(false);
+      setDeleteConfirmText('');
+      
+    } catch (error) {
+      console.error('Erro ao excluir dados:', error);
+    }
+  };
+
+  // Função para cancelar exclusão
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setDeleteConfirmText('');
+  };
 
   return (
     
@@ -429,6 +567,127 @@ export default function UnifiedPersonalDashboard() {
               </div>
             </div>
 
+            {/* Painel Detalhado do Personal Pesquisado */}
+            {searchTerm && filteredPersonalStats.length > 0 && (
+              <div className="personal-detail-panel">
+                {filteredPersonalStats.slice(0, 1).map((personal) => {
+                  // Buscar dados de validação para este personal
+                  const personalValidation = dataWithTaxValidation.find(p => 
+                    p.personal === personal.personal && p.unidade === personal.unidade
+                  );
+                  
+                  return (
+                    <div key={personal.personal} className="detail-panel-content">
+                      <div className="panel-header">
+                        <div className="personal-info-detailed">
+                          <div className="personal-avatar-large">
+                            <User size={32} />
+                          </div>
+                          <div className="personal-details-main">
+                            <h2 className="personal-name-large">{personal.personal}</h2>
+                            <div className="personal-meta">
+                              <span className={`unit-badge-large unit-${personal.unidade}`}>
+                                <MapPin size={14} />
+                                {personal.unidade === 'alphaville' ? 'Alphaville' : 
+                                 personal.unidade === 'buenavista' ? 'Buena Vista' : 
+                                 personal.unidade === 'marista' ? 'Marista' : personal.unidade}
+                              </span>
+                              <span className="students-count-large">
+                                <Users size={14} />
+                                {personal.totalAlunos} alunos
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Status de Validação */}
+                        {personalValidation?.taxaValidation && (
+                          <div className={`validation-status ${personalValidation.taxaValidation.isValid ? 'valid' : 'invalid'}`}>
+                            <div className="status-icon">
+                              {personalValidation.taxaValidation.isValid ? 
+                                <CheckCircle size={24} /> : 
+                                <AlertTriangle size={24} />
+                              }
+                            </div>
+                            <div className="status-text">
+                              <span className="status-label">
+                                {personalValidation.taxaValidation.isValid ? 'Taxa Correta' : 'Taxa Incorreta'}
+                              </span>
+                              <span className="status-description">
+                                {personalValidation.taxaValidation.isValid ? 
+                                  'Dentro da faixa esperada' : 
+                                  'Fora da faixa esperada'
+                                }
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Detalhes da Taxa */}
+                      {personalValidation?.taxaValidation && (
+                        <div className="tax-details-section">
+                          <div className="tax-detail-card">
+                            <div className="tax-card-header">
+                              <DollarSign size={20} />
+                              <h3>Detalhes da Taxa</h3>
+                            </div>
+                            
+                            <div className="tax-info-grid">
+                              <div className="tax-info-item">
+                                <label>Produto Atual:</label>
+                                <span className="current-product">{personalValidation.taxaValidation.currentTaxa}</span>
+                              </div>
+                              
+                              <div className="tax-info-item">
+                                <label>Requisito:</label>
+                                <span className="requirement">{personalValidation.taxaValidation.expectedRange?.description || 'N/A'}</span>
+                              </div>
+                              
+                              <div className="tax-info-item">
+                                <label>Alunos Atuais:</label>
+                                <span className="current-students">{personalValidation.taxaValidation.totalAlunos} alunos</span>
+                              </div>
+                              
+                              <div className="tax-info-item">
+                                <label>Status:</label>
+                                <span className={`status-badge ${personalValidation.taxaValidation.isValid ? 'valid' : 'invalid'}`}>
+                                  {personalValidation.taxaValidation.isValid ? '✓ Correto' : '✗ Incorreto'}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Explicação detalhada */}
+                            <div className={`explanation-box ${personalValidation.taxaValidation.isValid ? 'valid' : 'invalid'}`}>
+                              <div className="explanation-icon">
+                                {personalValidation.taxaValidation.isValid ? 
+                                  <CheckCircle size={16} /> : 
+                                  <AlertTriangle size={16} />
+                                }
+                              </div>
+                              <div className="explanation-text">
+                                {personalValidation.taxaValidation.isValid ? (
+                                  <span>
+                                    O personal tem <strong>{personalValidation.taxaValidation.totalAlunos} alunos</strong>, 
+                                    que está de acordo com o produto aplicado: "{personalValidation.taxaValidation.currentTaxa}".
+                                  </span>
+                                ) : (
+                                  <span>
+                                    O personal tem <strong>{personalValidation.taxaValidation.totalAlunos} alunos</strong>, 
+                                    que não está de acordo com o produto aplicado: "{personalValidation.taxaValidation.currentTaxa}".
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Seletor de Unidade */}
             <div className="unit-selector-section">
               <h3>Filtrar por Unidade</h3>
@@ -498,6 +757,9 @@ export default function UnifiedPersonalDashboard() {
                 )}
               </div>
             </div>
+
+            {/* Relatório de Validação de Taxas */}
+            <TaxValidationReport data={dataWithTaxValidation} />
 
             {/* Detalhes do Personal Selecionado */}
             {selectedPersonal && (
@@ -590,6 +852,18 @@ export default function UnifiedPersonalDashboard() {
                     <option value="Livre">Livre</option>
                   </select>
                 </div>
+                
+                <div className="filter-group">
+                  <label>Gerenciar Dados</label>
+                  <button 
+                    className="delete-data-btn"
+                    onClick={handleDeleteAllData}
+                    title="Excluir todos os dados de personal trainers"
+                  >
+                    <Trash2 size={16} />
+                    Excluir Todos os Dados
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -601,6 +875,63 @@ export default function UnifiedPersonalDashboard() {
           </>
         )}
       </div>
+
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <div className="warning-icon">
+                <AlertCircle size={48} />
+              </div>
+              <h2>⚠️ Excluir Todos os Dados</h2>
+              <p>Esta ação é <strong>IRREVERSÍVEL</strong> e não pode ser desfeita.</p>
+            </div>
+            
+            <div className="modal-body">
+              <div className="data-summary">
+                <h3>Dados que serão excluídos:</h3>
+                <ul>
+                  <li>• <strong>{personalStats.totalPersonals}</strong> personal trainers</li>
+                  <li>• <strong>{personalStats.totalAlunos}</strong> alunos cadastrados</li>
+                  <li>• Todos os dados de faturamento</li>
+                  <li>• Dados de todas as unidades (Alphaville, Buena Vista, Marista)</li>
+                </ul>
+              </div>
+              
+              <div className="confirmation-input">
+                <label>
+                  Para confirmar, digite <strong>"CONFIRMAR EXCLUSÃO"</strong> no campo abaixo:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Digite: CONFIRMAR EXCLUSÃO"
+                  className="confirm-input"
+                />
+              </div>
+            </div>
+            
+            <div className="modal-actions">
+              <button 
+                className="cancel-btn"
+                onClick={cancelDelete}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="confirm-btn"
+                onClick={confirmDeleteAllData}
+                disabled={deleteConfirmText !== "CONFIRMAR EXCLUSÃO"}
+              >
+                <Trash2 size={16} />
+                Excluir Todos os Dados
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .unified-personal-dashboard {
@@ -948,6 +1279,291 @@ export default function UnifiedPersonalDashboard() {
           background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
           transform: translateY(-50%) scale(1.15);
           box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Painel Detalhado do Personal */
+        .personal-detail-panel {
+          background: white;
+          border-radius: 16px;
+          padding: 0;
+          margin-bottom: 24px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+          border: 1px solid #e2e8f0;
+          overflow: hidden;
+          animation: slideInUp 0.4s ease-out;
+        }
+
+        @keyframes slideInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .detail-panel-content {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 24px 32px;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .personal-info-detailed {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+        }
+
+        .personal-avatar-large {
+          width: 64px;
+          height: 64px;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        }
+
+        .personal-details-main {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .personal-name-large {
+          margin: 0;
+          font-size: 24px;
+          font-weight: 700;
+          color: #1e293b;
+          line-height: 1.2;
+        }
+
+        .personal-meta {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .unit-badge-large {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .unit-badge-large.unit-alphaville {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+        }
+
+        .unit-badge-large.unit-buenavista {
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          color: white;
+        }
+
+        .unit-badge-large.unit-marista {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          color: white;
+        }
+
+        .students-count-large {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          background: rgba(100, 116, 139, 0.1);
+          border-radius: 8px;
+          color: #475569;
+          font-size: 13px;
+          font-weight: 600;
+        }
+
+        .validation-status {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 16px 20px;
+          border-radius: 12px;
+          border: 2px solid;
+          min-width: 200px;
+        }
+
+        .validation-status.valid {
+          background: rgba(16, 185, 129, 0.05);
+          border-color: #10b981;
+          color: #059669;
+        }
+
+        .validation-status.invalid {
+          background: rgba(239, 68, 68, 0.05);
+          border-color: #ef4444;
+          color: #dc2626;
+        }
+
+        .status-icon {
+          flex-shrink: 0;
+        }
+
+        .status-text {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .status-label {
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1;
+        }
+
+        .status-description {
+          font-size: 12px;
+          opacity: 0.8;
+        }
+
+        .tax-details-section {
+          padding: 24px 32px;
+        }
+
+        .tax-detail-card {
+          background: #f8fafc;
+          border-radius: 12px;
+          padding: 20px;
+          border: 1px solid #e2e8f0;
+        }
+
+        .tax-card-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 20px;
+          color: #475569;
+        }
+
+        .tax-card-header h3 {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .tax-info-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+          margin-bottom: 20px;
+        }
+
+        .tax-info-item {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .tax-info-item label {
+          font-size: 12px;
+          color: #64748b;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .current-product {
+          color: #1e293b;
+          font-size: 14px;
+          font-weight: 500;
+          background: white;
+          padding: 8px 12px;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+        }
+
+        .requirement {
+          color: #6366f1;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .current-students {
+          color: #1e293b;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .status-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .status-badge.valid {
+          background: rgba(16, 185, 129, 0.1);
+          color: #059669;
+          border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-badge.invalid {
+          background: rgba(239, 68, 68, 0.1);
+          color: #dc2626;
+          border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .explanation-box {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 16px;
+          border-radius: 8px;
+          border: 1px solid;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        .explanation-box.valid {
+          background: rgba(16, 185, 129, 0.05);
+          border-color: rgba(16, 185, 129, 0.2);
+          color: #059669;
+        }
+
+        .explanation-box.invalid {
+          background: rgba(239, 68, 68, 0.05);
+          border-color: rgba(239, 68, 68, 0.2);
+          color: #dc2626;
+        }
+
+        .explanation-icon {
+          flex-shrink: 0;
+          margin-top: 2px;
+        }
+
+        .explanation-text {
+          flex: 1;
+        }
+
+        .explanation-text strong {
+          font-weight: 700;
         }
 
         /* Seção de Personals */
@@ -1710,6 +2326,249 @@ export default function UnifiedPersonalDashboard() {
           .search-container {
             max-width: 100%;
             padding: 0 16px;
+          }
+        }
+
+        /* Botão de Exclusão de Dados */
+        .delete-data-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px 20px;
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
+          min-width: 180px;
+        }
+
+        .delete-data-btn:hover {
+          background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+        }
+
+        .delete-data-btn:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .delete-data-btn svg {
+          flex-shrink: 0;
+        }
+
+        /* Responsividade do botão de exclusão */
+        @media (max-width: 768px) {
+          .delete-data-btn {
+            width: 100%;
+            min-width: auto;
+            padding: 14px 20px;
+            font-size: 16px;
+          }
+        }
+
+        /* Modal de Confirmação */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+          backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+          background: white;
+          border-radius: 16px;
+          padding: 0;
+          max-width: 500px;
+          width: 90%;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        .modal-header {
+          text-align: center;
+          padding: 32px 32px 24px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .warning-icon {
+          color: #ef4444;
+          margin-bottom: 16px;
+        }
+
+        .modal-header h2 {
+          margin: 0 0 12px;
+          color: #1f2937;
+          font-size: 24px;
+          font-weight: 700;
+        }
+
+        .modal-header p {
+          margin: 0;
+          color: #6b7280;
+          font-size: 16px;
+        }
+
+        .modal-body {
+          padding: 24px 32px;
+        }
+
+        .data-summary {
+          margin-bottom: 24px;
+          padding: 16px;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 8px;
+        }
+
+        .data-summary h3 {
+          margin: 0 0 12px;
+          color: #991b1b;
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .data-summary ul {
+          margin: 0;
+          padding: 0;
+          list-style: none;
+        }
+
+        .data-summary li {
+          margin: 8px 0;
+          color: #7f1d1d;
+          font-size: 14px;
+        }
+
+        .confirmation-input {
+          margin-top: 24px;
+        }
+
+        .confirmation-input label {
+          display: block;
+          margin-bottom: 12px;
+          color: #374151;
+          font-size: 14px;
+          font-weight: 500;
+        }
+
+        .confirm-input {
+          width: 100%;
+          padding: 12px 16px;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          font-size: 14px;
+          transition: border-color 0.2s ease;
+        }
+
+        .confirm-input:focus {
+          outline: none;
+          border-color: #ef4444;
+          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 12px;
+          padding: 24px 32px 32px;
+          border-top: 1px solid #e5e7eb;
+        }
+
+        .cancel-btn {
+          flex: 1;
+          padding: 12px 24px;
+          background: #f3f4f6;
+          color: #374151;
+          border: none;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .cancel-btn:hover {
+          background: #e5e7eb;
+        }
+
+        .confirm-btn {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px 24px;
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .confirm-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .confirm-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
+          box-shadow: none;
+        }
+
+        /* Responsividade do modal */
+        @media (max-width: 768px) {
+          .modal-content {
+            width: 95%;
+            margin: 20px;
+          }
+
+          .modal-header,
+          .modal-body,
+          .modal-actions {
+            padding-left: 20px;
+            padding-right: 20px;
+          }
+
+          .modal-actions {
+            flex-direction: column;
+          }
+
+          .cancel-btn,
+          .confirm-btn {
+            padding: 14px 20px;
+            font-size: 16px;
           }
         }
       `}</style>

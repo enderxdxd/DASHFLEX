@@ -23,11 +23,25 @@ export default function PersonalStudentTable({ data }) {
 
   // Agora recebemos dados de alunos individuais, não dados agrupados por personal
 
-  // Filtrar dados por busca
+  // Filtrar dados por busca e remover duplicatas de alunos
   const filteredData = useMemo(() => {
-    if (!searchTerm || !data) return data || [];
+    let processedData = data || [];
     
-    return data.filter(item =>
+    // Primeiro, remover duplicatas de alunos (manter apenas o primeiro registro de cada aluno)
+    const uniqueStudents = new Map();
+    processedData.forEach(item => {
+      if (item.aluno && !uniqueStudents.has(item.aluno.toLowerCase())) {
+        uniqueStudents.set(item.aluno.toLowerCase(), item);
+      }
+    });
+    
+    // Converter Map de volta para array
+    processedData = Array.from(uniqueStudents.values());
+    
+    // Aplicar filtro de busca se houver termo de busca
+    if (!searchTerm) return processedData;
+    
+    return processedData.filter(item =>
       (item.aluno && item.aluno.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (item.personal && item.personal.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (item.produto && item.produto.toLowerCase().includes(searchTerm.toLowerCase()))

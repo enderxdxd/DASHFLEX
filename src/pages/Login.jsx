@@ -21,7 +21,8 @@ export default function Login() {
     const unsubscribe = onAuthStateChanged(fbAuth, (user) => {
       if (user) {
         // Se já está logado, redireciona para seleção de módulos
-        navigate("/modules");
+        // Força o redirecionamento para /modules independente do histórico
+        navigate("/modules", { replace: true });
       } else {
         setCheckingAuth(false);
       }
@@ -45,7 +46,8 @@ export default function Login() {
       const idTokenResult = await getIdTokenResult(user, /*forceRefresh=*/ true);
       
       // Redireciona para seleção de módulos
-      navigate("/modules");
+      // Força o redirecionamento para /modules independente do histórico
+      navigate("/modules", { replace: true });
     } catch (e) {
       setError("Credenciais inválidas. Tente novamente.");
       console.error(e);

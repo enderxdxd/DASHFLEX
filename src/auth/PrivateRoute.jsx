@@ -78,12 +78,24 @@ export default function PrivateRoute({ children }) {
 
   const unitParam = unidade?.toLowerCase();
   
+  // Debug logs para identificar problemas
+  console.log("🔍 PrivateRoute Debug:", {
+    role,
+    firestoreRole,
+    claimsRole: claims.role,
+    allowedUnits,
+    unitParam,
+    pathname: window.location.pathname,
+    userEmail: user?.email
+  });
+  
   // Lógica de autorização baseada na role e tipo de rota
   let isAuthorized = false;
   
   if (role === "admin") {
     // Admin tem acesso total
     isAuthorized = true;
+    console.log("✅ Admin: Acesso total concedido");
   } else if (role === "tesouraria") {
     // Tesouraria só tem acesso a rotas que não são de vendas (dashboard de unidades)
     // Bloqueia acesso a rotas como /dashboard/:unidade, /metas/:unidade, etc.
@@ -95,9 +107,24 @@ export default function PrivateRoute({ children }) {
       window.location.pathname.includes('/config-remuneracao/')
     );
     isAuthorized = !isVendasRoute;
+    console.log("🏦 Tesouraria:", { isVendasRoute, isAuthorized });
+  } else if (role === "user") {
+    // Usuários normais: se não há unitParam (rotas como /modules), autorizar
+    // Se há unitParam, verificar se está nas allowedUnits
+    if (!unitParam) {
+      isAuthorized = true; // Rotas sem unidade são sempre autorizadas para users autenticados
+    } else {
+      isAuthorized = allowedUnits.includes(unitParam);
+    }
+    console.log("👤 User:", { unitParam, allowedUnits, includes: unitParam ? allowedUnits.includes(unitParam) : 'N/A', isAuthorized });
   } else {
-    // Outros usuários precisam ter permissão específica para a unidade
-    isAuthorized = unitParam && allowedUnits.includes(unitParam);
+    // Para outras roles ou casos não especificados
+    if (!unitParam) {
+      isAuthorized = true; // Rotas sem unidade são sempre autorizadas para users autenticados
+    } else {
+      isAuthorized = allowedUnits.includes(unitParam);
+    }
+    console.log("❓ Outras roles:", { role, unitParam, allowedUnits, isAuthorized });
   }
 
   if (!isAuthorized) {

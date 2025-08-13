@@ -80,7 +80,12 @@ export default function UnifiedPersonalDashboard() {
       'caso nao solicitar isencao',
       'caso não solicitar isenção',
       'solicitar isenção',
-      'solicitar isencao'
+      'solicitar isencao',
+      // NOVOS: Excluir registros administrativos de personal
+      'alunos de personal do alphaville',
+      'alunos de personal no marista',
+      'alunos de personal da buenavista', // Caso exista também
+      'alunos de personal buena vista' // Variações possíveis
     ];
     
     return !adminKeywords.some(keyword => alunoLower.includes(keyword));
@@ -93,6 +98,11 @@ export default function UnifiedPersonalDashboard() {
 
   // Função para validar se o produto/taxa aplicado está correto para a quantidade de alunos
   const validateTaxProduct = (studentCount, taxProduct) => {
+    console.log(`🔍 VALIDANDO TAXA:`, {
+      studentCount,
+      taxProduct
+    });
+    
     if (!taxProduct) return { isValid: false, expectedProduct: 'Produto não informado' };
     
     const productLower = taxProduct.toLowerCase();
@@ -126,6 +136,16 @@ export default function UnifiedPersonalDashboard() {
       const match = productLower.match(patternObj.pattern);
       if (match) {
         const isValid = patternObj.validate(studentCount, match);
+        
+        console.log(`🎯 PADRÃO ENCONTRADO:`, {
+          pattern: patternObj.pattern,
+          match: match[0],
+          matchGroups: match,
+          studentCount,
+          isValid,
+          calculation: `${studentCount} está entre ${match[1]} e ${match[2] || 'N/A'}?`
+        });
+        
         return {
           isValid,
           expectedProduct: taxProduct,
@@ -136,6 +156,8 @@ export default function UnifiedPersonalDashboard() {
       }
     }
 
+    console.log(`⚠️ NENHUM PADRÃO ENCONTRADO - assumindo correto`);
+    
     // Se não encontrou padrão específico, assume que está correto
     return {
       isValid: true,
@@ -146,48 +168,112 @@ export default function UnifiedPersonalDashboard() {
     };
   };
 
-  // Estatísticas focadas em alunos reais por personal
+  // Função para classificar alunos conforme as regras do usuário
+  const classifyStudent = (item) => {
+    const valor = item.valorFinal || 0;
+    const situacao = item.situacao;
+    
+    // "Aberto" quando deve ser considerado como aberto: valor = Zero situação = Livre
+    if (valor === 0 && situacao === 'Livre') {
+      return 'Aberto';
+    }
+    // "Isento" quando deve ser considerado como isento: valor = Zero situação = Pago  
+    if (valor === 0 && situacao === 'Pago') {
+      return 'Isento';
+    }
+    // "Quitado" quando deve ser considerado como quitado: valor > Zero situação = Pago
+    if (valor > 0 && situacao === 'Pago') {
+      return 'Quitado';
+    }
+    
+    // Casos não classificados (para debug)
+    return 'Indefinido';
+  };
+
+  // Estatísticas focadas em alunos reais por personal (AGRUPADO POR PESSOA)
   const personalStats = useMemo(() => {
     const filteredData = selectedUnidade === 'all' 
       ? realStudentsData 
       : realStudentsData.filter(item => item.unidade === selectedUnidade);
 
-    // Agrupa por personal
+    // Agrupa por personal (mesma pessoa, independente da unidade)
     const personalGroups = filteredData.reduce((acc, item) => {
       const personal = item.personal || 'Sem Personal';
+      
       if (!acc[personal]) {
         acc[personal] = {
           personal,
+          unidades: new Set(), // Track which units this personal works in
           alunos: new Set(),
-          alunosPagos: new Set(),
-          alunosLivres: new Set(),
-          totalFaturamento: 0,
-          unidade: item.unidade
+          alunosAbertos: new Set(),    // valor = 0, situacao = Livre
+          alunosIsentos: new Set(),    // valor = 0, situacao = Pago
+          alunosQuitados: new Set(),   // valor > 0, situacao = Pago
+          totalFaturamento: 0
         };
       }
       
+      const classification = classifyStudent(item);
+      
+      // Add unit to the set of units this personal works in
+      acc[personal].unidades.add(item.unidade);
       acc[personal].alunos.add(item.aluno);
       acc[personal].totalFaturamento += (item.valorFinal || 0);
       
-      // Adiciona alunos únicos por situação
-      if (item.situacao === 'Pago') {
-        acc[personal].alunosPagos.add(item.aluno);
-      }
-      if (item.situacao === 'Livre') {
-        acc[personal].alunosLivres.add(item.aluno);
+      // Classifica alunos únicos por tipo
+      switch (classification) {
+        case 'Aberto':
+          acc[personal].alunosAbertos.add(item.aluno);
+          break;
+        case 'Isento':
+          acc[personal].alunosIsentos.add(item.aluno);
+          break;
+        case 'Quitado':
+          acc[personal].alunosQuitados.add(item.aluno);
+          break;
+        default:
+          console.warn('Aluno não classificado:', item);
       }
       
       return acc;
     }, {});
 
     // Converte para array e ordena por número de alunos
-    const personalArray = Object.values(personalGroups).map(group => ({
-      ...group,
-      totalAlunos: group.alunos.size,
-      alunosPagos: group.alunosPagos.size,
-      alunosLivres: group.alunosLivres.size,
-      alunos: Array.from(group.alunos)
-    })).sort((a, b) => b.totalAlunos - a.totalAlunos);
+    const personalArray = Object.values(personalGroups).map(group => {
+      const alunosAbertos = group.alunosAbertos.size;
+      const alunosIsentos = group.alunosIsentos.size;
+      const alunosQuitados = group.alunosQuitados.size;
+      const unidadesArray = Array.from(group.unidades);
+      
+      return {
+        ...group,
+        totalAlunos: group.alunos.size, // Total de alunos = Abertos + Isentos + Quitados
+        alunosAbertos,
+        alunosIsentos, 
+        alunosQuitados,
+        unidades: unidadesArray,
+        unidade: unidadesArray.length === 1 ? unidadesArray[0] : 'Múltiplas', // For compatibility
+        // Para compatibilidade com código existente
+        alunosPagos: alunosIsentos, // Renomeia para manter compatibilidade
+        alunosLivres: alunosAbertos, // Renomeia para manter compatibilidade
+        alunos: Array.from(group.alunos),
+        // Total de alunos considerados para divergência de valor = Quitados + Isentos
+        alunosParaDivergencia: alunosQuitados + alunosIsentos
+      };
+    }).sort((a, b) => b.totalAlunos - a.totalAlunos);
+
+    console.log('📊 Personal Stats (agrupado por pessoa):', {
+      selectedUnidade,
+      totalPersonals: personalArray.length,
+      personalsData: personalArray.map(p => ({
+        personal: p.personal,
+        unidades: p.unidades,
+        totalAlunos: p.totalAlunos,
+        abertos: p.alunosAbertos,
+        isentos: p.alunosIsentos,
+        quitados: p.alunosQuitados,
+        paraDivergencia: p.alunosParaDivergencia
+      }))
+    });
 
     return {
       personalsData: personalArray,
@@ -202,20 +288,85 @@ export default function UnifiedPersonalDashboard() {
   // Dados com validação de taxa para o TaxValidationReport
   const dataWithTaxValidation = useMemo(() => {
     return personalStats.personalsData?.map(personal => {
-      // Buscar o produto/taxa aplicado ao personal nos dados originais
+      // Buscar o produto/taxa aplicado ao personal nos dados originais (qualquer unidade)
       const personalData = realStudentsData.find(item => 
-        item.personal === personal.personal && item.unidade === personal.unidade
+        item.personal === personal.personal
       );
       
+      // Debug: verificar todos os produtos/planos para este personal
+      const allProductsForPersonal = realStudentsData
+        .filter(item => item.personal === personal.personal)
+        .map(item => ({
+          produto: item.produto,
+          plano: item.plano,
+          unidade: item.unidade,
+          aluno: item.aluno
+        }));
+      
+      console.log(`🔍 PRODUTOS ENCONTRADOS para ${personal.personal}:`, allProductsForPersonal);
+      console.log(`📈 ALUNOS REAIS para ${personal.personal}:`, {
+        totalAlunos: personal.totalAlunos,
+        alunosAbertos: personal.alunosAbertos,
+        alunosIsentos: personal.alunosIsentos,
+        alunosQuitados: personal.alunosQuitados,
+        listaAlunos: personal.alunos
+      });
+      
       const taxProduct = personalData?.produto || personalData?.plano || 'Produto não informado';
-      const validation = validateTaxProduct(personal.totalAlunos, taxProduct);
+      
+      console.log(`📋 PRODUTO SELECIONADO para validação:`, {
+        personal: personal.personal,
+        taxProduct,
+        personalData: personalData
+      });
+      
+      // CORREÇÃO: Usar o TOTAL de alunos para validação de taxa (não apenas Quitados + Isentos)
+      const alunosParaValidacao = personal.totalAlunos; // Total = Abertos + Isentos + Quitados
+      
+      // TESTE ESPECÍFICO: Forçar validação com taxa do Marista se for João Carlos
+      let finalTaxProduct = taxProduct;
+      if (personal.personal.includes('João Carlos')) {
+        // Forçar usar a taxa do Marista para teste
+        const maristaTax = allProductsForPersonal.find(p => 
+          p.unidade === 'marista' && (p.produto || p.plano)
+        );
+        if (maristaTax) {
+          finalTaxProduct = maristaTax.produto || maristaTax.plano;
+          console.log(`🔴 FORÇANDO TAXA DO MARISTA para ${personal.personal}:`, finalTaxProduct);
+        }
+      }
+      
+      const validation = validateTaxProduct(alunosParaValidacao, finalTaxProduct);
+      
+      // TESTE MANUAL: Validar especificamente "1 A 7 Alunos" com 18 alunos
+      if (personal.personal.includes('João Carlos')) {
+        const testValidation = validateTaxProduct(18, 'Marista Taxa Personal 1 A 7 Alunos 1 Dia Util');
+        console.log(`🧪 TESTE MANUAL - 18 alunos com '1 A 7 Alunos':`, testValidation);
+      }
+
+      console.log(`🔍 Validação Taxa - ${personal.personal} (${personal.unidades.join(', ')}):`, {
+        totalAlunos: personal.totalAlunos,
+        abertos: personal.alunosAbertos,
+        isentos: personal.alunosIsentos,
+        quitados: personal.alunosQuitados,
+        alunosParaValidacao: `USANDO TOTAL: ${alunosParaValidacao}`,
+        alunosParaDivergencia: personal.alunosParaDivergencia,
+        unidades: personal.unidades,
+        taxProduct,
+        isValid: validation.isValid
+      });
 
       return {
         ...personal,
-        aluno: `${personal.totalAlunos} alunos`, // Para compatibilidade com o componente
+        aluno: `${personal.totalAlunos} alunos (validando com ${alunosParaValidacao})`, // Para compatibilidade com o componente
         taxaValidation: {
           isValid: validation.isValid,
           totalAlunos: personal.totalAlunos,
+          alunosParaValidacao,
+          alunosAbertos: personal.alunosAbertos,
+          alunosIsentos: personal.alunosIsentos,
+          alunosQuitados: personal.alunosQuitados,
+          unidades: personal.unidades,
           currentTaxa: taxProduct,
           expectedTaxa: validation.expectedProduct,
           expectedRange: {
@@ -306,25 +457,48 @@ export default function UnifiedPersonalDashboard() {
           totalAlunos: personalEncontrado.totalAlunos,
           totalPersonals: 1,
           totalFaturamento: personalEncontrado.totalFaturamento,
-          alunosPagos: personalEncontrado.alunosPagos,
-          alunosLivres: personalEncontrado.alunosLivres,
+          alunosPagos: personalEncontrado.alunosIsentos, // Isentos
+          alunosLivres: personalEncontrado.alunosAbertos, // Abertos
+          alunosQuitados: personalEncontrado.alunosQuitados, // Quitados
           personalName: personalEncontrado.personal,
           unidade: personalEncontrado.unidade
         };
       }
     }
     
-    // Caso contrário, mostra estatísticas gerais
+    // Caso contrário, mostra estatísticas gerais (soma de todas as unidades filtradas)
+    const statsGerais = personalStats.personalsData?.reduce((acc, personal) => {
+      acc.totalAlunos += personal.totalAlunos;
+      acc.alunosAbertos += personal.alunosAbertos;
+      acc.alunosIsentos += personal.alunosIsentos;
+      acc.alunosQuitados += personal.alunosQuitados;
+      acc.totalFaturamento += personal.totalFaturamento;
+      return acc;
+    }, {
+      totalAlunos: 0,
+      alunosAbertos: 0,
+      alunosIsentos: 0,
+      alunosQuitados: 0,
+      totalFaturamento: 0
+    }) || {
+      totalAlunos: 0,
+      alunosAbertos: 0,
+      alunosIsentos: 0,
+      alunosQuitados: 0,
+      totalFaturamento: 0
+    };
+    
     return {
-      totalAlunos: unifiedStats.totalAlunos,
-      totalPersonals: unifiedStats.totalPersonals,
-      totalFaturamento: unifiedStats.totalFaturamento,
-      alunosPagos: unifiedStats.alunosPagos,
-      alunosLivres: unifiedStats.alunosLivres,
+      totalAlunos: statsGerais.totalAlunos,
+      totalPersonals: personalStats.totalPersonals,
+      totalFaturamento: statsGerais.totalFaturamento,
+      alunosPagos: statsGerais.alunosIsentos, // Isentos
+      alunosLivres: statsGerais.alunosAbertos, // Abertos
+      alunosQuitados: statsGerais.alunosQuitados, // Quitados
       personalName: null,
       unidade: null
     };
-  }, [unifiedStats, searchTerm, filteredPersonalStats]);
+  }, [personalStats, searchTerm, filteredPersonalStats]);
 
   // Dados filtrados para tabela de alunos (mantém funcionalidade original)
   const filteredStudentData = useMemo(() => {
@@ -545,21 +719,31 @@ export default function UnifiedPersonalDashboard() {
                     
                     <div className="stat-item">
                       <div className="stat-icon">
-                        <CheckCircle size={24} />
-                      </div>
-                      <div className="stat-content">
-                        <span className="stat-number">{stats.alunosPagos}</span>
-                        <span className="stat-label">Isentados</span>
-                      </div>
-                    </div>
-                    
-                    <div className="stat-item">
-                      <div className="stat-icon">
                         <Activity size={24} />
                       </div>
                       <div className="stat-content">
                         <span className="stat-number">{stats.alunosLivres}</span>
                         <span className="stat-label">Abertos</span>
+                      </div>
+                    </div>
+                    
+                    <div className="stat-item">
+                      <div className="stat-icon">
+                        <CheckCircle size={24} />
+                      </div>
+                      <div className="stat-content">
+                        <span className="stat-number">{stats.alunosPagos}</span>
+                        <span className="stat-label">Isentos</span>
+                      </div>
+                    </div>
+                    
+                    <div className="stat-item">
+                      <div className="stat-icon">
+                        <DollarSign size={24} />
+                      </div>
+                      <div className="stat-content">
+                        <span className="stat-number">{stats.alunosQuitados || 0}</span>
+                        <span className="stat-label">Quitados</span>
                       </div>
                     </div>
                   </div>
@@ -732,8 +916,9 @@ export default function UnifiedPersonalDashboard() {
                             </div>
                             <div className="suggestion-stats">
                               <span className="stat"><Users size={14} />{personal.totalAlunos} alunos</span>
-                              <span className="stat"><CheckCircle size={14} />{personal.alunosPagos} isentados</span>
-                              <span className="stat">R$ {personal.totalFaturamento.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
+                              <span className="stat"><Activity size={14} />{personal.alunosAbertos} abertos</span>
+                              <span className="stat"><CheckCircle size={14} />{personal.alunosIsentos} isentos</span>
+                              <span className="stat"><DollarSign size={14} />{personal.alunosQuitados} quitados</span>
                             </div>
                           </div>
                           <ChevronRight size={16} />

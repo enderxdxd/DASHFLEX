@@ -264,7 +264,6 @@ const Dashboard = () => {
     return (
       <div className="loading-center">
         <Loading3D size={120} />
-        <p>Carregando...</p>
       </div>
     );
   }

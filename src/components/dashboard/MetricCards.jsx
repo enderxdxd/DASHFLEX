@@ -151,21 +151,27 @@ const MetricCards = ({
 
         .metrics-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 1.5rem;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 1.25rem;
           margin-bottom: 2rem;
+          max-width: 1200px;
+          margin-left: auto;
+          margin-right: auto;
         }
 
         .metric-card {
           background: var(--card);
           border-radius: 16px;
-          padding: 1.5rem;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: 1.25rem;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
           border: 1px solid var(--border);
+          transition: all 0.3s ease;
           position: relative;
           overflow: hidden;
-          backdrop-filter: blur(10px);
+          min-height: 140px;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
         }
 
         .metric-card::before {
@@ -310,9 +316,9 @@ const MetricCards = ({
           transition: all 0.3s ease;
         }
 
-        .comparison-badge:hover {
+        .metric-card:hover {
           transform: translateY(-1px);
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .comparison-badge.positive {
@@ -438,15 +444,24 @@ const MetricCards = ({
           }
         }
 
-        @media (max-width: 1200px) {
+        @media (max-width: 1024px) {
           .metrics-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            max-width: 800px;
           }
         }
         
         @media (max-width: 768px) {
           .metrics-grid {
             grid-template-columns: 1fr;
+            gap: 1rem;
+            max-width: 100%;
+          }
+          
+          .metric-card {
+            padding: 1rem;
+            min-height: 120px;
 
           .card-header {
             gap: 0.5rem;

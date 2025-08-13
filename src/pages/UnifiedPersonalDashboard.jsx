@@ -549,7 +549,7 @@ export default function UnifiedPersonalDashboard() {
                       </div>
                       <div className="stat-content">
                         <span className="stat-number">{stats.alunosPagos}</span>
-                        <span className="stat-label">Alunos Pagos</span>
+                        <span className="stat-label">Isentados</span>
                       </div>
                     </div>
                     
@@ -559,7 +559,7 @@ export default function UnifiedPersonalDashboard() {
                       </div>
                       <div className="stat-content">
                         <span className="stat-number">{stats.alunosLivres}</span>
-                        <span className="stat-label">Alunos Livres</span>
+                        <span className="stat-label">Abertos</span>
                       </div>
                     </div>
                   </div>
@@ -732,7 +732,7 @@ export default function UnifiedPersonalDashboard() {
                             </div>
                             <div className="suggestion-stats">
                               <span className="stat"><Users size={14} />{personal.totalAlunos} alunos</span>
-                              <span className="stat"><CheckCircle size={14} />{personal.alunosPagos} pagos</span>
+                              <span className="stat"><CheckCircle size={14} />{personal.alunosPagos} isentados</span>
                               <span className="stat">R$ {personal.totalFaturamento.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
                             </div>
                           </div>

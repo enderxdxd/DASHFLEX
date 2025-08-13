@@ -128,11 +128,11 @@ export default function PersonalStudentCards({ personalStats, selectedUnidade })
                 <div className="personal-details">
                   <div className="detail-item">
                     <CheckCircle size={16} />
-                    <span>{personal.alunosPagos} Pagos</span>
+                    <span>{personal.alunosPagos} Isentados</span>
                   </div>
                   <div className="detail-item">
                     <Clock size={16} />
-                    <span>{personal.alunosLivres} Livres</span>
+                    <span>{personal.alunosLivres} Abertos</span>
                   </div>
                   <div className="detail-item">
                     <DollarSign size={16} />

@@ -22,7 +22,8 @@ import {
   Users,
   Activity,
   FileText,
-  ArrowLeft
+  ArrowLeft,
+  Percent
 } from "lucide-react";
 import useDarkMode from "../hooks/useDarkMode";
 
@@ -159,6 +160,13 @@ export default function NavBar() {
           label: "Analytics",
           description: "Análises detalhadas",
           matchPath: "/analytics"
+        },
+        {
+          path: `/descontos/${unidade}`,
+          icon: Percent,
+          label: "Descontos",
+          description: "Análise de descontos",
+          matchPath: "/descontos"
         },
         {
           path: `/add-sale/${unidade}`,

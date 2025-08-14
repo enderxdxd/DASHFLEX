@@ -14,6 +14,7 @@ import "./styles/variables.css";
 import AdminRoute from "./auth/AdminRoute";
 import PersonalRoute from "./auth/PersonalRoute";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import DescontosPage from "./pages/DescontosPage";
 
 export default function App() {
   return (
@@ -75,6 +76,15 @@ export default function App() {
           element={
             <PrivateRoute>
               <AnalyticsPage />
+            </PrivateRoute>
+          }
+        />
+        
+        <Route
+          path="/descontos/:unidade"
+          element={
+            <PrivateRoute>
+              <DescontosPage />
             </PrivateRoute>
           }
         />

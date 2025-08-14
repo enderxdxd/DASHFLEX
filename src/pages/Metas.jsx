@@ -16,6 +16,7 @@ import { db } from "../firebase";
 import dayjs from "dayjs";
 import NavBar from "../components/NavBar";
 import { usePersistedProdutos } from "../hooks/usePersistedProdutos";
+import { useGroupedVendas } from "../hooks/useGroupedVendas";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -42,6 +43,9 @@ export default function Metas() {
   const [successMessage, setSuccessMessage] = useState("");
   const [metas, setMetas]     = useState([]);
   const [vendas, setVendas]   = useState([]);
+  
+  // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS
+  const vendasAgrupadas = useGroupedVendas(vendas);
   const [produtos, setProdutos] = useState([]);
   const [editingData, setEditingData] = useState({});
   const [showProductFilter, setShowProductFilter] = useState(false);
@@ -757,7 +761,7 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
       snap => {
         const data = snap.docs.map(d => d.data());
         setVendas(data);
-        // extrai produtos únicos
+        // extrai produtos únicos das vendas originais (antes do agrupamento)
         const setProd = new Set();
         data.forEach(v => v.produto && setProd.add(v.produto.trim()));
         setProdutos(Array.from(setProd).sort());
@@ -779,7 +783,7 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
   // --- Filtra vendas por produto e mês ---
   const vendasParaMeta = useMemo(() => {
     if (!produtosLoaded) return [];
-    return vendas.filter(v => {
+    return vendasAgrupadas.filter(v => {
       const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
       return (
         v.produto &&
@@ -787,7 +791,7 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
         mes === selectedMonth
       );
     });
-  }, [vendas, produtosSelecionados, selectedMonth, produtosLoaded]);
+  }, [vendasAgrupadas, produtosSelecionados, selectedMonth, produtosLoaded]);
 
   // --- Checa meta da unidade (apenas vendas dos responsáveis da unidade) ---
   const totalUnidade = useMemo(() => {
@@ -1584,8 +1588,8 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
               {/* Grid de Cards de Performance */}
               <div className="performance-grid">
                 {responsaveisUnicos.map((consultor) => {
-                  // Calcular vendas do consultor em todas as unidades
-                  const vendasConsultor = vendas.filter(v => 
+                  // Calcular vendas do consultor em todas as unidades (USANDO VENDAS AGRUPADAS)
+                  const vendasConsultor = vendasAgrupadas.filter(v => 
                     v.responsavel?.trim().toLowerCase() === consultor.trim().toLowerCase() &&
                     dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === crossUnitPeriod &&
                     (produtosSelecionados.length === 0 || produtosSelecionados.includes(v.produto))

@@ -452,6 +452,320 @@ appPersonal.post("/", (req, res) => {
   req.rawBody ? busboy.end(req.rawBody) : req.pipe(busboy);
 });
 
+// ==========================================
+// FUNÇÃO PARA DESCONTOS
+// ==========================================
+
+const appDescontos = express();
+appDescontos.use(cors({ origin: true }));
+
+appDescontos.post("/", (req, res) => {
+  const busboy = new Busboy({ headers: req.headers });
+  let fileBuffer = null;
+  let fileName = "";
+  let unidade = "";
+
+  busboy.on("field", (fieldname, val) => {
+    if (fieldname === "unidade") {
+      unidade = val.trim().toLowerCase();
+      console.log(`Unidade recebida: ${unidade}`);
+    }
+  });
+
+  busboy.on("file", (fieldname, file, filename) => {
+    if (fieldname === "file") {
+      fileName = filename;
+      const buffers = [];
+      file.on("data", (data) => buffers.push(data));
+      file.on("end", () => {
+        fileBuffer = Buffer.concat(buffers);
+      });
+    }
+  });
+
+  busboy.on("finish", async () => {
+    try {
+      // Validações básicas
+      if (!fileBuffer) {
+        return res.status(400).json({
+          success: false,
+          error: "Arquivo não encontrado"
+        });
+      }
+
+      const ext = fileName.split(".").pop()?.toLowerCase();
+      if (!["xls", "xlsx"].includes(ext)) {
+        return res.status(400).json({
+          success: false,
+          error: "Apenas arquivos Excel (.xls, .xlsx) são permitidos"
+        });
+      }
+
+      if (!unidade) {
+        return res.status(400).json({
+          success: false,
+          error: "Unidade não especificada"
+        });
+      }
+
+      const unidadesValidas = ["alphaville", "buenavista", "marista"];
+      if (!unidadesValidas.includes(unidade)) {
+        return res.status(400).json({
+          success: false,
+          error: `Unidade inválida. Valores aceitos: ${unidadesValidas.join(", ")}`
+        });
+      }
+
+      // Lê o Excel
+      let workbook;
+      try {
+        workbook = XLSX.read(fileBuffer, {
+          type: "buffer",
+          cellStyles: true,
+          cellFormulas: true,
+          cellDates: true
+        });
+      } catch (err) {
+        console.error("Erro ao ler Excel:", err);
+        return res.status(400).json({
+          success: false,
+          error: "Formato de arquivo Excel inválido"
+        });
+      }
+
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      // Converte para JSON
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (!jsonData || jsonData.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: "Planilha vazia ou sem dados"
+        });
+      }
+
+      // Processa os dados de desconto baseado na estrutura real da planilha
+      const descontosRaw = [];
+      const currentDate = new Date().toISOString();
+
+      for (let i = 0; i < jsonData.length; i++) {
+        const row = jsonData[i];
+
+        // Extrai dados conforme estrutura real: Matrícula, Nome, Responsável, Tipo, Convênio, Lançamento, Valor
+        const matricula = (row["Matrícula"] || row["Matricula"] || "").toString().trim();
+        const nome = (row["Nome"] || "").toString().trim();
+        const responsavel = (row["Responsável"] || row["Responsavel"] || "").toString().trim();
+        const tipo = (row["Tipo"] || "").toString().trim().toUpperCase(); // PLANO ou MATRÍCULA
+        const convenio = (row["Convênio"] || row["Convenio"] || "").toString().trim();
+        const lancamento = row["Lançamento"] || row["Lancamento"] || currentDate;
+        // 🔧 CORREÇÃO: Usar a mesma lógica de limpeza de valores da função principal
+        const valorDesconto = Number(
+          (row["Valor"] || "")
+            .toString()
+            .replace("R$", "")
+            .replace(/\./g, "")
+            .replace(",", ".")
+            .trim()
+        ) || 0;
+
+        // Filtra registros válidos
+        if (!matricula || !nome || !tipo || valorDesconto <= 0) {
+          continue;
+        }
+
+        // Normaliza a data de lançamento
+        let dataLancamentoFormatada;
+        try {
+          // Tenta parsear diferentes formatos de data
+          const dataParseada = dayjs(lancamento);
+          dataLancamentoFormatada = dataParseada.isValid() ? 
+            dataParseada.format("YYYY-MM-DD") : 
+            dayjs().format("YYYY-MM-DD");
+        } catch {
+          dataLancamentoFormatada = dayjs().format("YYYY-MM-DD");
+        }
+
+        descontosRaw.push({
+          matricula,
+          nome,
+          responsavel,
+          tipo, // "PLANO" ou "MATRÍCULA"
+          convenio,
+          valorDesconto,
+          dataLancamento: dataLancamentoFormatada,
+          
+          // Campos de controle
+          unidade,
+          dataImportacao: currentDate,
+          fileName,
+          rowIndex: i + 1,
+          
+          // Campos normalizados para busca
+          matriculaNormalizada: matricula.toLowerCase().trim(),
+          nomeNormalizado: nome.toLowerCase().trim(),
+          responsavelNormalizado: responsavel.toLowerCase().trim(),
+          
+          // Data de processamento
+          processedAt: dayjs().format("YYYY-MM-DD HH:mm:ss")
+        });
+      }
+
+      // Agrupa por matrícula + nome para consolidar PLANO e MATRÍCULA
+      const descontosConsolidados = {};
+      
+      descontosRaw.forEach(item => {
+        const chave = `${item.matricula}_${item.nomeNormalizado}`;
+        
+        if (!descontosConsolidados[chave]) {
+          descontosConsolidados[chave] = {
+            matricula: item.matricula,
+            nome: item.nome,
+            responsavel: item.responsavel,
+            convenio: item.convenio,
+            dataLancamento: item.dataLancamento,
+            
+            // Valores separados
+            descontoPlano: 0,
+            descontoMatricula: 0,
+            totalDesconto: 0,
+            
+            // Detalhes dos itens
+            itensDesconto: [],
+            
+            // Campos de controle
+            unidade: item.unidade,
+            dataImportacao: item.dataImportacao,
+            fileName: item.fileName,
+            
+            // Campos normalizados
+            matriculaNormalizada: item.matriculaNormalizada,
+            nomeNormalizado: item.nomeNormalizado,
+            responsavelNormalizado: item.responsavelNormalizado,
+            
+            processedAt: item.processedAt
+          };
+        }
+        
+        const consolidado = descontosConsolidados[chave];
+        
+        // Adiciona o valor conforme o tipo
+        if (item.tipo === "PLANO") {
+          consolidado.descontoPlano += item.valorDesconto;
+        } else if (item.tipo === "MATRÍCULA") {
+          consolidado.descontoMatricula += item.valorDesconto;
+        }
+        
+        // Adiciona aos itens detalhados
+        consolidado.itensDesconto.push({
+          tipo: item.tipo,
+          valor: item.valorDesconto,
+          rowIndex: item.rowIndex
+        });
+        
+        // Atualiza total
+        consolidado.totalDesconto = consolidado.descontoPlano + consolidado.descontoMatricula;
+      });
+
+      const descontos = Object.values(descontosConsolidados).map(item => ({
+        ...item,
+        // Calcula percentual baseado no total (será recalculado quando cruzar com vendas)
+        percentualEstimado: 0, // Será calculado na análise
+        temDescontoPlano: item.descontoPlano > 0,
+        temDescontoMatricula: item.descontoMatricula > 0,
+        
+        // Classificação
+        tipoDesconto: item.totalDesconto > 1000 ? "Alto" : 
+                     item.totalDesconto > 300 ? "Médio" : "Baixo"
+      }));
+
+      if (!descontos.length) {
+        return res.status(200).json({
+          success: true,
+          message: "Nenhum registro válido de desconto encontrado na planilha.",
+          fileName,
+          unidade,
+          totalProcessed: 0
+        });
+      }
+
+      // Salva no Firestore
+      const descontosRef = db.collection("faturamento")
+        .doc(unidade)
+        .collection("descontos");
+
+      // Processa em batches de 500
+      const batchSize = 500;
+      const commits = [];
+
+      for (let i = 0; i < descontos.length; i += batchSize) {
+        const batch = db.batch();
+        const batchData = descontos.slice(i, i + batchSize);
+
+        batchData.forEach((desconto) => {
+          const docRef = descontosRef.doc();
+          batch.set(docRef, desconto);
+        });
+
+        commits.push(batch.commit());
+      }
+
+      // Executa todos os commits
+      await Promise.all(commits);
+
+      // Estatísticas para retorno
+      const statistics = {
+        totalRegistros: descontos.length,
+        registrosOriginais: descontosRaw.length,
+        matriculasUnicas: [...new Set(descontos.map(d => d.matricula))].length,
+        responsaveisUnicos: [...new Set(descontos.filter(d => d.responsavel).map(d => d.responsavel))].length,
+        totalDescontoPlano: descontos.reduce((sum, d) => sum + d.descontoPlano, 0),
+        totalDescontoMatricula: descontos.reduce((sum, d) => sum + d.descontoMatricula, 0),
+        totalDescontoGeral: descontos.reduce((sum, d) => sum + d.totalDesconto, 0),
+        descontosPorTipo: {
+          alto: descontos.filter(d => d.tipoDesconto === "Alto").length,
+          medio: descontos.filter(d => d.tipoDesconto === "Médio").length,
+          baixo: descontos.filter(d => d.tipoDesconto === "Baixo").length
+        },
+        distribuicao: {
+          comDescontoPlano: descontos.filter(d => d.temDescontoPlano).length,
+          comDescontoMatricula: descontos.filter(d => d.temDescontoMatricula).length,
+          comAmbos: descontos.filter(d => d.temDescontoPlano && d.temDescontoMatricula).length
+        },
+        descontoMedioPorMatricula: descontos.length > 0 ? 
+          descontos.reduce((sum, d) => sum + d.totalDesconto, 0) / descontos.length : 0
+      };
+
+      console.log(`Desconto Import - Unidade: ${unidade}`);
+      console.log(`Total de registros consolidados: ${descontos.length}`);
+      console.log(`Registros originais na planilha: ${statistics.registrosOriginais}`);
+      console.log(`Matrículas únicas: ${statistics.matriculasUnicas}`);
+      console.log(`Desconto total: R$ ${statistics.totalDescontoGeral.toFixed(2)}`);
+      console.log(`- Desconto em planos: R$ ${statistics.totalDescontoPlano.toFixed(2)}`);
+      console.log(`- Desconto em matrículas: R$ ${statistics.totalDescontoMatricula.toFixed(2)}`);
+
+      return res.status(200).json({
+        success: true,
+        message: `Arquivo processado com sucesso! ${descontos.length} registro(s) de desconto importado(s).`,
+        fileName,
+        unidade,
+        statistics,
+        totalProcessed: descontos.length
+      });
+
+    } catch (err) {
+      console.error("Erro no processamento da planilha de descontos:", err);
+      return res.status(500).json({
+        success: false,
+        error: "Erro interno no servidor: " + err.message
+      });
+    }
+  });
+
+  req.rawBody ? busboy.end(req.rawBody) : req.pipe(busboy);
+});
+
 
 
 
@@ -467,3 +781,8 @@ exports.uploadPersonal = functions
   .region("southamerica-east1")
   .runWith({ timeoutSeconds: 540, memory: "2GB" })
   .https.onRequest(appPersonal);
+
+exports.uploadDescontos = functions
+  .region("southamerica-east1")
+  .runWith({ timeoutSeconds: 540, memory: "2GB" })
+  .https.onRequest(appDescontos);

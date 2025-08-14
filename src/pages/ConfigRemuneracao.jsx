@@ -4,6 +4,7 @@ import { db } from '../firebase';
 import dayjs from 'dayjs';
 import { useParams } from 'react-router-dom';
 import { useVendas } from '../hooks/useVendas';
+import { useGroupedVendas } from '../hooks/useGroupedVendas';
 import { useConfigRem } from '../hooks/useConfigRem';
 import { useMetas } from '../hooks/useMetas';
 import { usePersistedProdutos } from '../hooks/usePersistedProdutos';
@@ -49,33 +50,36 @@ const gerarPlanosPadraoLocal = (unidade) => {
     case "alphaville":
       console.log('🔍 DEBUG - Matched case: alphaville');
       return [
-        { plano: "Semestral", min: 2700, max: 3474, semMeta: 21, comMeta: 23, metaTME: 25 },
-        { plano: "Bianual", min: 10000, max: 11496, semMeta: 61, comMeta: 67, metaTME: 71 },
-        { plano: "Octomestral", min: 4000, max: 4432, semMeta: 25, comMeta: 30, metaTME: 34 },
+        { plano: "Diária", min: 0, max: 688, semMeta: 9, comMeta: 12, metaTME: 15 },
         { plano: "Mensal", min: 689, max: 689, semMeta: 9, comMeta: 12, metaTME: 15 },
         { plano: "Trimestral", min: 1300, max: 1887, semMeta: 11, comMeta: 16, metaTME: 20 },
+        { plano: "Semestral", min: 2700, max: 3474, semMeta: 21, comMeta: 23, metaTME: 25 },
+        { plano: "Octomestral", min: 4000, max: 4432, semMeta: 25, comMeta: 30, metaTME: 34 },
         { plano: "Anual", min: 5200, max: 6264, semMeta: 38, comMeta: 42, metaTME: 45 },
+        { plano: "Bianual", min: 6265, max: 11496, semMeta: 61, comMeta: 67, metaTME: 71 },
       ];
     case "buena vista":
     case "buenavista":
       console.log('🔍 DEBUG - Matched case: buena vista/buenavista');
       return [
-        { plano: "Semestral", min: 2300, max: 2496, semMeta: 21, comMeta: 23, metaTME: 25 },
-        { plano: "Bianual", min: 7364, max: 8112, semMeta: 61, comMeta: 67, metaTME: 71 },
-        { plano: "Octomestral", min: 3000, max: 3224, semMeta: 25, comMeta: 30, metaTME: 34 },
+        { plano: "Diária", min: 0, max: 688, semMeta: 3, comMeta: 6, metaTME: 9 },
         { plano: "Mensal", min: 689, max: 689, semMeta: 3, comMeta: 6, metaTME: 9 },
         { plano: "Trimestral", min: 1200, max: 1368, semMeta: 11, comMeta: 16, metaTME: 20 },
+        { plano: "Semestral", min: 2300, max: 2496, semMeta: 21, comMeta: 23, metaTME: 25 },
+        { plano: "Octomestral", min: 3000, max: 3224, semMeta: 25, comMeta: 30, metaTME: 34 },
         { plano: "Anual", min: 4000, max: 4356, semMeta: 38, comMeta: 42, metaTME: 45 },
+        { plano: "Bianual", min: 4357, max: 8112, semMeta: 61, comMeta: 67, metaTME: 71 },
       ];
     case "marista":
       console.log('🔍 DEBUG - Matched case: marista');
       return [
-        { plano: "Semestral", min: 3000, max: 3324, semMeta: 21, comMeta: 23, metaTME: 25 },
-        { plano: "Bianual", min: 9000, max: 9816, semMeta: 61, comMeta: 67, metaTME: 71 },
-        { plano: "Octomestral", min: 4072, max: 6264, semMeta: 25, comMeta: 30, metaTME: 34 },
+        { plano: "Diária", min: 0, max: 688, semMeta: 9, comMeta: 12, metaTME: 15 },
         { plano: "Mensal", min: 689, max: 689, semMeta: 9, comMeta: 12, metaTME: 15 },
         { plano: "Trimestral", min: 1500, max: 1794, semMeta: 18, comMeta: 24, metaTME: 28 },
-        { plano: "Anual", min: 5000, max: 5508, semMeta: 38, comMeta: 42, metaTME: 45 },
+        { plano: "Semestral", min: 3000, max: 3324, semMeta: 21, comMeta: 23, metaTME: 25 },
+        { plano: "Octomestral", min: 4072, max: 5499, semMeta: 25, comMeta: 30, metaTME: 34 },
+        { plano: "Anual", min: 5500, max: 6264, semMeta: 38, comMeta: 42, metaTME: 45 },
+        { plano: "Bianual", min: 6265, max: 9816, semMeta: 61, comMeta: 67, metaTME: 71 },
       ];
     default:
       console.log('🔍 DEBUG - No case matched, going to default. unidadeLower was:', unidadeLower);
@@ -1082,7 +1086,10 @@ const ConfigRemuneracao = () => {
   const { unidade } = useParams();
   // Dark mode is handled globally
   
-  const { vendas, loading: vendasLoading, responsaveis } = useVendas(unidade);
+  const { vendas: vendasOriginais, loading: vendasLoading, responsaveis } = useVendas(unidade);
+  
+  // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS
+  const vendas = useGroupedVendas(vendasOriginais);
   const { metas, loading: metasLoading } = useMetas(unidade);
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'));
   const { configRem, loading: configLoading } = useConfigRem(unidade, selectedMonth);

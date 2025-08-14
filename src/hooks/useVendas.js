@@ -11,10 +11,14 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
+import { useGroupedVendas } from './useGroupedVendas';
 
 export const useVendas = (unidade, metas = []) => {
   // Estados brutos
   const [vendas, setVendas] = useState([]);
+  
+  // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS
+  const vendasAgrupadas = useGroupedVendas(vendas);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -170,23 +174,23 @@ export const useVendas = (unidade, metas = []) => {
 
   // ▲ Comparativo mês atual x anterior
   useEffect(() => {
-    if (!vendas.length) return;
+    if (!vendasAgrupadas.length) return;
     const cur = selectedMonth;
     const prev = dayjs(cur + "-01", "YYYY-MM-DD")
       .subtract(1, "month")
       .format("YYYY-MM");
 
-    const sum = (month) =>
-      vendas
-        .filter((v) =>
-          dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === month
-        )
-        .reduce((a, v) => a + Number(v.valor || 0), 0);
-
+    const sum = (month) => {
+      const filtered = vendasAgrupadas.filter((v) => {
+        const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
+        return mes === month;
+      });
+      return filtered.reduce((s, v) => s + Number(v.valor || 0), 0);
+    };
     setTotalCurrent(sum(cur));
     setTotalPrevious(sum(prev));
     setPercentChange(prev && sum(prev) > 0 ? ((sum(cur) - sum(prev)) / sum(prev)) * 100 : 0);
-  }, [vendas, selectedMonth]);
+  }, [vendasAgrupadas, selectedMonth]);
 
   // ——————————————————————————————————————————————————————————————
   // ▼ Filtragem por metas/responsáveis oficiais
@@ -199,7 +203,7 @@ export const useVendas = (unidade, metas = []) => {
   const vendasFiltradas = useMemo(() => {
     if (!unidade) return [];
     const uni = unidade.toLowerCase();
-    return vendas.filter((v) => {
+    return vendasAgrupadas.filter((v) => {
       // filtro de unidade
       if ((v.unidade || "").toLowerCase() !== uni) return false;
   
@@ -249,7 +253,7 @@ export const useVendas = (unidade, metas = []) => {
       return true;
     });
   }, [
-    vendas,
+    vendasAgrupadas,
     unidade,
     filtroResponsavel,
     filtroProduto,
@@ -283,8 +287,8 @@ export const useVendas = (unidade, metas = []) => {
   //---------------------------------
   // ▲ Métricas e estatísticas
   const totalFaturado = useMemo(() =>
-    vendas.reduce((sum, v) => sum + Number(v.valor || 0), 0)
-  , [vendas]);
+    vendasAgrupadas.reduce((sum, v) => sum + Number(v.valor || 0), 0)
+  , [vendasAgrupadas]);
 
   const totalFiltrado = useMemo(() =>
     vendasFiltradas.reduce((sum, v) => sum + Number(v.valor || 0), 0)
@@ -297,7 +301,7 @@ export const useVendas = (unidade, metas = []) => {
   // ▲ Dados para gráfico
   const chartData = useMemo(() => {
     const byResp = {};
-    vendas.forEach((v) => {
+    vendasAgrupadas.forEach((v) => {
       const d = dayjs(v.dataFormatada, "YYYY-MM-DD");
       const ok =
         chartTimeRange === "week"  ? d.isSame(dayjs(), "week")  :
@@ -310,19 +314,20 @@ export const useVendas = (unidade, metas = []) => {
       labels: Object.keys(byResp),
       datasets: [{ label: "Vendas (R$)", data: Object.values(byResp) }],
     };
-  }, [vendas, chartTimeRange]);
+  }, [vendasAgrupadas, chartTimeRange]);
 
   // ▲ Contagens e variações em número de vendas
   const prevMonth = dayjs(selectedMonth + "-01", "YYYY-MM-DD").subtract(1, "month").format("YYYY-MM");
-  const vendasMesAtual    = useMemo(() => vendas.filter((v) => dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth), [vendas, selectedMonth]);
-  const vendasMesAnterior = useMemo(() => vendas.filter((v) => dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === prevMonth), [vendas, prevMonth]);
+  const vendasMesAtual    = useMemo(() => vendasAgrupadas.filter((v) => dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth), [vendasAgrupadas, selectedMonth]);
+  const vendasMesAnterior = useMemo(() => vendasAgrupadas.filter((v) => dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === prevMonth), [vendasAgrupadas, prevMonth]);
   const countAtual        = vendasMesAtual.length;
   const countAnterior     = vendasMesAnterior.length;
   const pctVendas         = countAnterior ? ((countAtual - countAnterior) / countAnterior) * 100 : 0;
 
   // Exposição da API do hook
   return {
-    vendas,
+    vendas: vendasAgrupadas, // RETORNAR AS VENDAS JÁ AGRUPADAS
+    vendasOriginais: vendas, // Opcional: manter acesso às vendas originais se necessário
     loading,
     error,
     successMessage,

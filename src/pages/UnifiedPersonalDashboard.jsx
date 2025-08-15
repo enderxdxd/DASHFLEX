@@ -71,9 +71,20 @@ export default function UnifiedPersonalDashboard() {
 
   // 🎯 NOVA LÓGICA: Validação de taxa unificada corrigida
   const validateUnifiedTax = (totalStudents, currentTaxName) => {
-    if (!currentTaxName) return { isValid: false, expectedTax: 'Taxa não informada' };
+    if (!currentTaxName) return { isValid: false, expectedTax: 'Taxa não informada', taxType: 'open' };
     
     const normalizedCurrent = currentTaxName.toLowerCase();
+    
+    // Verificar se é taxa com "apos" - não precisa validar
+    if (normalizedCurrent.includes('apos')) {
+      return { isValid: true, expectedTax: 'Taxa com prazo especial', taxType: 'special', skipValidation: true };
+    }
+    
+    // Verificar se é personal isento (Alpha Personal Interno Taxa)
+    if (normalizedCurrent.includes('alpha personal interno taxa')) {
+      return { isValid: true, expectedTax: 'Personal Isento', taxType: 'exempt', skipValidation: true };
+    }
+    
     let expectedTax = '';
     let isValid = false;
     
@@ -95,7 +106,7 @@ export default function UnifiedPersonalDashboard() {
                 normalizedCurrent.includes('mais de 17');
     }
     
-    return { isValid, expectedTax, totalStudents };
+    return { isValid, expectedTax, totalStudents, taxType: 'regular' };
   };
 
   // Estatísticas por personal (agrupado por pessoa)
@@ -181,21 +192,33 @@ export default function UnifiedPersonalDashboard() {
   const taxValidationData = useMemo(() => {
     return personalStats.personalsData.map(personal => {
       // Pegar o primeiro produto encontrado como referência
-      const currentTax = personal.produtos[0] || 'Taxa não informada';
+      const currentTax = personal.produtos[0] || '';
       const validation = validateUnifiedTax(personal.totalAlunos, currentTax);
       
       return {
         ...personal,
         taxValidation: {
           ...validation,
-          currentTax: personal.produtos.join(', '),
+          currentTax: personal.produtos.join(', ') || 'Taxa não informada',
           hasMultipleTaxes: personal.produtos.length > 1
         }
       };
     });
   }, [personalStats.personalsData]);
 
-  // 🎯 PERSONALS COM ALUNOS EM ABERTO
+  // 🎯 PERSONALS COM ALUNOS EM ABERTO E CATEGORIZAÇÃO
+  const personalsWithOpenTax = useMemo(() => {
+    return taxValidationData.filter(personal => personal.taxValidation.taxType === 'open');
+  }, [taxValidationData]);
+
+  const personalsWithExemptTax = useMemo(() => {
+    return taxValidationData.filter(personal => personal.taxValidation.taxType === 'exempt');
+  }, [taxValidationData]);
+
+  const personalsWithSpecialTax = useMemo(() => {
+    return taxValidationData.filter(personal => personal.taxValidation.taxType === 'special');
+  }, [taxValidationData]);
+
   // Filtrar nomes para autocomplete
   const filteredNames = useMemo(() => {
     if (!searchTerm) return [];
@@ -220,19 +243,28 @@ export default function UnifiedPersonalDashboard() {
   const stats = useMemo(() => {
     const totalPersonals = personalStats.totalPersonals;
     const totalStudents = personalStats.totalAlunosUnicos;
-    const invalidTaxes = taxValidationData.filter(p => !p.taxValidation.isValid).length;
+    // Contar apenas taxas regulares inválidas (excluir special e exempt)
+    const invalidTaxes = taxValidationData.filter(p => 
+      p.taxValidation.taxType === 'regular' && !p.taxValidation.isValid
+    ).length;
     const pendingStudents = personalsWithPendingStudents.length;
     const totalPendingCount = personalsWithPendingStudents.reduce((sum, p) => sum + p.alunosAbertos, 0);
+    const openTaxPersonals = personalsWithOpenTax.length;
+    const exemptPersonals = personalsWithExemptTax.length;
+    const specialTaxPersonals = personalsWithSpecialTax.length;
     
     return {
       totalPersonals,
       totalStudents,
       invalidTaxes,
-      validTaxes: totalPersonals - invalidTaxes,
+      validTaxes: totalPersonals - invalidTaxes - openTaxPersonals,
       pendingStudents,
-      totalPendingCount
+      totalPendingCount,
+      openTaxPersonals,
+      exemptPersonals,
+      specialTaxPersonals
     };
-  }, [personalStats, taxValidationData, personalsWithPendingStudents]);
+  }, [personalStats, taxValidationData, personalsWithPendingStudents, personalsWithOpenTax, personalsWithExemptTax, personalsWithSpecialTax]);
 
   // Funções para modal de exclusão
   const handleDeleteAllData = () => {
@@ -274,8 +306,15 @@ export default function UnifiedPersonalDashboard() {
 
   // Função para lidar com visualização de alunos
   const handleViewStudents = (personalName) => {
-    setSelectedPersonalForStudents(personalName);
-    setShowStudents(true);
+    if (selectedPersonalForStudents === personalName && showStudents) {
+      // Se já está mostrando os alunos deste personal, fechar
+      setShowStudents(false);
+      setSelectedPersonalForStudents('');
+    } else {
+      // Mostrar alunos do personal selecionado
+      setSelectedPersonalForStudents(personalName);
+      setShowStudents(true);
+    }
   };
 
   // Componente: Card de Estatísticas
@@ -297,14 +336,33 @@ export default function UnifiedPersonalDashboard() {
 
   // Componente: Relatório de Validação de Taxas
   const TaxValidationReport = () => {
-    const invalidTaxes = taxValidationData.filter(p => !p.taxValidation.isValid);
+    // Filtrar apenas taxas regulares inválidas
+    const invalidTaxes = taxValidationData.filter(p => 
+      p.taxValidation.taxType === 'regular' && !p.taxValidation.isValid
+    );
     
     if (invalidTaxes.length === 0) {
       return (
         <div className="validation-success">
           <CheckCircle size={48} />
-          <h3>Todas as taxas estão corretas!</h3>
-          <p>Todos os personals têm taxas adequadas para sua quantidade de alunos</p>
+          <h3>Todas as taxas regulares estão corretas!</h3>
+          <p>Todos os personals com taxas regulares têm valores adequados para sua quantidade de alunos</p>
+          
+          {/* Informações adicionais */}
+          <div className="additional-info">
+            <div className="info-item">
+              <span className="info-label">Personals Isentos:</span>
+              <span className="info-value">{stats.exemptPersonals}</span>
+            </div>
+            <div className="info-item">
+              <span className="info-label">Taxas Especiais (com prazo):</span>
+              <span className="info-value">{stats.specialTaxPersonals}</span>
+            </div>
+            <div className="info-item">
+              <span className="info-label">Personals em Aberto:</span>
+              <span className="info-value">{stats.openTaxPersonals}</span>
+            </div>
+          </div>
           
           {/* Messages */}
           {successMessages.length > 0 && (
@@ -459,6 +517,157 @@ export default function UnifiedPersonalDashboard() {
     );
   };
 
+  // Componente: Personals em Aberto
+  const OpenPersonalsReport = () => {
+    if (personalsWithOpenTax.length === 0) {
+      return (
+        <div className="validation-success">
+          <CheckCircle size={48} />
+          <h3>Nenhum personal em aberto!</h3>
+          <p>Todos os personals têm taxas definidas</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="open-personals-issues">
+        <div className="issues-header">
+          <h3>
+            <UserX size={20} />
+            {personalsWithOpenTax.length} Personal{personalsWithOpenTax.length > 1 ? 's' : ''} em Aberto
+          </h3>
+          <div className="total-open">
+            Sem taxa definida
+          </div>
+        </div>
+        
+        <div className="open-personals-list">
+          {personalsWithOpenTax.map((personal, index) => (
+            <div key={index} className="open-personal-card">
+              <div className="open-personal-header">
+                <div className="personal-info">
+                  <User size={16} />
+                  <span className="personal-name">{personal.personal}</span>
+                  <span className="units-badge">
+                    {personal.unidades.join(', ')}
+                  </span>
+                </div>
+                <div className="open-status">
+                  <UserX size={16} />
+                  Em Aberto
+                </div>
+              </div>
+              
+              <div className="open-personal-details">
+                <div className="students-summary">
+                  <div className="summary-item">
+                    <span className="label">Total de Alunos:</span>
+                    <span className="value">{personal.totalAlunos}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="label">Abertos:</span>
+                    <span className="value pending">{personal.alunosAbertos}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="label">Isentos:</span>
+                    <span className="value">{personal.alunosIsentos}</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="label">Quitados:</span>
+                    <span className="value">{personal.alunosQuitados}</span>
+                  </div>
+                </div>
+                
+                <div className="tax-info-section">
+                  <div className="tax-status-info">
+                    <span className="tax-label">Status:</span>
+                    <span className="tax-value open">Sem taxa definida</span>
+                  </div>
+                  <div className="action-needed">
+                    <AlertCircle size={14} />
+                    <span>Ação necessária: Definir taxa adequada</span>
+                  </div>
+                </div>
+                
+                <button 
+                  className="view-details-btn"
+                  onClick={() => handleViewStudents(personal.personal)}
+                >
+                  <Eye size={14} />
+                  {selectedPersonalForStudents === personal.personal && showStudents ? 'Ocultar Alunos' : 'Ver Alunos'}
+                </button>
+              </div>
+              
+              {/* Dropdown de Alunos */}
+              {selectedPersonalForStudents === personal.personal && showStudents && (
+                <div className="students-dropdown">
+                  <div className="students-dropdown-header">
+                    <h4>Alunos de {personal.personal}</h4>
+                    <span className="students-count-badge">
+                      {getStudentsForPersonal(personal.personal).length} alunos
+                    </span>
+                  </div>
+                  
+                  <div className="students-dropdown-grid">
+                    {getStudentsForPersonal(personal.personal).map((student, index) => (
+                      <div key={index} className={`student-dropdown-card student-${student.classificacao.toLowerCase()}`}>
+                        <div className="student-dropdown-header">
+                          <div className="student-dropdown-info">
+                            <h5>{student.aluno}</h5>
+                            <div className="student-dropdown-meta">
+                              <span className="unit-info">
+                                <MapPin size={10} />
+                                {student.unidade}
+                              </span>
+                              <span className={`status-badge-small status-${student.classificacao.toLowerCase()}`}>
+                                {student.classificacao === 'Aberto' && <Clock size={10} />}
+                                {student.classificacao === 'Isento' && <Activity size={10} />}
+                                {student.classificacao === 'Quitado' && <CheckCircle size={10} />}
+                                {student.classificacao === 'Indefinido' && <AlertCircle size={10} />}
+                                {student.classificacao}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="student-dropdown-details">
+                          <div className="detail-item-small">
+                            <span className="detail-label-small">Produto:</span>
+                            <span className="detail-value-small">{student.produto || 'N/A'}</span>
+                          </div>
+                          <div className="detail-item-small">
+                            <span className="detail-label-small">Valor:</span>
+                            <span className="detail-value-small">
+                              {student.valorFinal > 0 
+                                ? `R$ ${student.valorFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` 
+                                : 'Gratuito'
+                              }
+                            </span>
+                          </div>
+                          <div className="detail-item-small">
+                            <span className="detail-label-small">Situação:</span>
+                            <span className="detail-value-small">{student.situacao}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {getStudentsForPersonal(personal.personal).length === 0 && (
+                    <div className="no-students-small">
+                      <Users size={24} />
+                      <span>Nenhum aluno encontrado</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="unified-personal-dashboard">
       <NavBar 
@@ -544,6 +753,14 @@ export default function UnifiedPersonalDashboard() {
                 color="orange"
                 onClick={() => setActiveTab('pending-students')}
               />
+              <StatCard
+                icon={UserX}
+                title="Personals em Aberto"
+                value={stats.openTaxPersonals}
+                subtitle="Sem taxa definida"
+                color="purple"
+                onClick={() => setActiveTab('open-personals')}
+              />
             </div>
 
             {/* Busca Principal */}
@@ -602,6 +819,16 @@ export default function UnifiedPersonalDashboard() {
                 Alunos em Aberto
                 {stats.totalPendingCount > 0 && (
                   <span className="badge">{stats.totalPendingCount}</span>
+                )}
+              </button>
+              <button 
+                className={`tab-btn ${activeTab === 'open-personals' ? 'active' : ''}`}
+                onClick={() => setActiveTab('open-personals')}
+              >
+                <UserX size={16} />
+                Personals em Aberto
+                {stats.openTaxPersonals > 0 && (
+                  <span className="badge">{stats.openTaxPersonals}</span>
                 )}
               </button>
             </div>
@@ -695,21 +922,45 @@ export default function UnifiedPersonalDashboard() {
                               <div className="tax-validation-card">
                                 {(() => {
                                   const taxValidation = taxValidationData.find(p => p.personal === personal.personal);
-                                  const isValid = taxValidation?.taxValidation?.isValid;
+                                  const validation = taxValidation?.taxValidation;
+                                  const isValid = validation?.isValid;
+                                  const taxType = validation?.taxType;
+                                  
+                                  let statusClass = 'tax-valid';
+                                  let icon = <CheckCircle size={16} />;
+                                  let label = 'Taxa Correta';
+                                  
+                                  if (taxType === 'open') {
+                                    statusClass = 'tax-open';
+                                    icon = <UserX size={16} />;
+                                    label = 'Em Aberto';
+                                  } else if (taxType === 'exempt') {
+                                    statusClass = 'tax-exempt';
+                                    icon = <Star size={16} />;
+                                    label = 'Isento';
+                                  } else if (taxType === 'special') {
+                                    statusClass = 'tax-special';
+                                    icon = <Clock size={16} />;
+                                    label = 'Taxa Especial';
+                                  } else if (!isValid) {
+                                    statusClass = 'tax-invalid';
+                                    icon = <AlertTriangle size={16} />;
+                                    label = 'Taxa Incorreta';
+                                  }
                                   
                                   return (
-                                    <div className={`tax-status ${isValid ? 'tax-valid' : 'tax-invalid'}`}>
+                                    <div className={`tax-status ${statusClass}`}>
                                       <div className="tax-icon">
-                                        {isValid ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+                                        {icon}
                                       </div>
                                       <div className="tax-info">
                                         <span className="tax-label">
-                                          {isValid ? 'Taxa Correta' : 'Taxa Incorreta'}
+                                          {label}
                                         </span>
-                                        {!isValid && taxValidation && (
+                                        {taxType === 'regular' && !isValid && validation && (
                                           <div className="tax-details">
-                                            <small>Atual: {taxValidation.taxValidation.currentTax}</small>
-                                            <small>Esperada: {taxValidation.taxValidation.expectedTax}</small>
+                                            <small>Atual: {validation.currentTax}</small>
+                                            <small>Esperada: {validation.expectedTax}</small>
                                           </div>
                                         )}
                                       </div>
@@ -751,84 +1002,6 @@ export default function UnifiedPersonalDashboard() {
                       selectedUnidade={selectedUnidade}
                     />
                   )}
-                  
-                  {/* Seção de Alunos do Personal Selecionado */}
-                  {showStudents && selectedPersonalForStudents && (
-                    <div className="students-section">
-                      <div className="students-header">
-                        <div className="students-title">
-                          <Users size={20} />
-                          <h3>Alunos de {selectedPersonalForStudents}</h3>
-                          <span className="students-count">
-                            {getStudentsForPersonal(selectedPersonalForStudents).length} alunos
-                          </span>
-                        </div>
-                        <button 
-                          className="close-students"
-                          onClick={() => {
-                            setShowStudents(false);
-                            setSelectedPersonalForStudents('');
-                          }}
-                        >
-                          <X size={16} />
-                          Fechar
-                        </button>
-                      </div>
-                      
-                      <div className="students-grid">
-                        {getStudentsForPersonal(selectedPersonalForStudents).map((student, index) => (
-                          <div key={index} className={`student-card student-${student.classificacao.toLowerCase()}`}>
-                            <div className="student-header">
-                              <div className="student-info">
-                                <h4>{student.aluno}</h4>
-                                <div className="student-meta">
-                                  <span className="unit-info">
-                                    <MapPin size={12} />
-                                    {student.unidade}
-                                  </span>
-                                  <span className={`status-badge status-${student.classificacao.toLowerCase()}`}>
-                                    {student.classificacao === 'Aberto' && <Clock size={12} />}
-                                    {student.classificacao === 'Isento' && <Activity size={12} />}
-                                    {student.classificacao === 'Quitado' && <CheckCircle size={12} />}
-                                    {student.classificacao === 'Indefinido' && <AlertCircle size={12} />}
-                                    {student.classificacao}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="student-details">
-                              <div className="detail-item">
-                                <span className="detail-label">Produto:</span>
-                                <span className="detail-value">{student.produto || 'N/A'}</span>
-                              </div>
-                              <div className="detail-item">
-                                <span className="detail-label">Valor:</span>
-                                <span className="detail-value">
-                                  {student.valorFinal > 0 
-                                    ? `R$ ${student.valorFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` 
-                                    : 'Gratuito'
-                                  }
-                                </span>
-                              </div>
-                              <div className="detail-item">
-                                <span className="detail-label">Situação:</span>
-                                <span className="detail-value">{student.situacao}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {getStudentsForPersonal(selectedPersonalForStudents).length === 0 && (
-                        <div className="no-students">
-                          <Users size={48} />
-                          <h3>Nenhum aluno encontrado</h3>
-                          <p>Este personal não possui alunos cadastrados.</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
               
@@ -843,7 +1016,14 @@ export default function UnifiedPersonalDashboard() {
                   <PendingStudentsReport />
                 </div>
               )}
+              
+              {activeTab === 'open-personals' && (
+                <div className="open-personals-content">
+                  <OpenPersonalsReport />
+                </div>
+              )}
             </div>
+
           </>
         )}
       </div>
@@ -1084,6 +1264,10 @@ export default function UnifiedPersonalDashboard() {
           background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         }
 
+        .stat-card-purple .stat-icon {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
         .stat-content {
           flex: 1;
         }
@@ -1267,6 +1451,40 @@ export default function UnifiedPersonalDashboard() {
         .validation-success p {
           margin: 0;
           color: #64748b;
+        }
+
+        .additional-info {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-top: 24px;
+          padding: 20px;
+          background: rgba(16, 185, 129, 0.05);
+          border-radius: 12px;
+          border: 1px solid rgba(16, 185, 129, 0.1);
+        }
+
+        .info-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 0;
+        }
+
+        .info-label {
+          font-size: 14px;
+          color: #64748b;
+          font-weight: 500;
+        }
+
+        .info-value {
+          font-size: 16px;
+          color: #1e293b;
+          font-weight: 600;
+          background: rgba(16, 185, 129, 0.1);
+          color: #059669;
+          padding: 4px 12px;
+          border-radius: 6px;
         }
 
         .validation-issues,
@@ -1495,6 +1713,299 @@ export default function UnifiedPersonalDashboard() {
         .view-details-btn:hover {
           transform: translateY(-2px);
           box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Open Personals Styles */
+        .open-personals-issues {
+          width: 100%;
+        }
+
+        .open-personals-list {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .open-personal-card {
+          background: #faf5ff;
+          border: 2px solid #e9d5ff;
+          border-radius: 12px;
+          padding: 20px;
+          transition: all 0.3s ease;
+        }
+
+        .open-personal-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .open-personal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+        }
+
+        .open-status {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: #8b5cf6;
+          color: white;
+          padding: 6px 12px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .open-personal-details {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .total-open {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+          color: white;
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .tax-info-section {
+          background: rgba(255, 255, 255, 0.7);
+          padding: 16px;
+          border-radius: 8px;
+          border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .tax-status-info {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+
+        .tax-status-info .tax-label {
+          font-size: 12px;
+          color: #64748b;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .tax-status-info .tax-value.open {
+          background: rgba(139, 92, 246, 0.1);
+          color: #7c3aed;
+          padding: 4px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .action-needed {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #dc2626;
+          font-size: 12px;
+          font-weight: 500;
+        }
+
+        /* Students Dropdown Styles */
+        .students-dropdown {
+          margin-top: 16px;
+          padding: 20px;
+          background: rgba(255, 255, 255, 0.9);
+          border-radius: 12px;
+          border: 2px solid rgba(139, 92, 246, 0.2);
+          animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .students-dropdown-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .students-dropdown-header h4 {
+          margin: 0;
+          color: #1e293b;
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .students-count-badge {
+          background: rgba(139, 92, 246, 0.1);
+          color: #7c3aed;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .students-dropdown-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 12px;
+        }
+
+        .student-dropdown-card {
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 12px;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .student-dropdown-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+        }
+
+        .student-dropdown-card.student-aberto::before {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .student-dropdown-card.student-isento::before {
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+
+        .student-dropdown-card.student-quitado::before {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .student-dropdown-card.student-indefinido::before {
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .student-dropdown-card:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .student-dropdown-header {
+          margin-bottom: 12px;
+        }
+
+        .student-dropdown-info h5 {
+          margin: 0 0 6px;
+          color: #1e293b;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .student-dropdown-meta {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .unit-info {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .status-badge-small {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        .status-badge-small.status-aberto {
+          background: rgba(245, 158, 11, 0.1);
+          color: #d97706;
+        }
+
+        .status-badge-small.status-isento {
+          background: rgba(59, 130, 246, 0.1);
+          color: #1d4ed8;
+        }
+
+        .status-badge-small.status-quitado {
+          background: rgba(16, 185, 129, 0.1);
+          color: #059669;
+        }
+
+        .status-badge-small.status-indefinido {
+          background: rgba(239, 68, 68, 0.1);
+          color: #dc2626;
+        }
+
+        .student-dropdown-details {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .detail-item-small {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 4px 0;
+          border-bottom: 1px solid #f1f5f9;
+        }
+
+        .detail-item-small:last-child {
+          border-bottom: none;
+        }
+
+        .detail-label-small {
+          font-size: 11px;
+          color: #64748b;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+
+        .detail-value-small {
+          font-size: 12px;
+          color: #1e293b;
+          font-weight: 600;
+        }
+
+        .no-students-small {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 20px;
+          color: #64748b;
+          font-size: 14px;
         }
 
         /* Search Section */
@@ -1796,6 +2307,18 @@ export default function UnifiedPersonalDashboard() {
           color: #dc2626;
         }
 
+        .tax-status.tax-open {
+          color: #8b5cf6;
+        }
+
+        .tax-status.tax-exempt {
+          color: #3b82f6;
+        }
+
+        .tax-status.tax-special {
+          color: #f59e0b;
+        }
+
         .tax-validation-card .tax-status.tax-valid {
           background: rgba(16, 185, 129, 0.05);
           border-color: rgba(16, 185, 129, 0.2);
@@ -1804,6 +2327,21 @@ export default function UnifiedPersonalDashboard() {
         .tax-validation-card .tax-status.tax-invalid {
           background: rgba(239, 68, 68, 0.05);
           border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .tax-validation-card .tax-status.tax-open {
+          background: rgba(139, 92, 246, 0.05);
+          border-color: rgba(139, 92, 246, 0.2);
+        }
+
+        .tax-validation-card .tax-status.tax-exempt {
+          background: rgba(59, 130, 246, 0.05);
+          border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        .tax-validation-card .tax-status.tax-special {
+          background: rgba(245, 158, 11, 0.05);
+          border-color: rgba(245, 158, 11, 0.2);
         }
 
         .tax-icon {
@@ -1823,6 +2361,18 @@ export default function UnifiedPersonalDashboard() {
 
         .tax-status.tax-invalid .tax-icon {
           background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .tax-status.tax-open .tax-icon {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        .tax-status.tax-exempt .tax-icon {
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        }
+
+        .tax-status.tax-special .tax-icon {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         }
 
         .tax-info {
@@ -2226,11 +2776,19 @@ export default function UnifiedPersonalDashboard() {
           .stat-card {
             flex-direction: column;
             text-align: center;
-            gap: 12px;
           }
-
           .students-summary {
             grid-template-columns: 1fr;
+          }
+          .open-personal-header {
+            flex-direction: column;
+            gap: 12px;
+            text-align: center;
+          }
+          .tax-status-info {
+            flex-direction: column;
+            gap: 8px;
+            text-align: center;
           }
         }
       `}</style>

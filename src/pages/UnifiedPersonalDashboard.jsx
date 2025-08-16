@@ -2,11 +2,9 @@
 import React, { useState, useMemo } from 'react';
 // Precisa importar X também
 import { 
-  Users, Upload, Download, Search, Filter, BarChart3, TrendingUp,
-  FileSpreadsheet, AlertCircle, AlertTriangle, CheckCircle, MapPin,
-  Activity, User, Star, DollarSign, Eye, ChevronRight, Trash2,
-  Calendar, Clock, UserX, X
+  Users, Calendar, TrendingUp, AlertTriangle, CheckCircle, Clock, DollarSign, Search, X, Eye, MapPin, Activity, UserX, Star, Filter, User, ChevronUp, ChevronDown, AlertCircle, FileSpreadsheet, BarChart3, Upload, Trash2
 } from 'lucide-react';
+
 import NavBar from '../components/NavBar.jsx';
 import UnifiedPersonalUploader from '../components/personal/UnifiedPersonalUploader';
 import PersonalStudentTable from '../components/personal/PersonalStudentTable';
@@ -25,6 +23,76 @@ export default function UnifiedPersonalDashboard() {
   const [errors, setErrors] = useState([]);
   const [showStudents, setShowStudents] = useState(false);
   const [selectedPersonalForStudents, setSelectedPersonalForStudents] = useState('');
+  const [expandedPersonals, setExpandedPersonals] = useState(new Set());
+
+  // NOVA FUNÇÃO para alternar expansão do card
+  const togglePersonalExpansion = (personalName) => {
+    const newExpanded = new Set(expandedPersonals);
+    if (newExpanded.has(personalName)) {
+      newExpanded.delete(personalName);
+    } else {
+      newExpanded.add(personalName);
+    }
+    setExpandedPersonals(newExpanded);
+  };
+
+  // Função melhorada para toggle com efeito visual
+  const togglePersonalExpansionImproved = (personalName) => {
+    const newExpanded = new Set(expandedPersonals);
+    
+    if (newExpanded.has(personalName)) {
+      // Fechar com animação
+      const cardElement = document.querySelector(`[data-personal="${personalName}"]`);
+      if (cardElement) {
+        cardElement.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+        cardElement.style.transform = 'scale(0.98)';
+        setTimeout(() => {
+          cardElement.style.transform = 'scale(1)';
+        }, 200);
+      }
+      newExpanded.delete(personalName);
+    } else {
+      // Abrir com animação
+      const cardElement = document.querySelector(`[data-personal="${personalName}"]`);
+      if (cardElement) {
+        cardElement.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+        cardElement.style.transform = 'scale(1.02)';
+        setTimeout(() => {
+          cardElement.style.transform = 'scale(1)';
+        }, 200);
+      }
+      newExpanded.add(personalName);
+    }
+    
+    setExpandedPersonals(newExpanded);
+  };
+
+  // Função para expandir todos
+  const expandAllPersonals = () => {
+    const allPersonalNames = filteredPersonalStats.map(p => p.personal);
+    setExpandedPersonals(new Set(allPersonalNames));
+  };
+
+  // Função para recolher todos
+  const collapseAllPersonals = () => {
+    setExpandedPersonals(new Set());
+  };
+
+  // Função para obter estatísticas rápidas do personal
+  const getPersonalQuickStats = (personalName) => {
+    const students = getStudentsForPersonal(personalName);
+    const categorized = students.reduce((acc, student) => {
+      const classification = classifyStudentImproved(student);
+      acc[classification.status] = (acc[classification.status] || 0) + 1;
+      return acc;
+    }, {});
+    
+    return {
+      total: students.length,
+      categories: categorized,
+      hasUrgent: categorized['Aberto'] > 0 || categorized['Pendente'] > 0
+    };
+  };
   
   // Hooks para cada unidade
   const alphaville = usePersonals('alphaville');
@@ -58,15 +126,66 @@ export default function UnifiedPersonalDashboard() {
     return allPersonalsData.filter(item => isRealStudent(item.aluno));
   }, [allPersonalsData]);
 
-  // Função para classificar alunos
-  const classifyStudent = (item) => {
+  // Função melhorada para classificar alunos com mais detalhes
+  const classifyStudentImproved = (item) => {
     const valor = item.valorFinal || 0;
     const situacao = item.situacao;
+    const produto = item.produto || '';
     
-    if (valor === 0 && situacao === 'Livre') return 'Aberto';
-    if (valor === 0 && situacao === 'Pago') return 'Isento';
-    if (valor > 0 && situacao === 'Pago') return 'Quitado';
-    return 'Indefinido';
+    // Classificação mais detalhada
+    if (valor === 0 && situacao === 'Livre') {
+      return {
+        status: 'Aberto',
+        color: '#f59e0b',
+        bgColor: 'rgba(245, 158, 11, 0.1)',
+        priority: 1, // Alta prioridade para pendências
+        description: 'Aguardando pagamento ou definição'
+      };
+    }
+    
+    if (valor === 0 && situacao === 'Pago') {
+      return {
+        status: 'Isento',
+        color: '#3b82f6',
+        bgColor: 'rgba(59, 130, 246, 0.1)',
+        priority: 3, // Baixa prioridade, já resolvido
+        description: 'Isento de pagamento'
+      };
+    }
+    
+    if (valor > 0 && situacao === 'Pago') {
+      return {
+        status: 'Quitado',
+        color: '#10b981',
+        bgColor: 'rgba(16, 185, 129, 0.1)',
+        priority: 4, // Menor prioridade, tudo ok
+        description: `Pago: R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      };
+    }
+    
+    if (valor > 0 && situacao === 'Livre') {
+      return {
+        status: 'Pendente',
+        color: '#ef4444',
+        bgColor: 'rgba(239, 68, 68, 0.1)',
+        priority: 2, // Alta prioridade, valor definido mas não pago
+        description: `Pendente: R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      };
+    }
+    
+    return {
+      status: 'Indefinido',
+      color: '#6b7280',
+      bgColor: 'rgba(107, 114, 128, 0.1)',
+      priority: 5,
+      description: 'Status não identificado'
+    };
+  };
+
+  // Manter função original para compatibilidade
+  const classifyStudent = (item) => {
+    const classification = classifyStudentImproved(item);
+    return classification.status;
   };
 
   // 🎯 NOVA LÓGICA: Validação de taxa unificada corrigida
@@ -80,8 +199,11 @@ export default function UnifiedPersonalDashboard() {
       return { isValid: true, expectedTax: 'Taxa com prazo especial', taxType: 'special', skipValidation: true };
     }
     
-    // Verificar se é personal isento (Alpha Personal Interno Taxa)
-    if (normalizedCurrent.includes('alpha personal interno taxa')) {
+    // Verificar se é personal isento (taxas internas ou especiais)
+    if (normalizedCurrent.includes('alpha personal interno taxa') ||
+        normalizedCurrent.includes('buena personal interno taxa') ||
+        normalizedCurrent.includes('marista personal interno taxa') ||
+        normalizedCurrent.includes('xxxxxxxxxx')) {
       return { isValid: true, expectedTax: 'Personal Isento', taxType: 'exempt', skipValidation: true };
     }
     
@@ -291,17 +413,19 @@ export default function UnifiedPersonalDashboard() {
     }
   };
 
-  // Função para obter alunos de um personal específico
+  // MELHORAR a função getStudentsForPersonal com classificação visual
   const getStudentsForPersonal = (personalName) => {
     return realStudentsData.filter(item => item.personal === personalName)
-      .map(item => ({
-        ...item,
-        classificacao: classifyStudent(item)
-      }))
-      .sort((a, b) => {
-        const order = { 'Aberto': 0, 'Isento': 1, 'Quitado': 2, 'Indefinido': 3 };
-        return order[a.classificacao] - order[b.classificacao];
-      });
+      .map(item => {
+        const classification = classifyStudentImproved(item);
+        return {
+          ...item,
+          classificacao: classification.status,
+          classificationDetails: classification,
+          sortOrder: classification.priority
+        };
+      })
+      .sort((a, b) => a.sortOrder - b.sortOrder);
   };
 
   // Função para lidar com visualização de alunos
@@ -315,6 +439,118 @@ export default function UnifiedPersonalDashboard() {
       setSelectedPersonalForStudents(personalName);
       setShowStudents(true);
     }
+  };
+
+  // NOVO COMPONENTE - StudentCardImproved
+  const StudentCardImproved = ({ student, index }) => {
+    const classification = classifyStudentImproved(student);
+    
+    return (
+      <div 
+        className={`student-card-enhanced`}
+        style={{
+          borderLeftColor: classification.color,
+          backgroundColor: classification.bgColor
+        }}
+      >
+        {/* Header do Card do Aluno */}
+        <div className="student-card-header">
+          <div className="student-avatar-circle">
+            <User size={16} />
+          </div>
+          <div className="student-basic-info">
+            <h6 className="student-name-enhanced">{student.aluno}</h6>
+            <div className="student-location">
+              <MapPin size={10} />
+              <span>{student.unidade}</span>
+            </div>
+          </div>
+          <div 
+            className="student-status-indicator"
+            style={{ backgroundColor: classification.color }}
+          >
+            {classification.status === 'Aberto' && <Clock size={12} />}
+            {classification.status === 'Isento' && <CheckCircle size={12} />}
+            {classification.status === 'Quitado' && <DollarSign size={12} />}
+            {classification.status === 'Pendente' && <AlertTriangle size={12} />}
+            {classification.status === 'Indefinido' && <AlertCircle size={12} />}
+          </div>
+        </div>
+
+        {/* Status Badge */}
+        <div 
+          className="status-badge-enhanced"
+          style={{
+            backgroundColor: classification.bgColor,
+            color: classification.color,
+            borderColor: classification.color
+          }}
+        >
+          <span className="status-text">{classification.status}</span>
+          <span className="status-description">{classification.description}</span>
+        </div>
+
+        {/* Detalhes Organizados */}
+        <div className="student-details-enhanced">
+          <div className="detail-grid">
+            <div className="detail-item-enhanced">
+              <div className="detail-icon">
+                <FileSpreadsheet size={14} />
+              </div>
+              <div className="detail-content">
+                <span className="detail-label">Produto</span>
+                <span className="detail-value" title={student.produto}>
+                  {student.produto ? 
+                    (student.produto.length > 25 ? 
+                      student.produto.substring(0, 25) + '...' : 
+                      student.produto
+                    ) : 
+                    'N/A'
+                  }
+                </span>
+              </div>
+            </div>
+
+            <div className="detail-item-enhanced">
+              <div className="detail-icon">
+                <DollarSign size={14} />
+              </div>
+              <div className="detail-content">
+                <span className="detail-label">Valor</span>
+                <span className={`detail-value ${student.valorFinal > 0 ? 'has-value' : 'no-value'}`}>
+                  {student.valorFinal > 0 
+                    ? `R$ ${student.valorFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` 
+                    : 'Gratuito'
+                  }
+                </span>
+              </div>
+            </div>
+
+            <div className="detail-item-enhanced">
+              <div className="detail-icon">
+                <Activity size={14} />
+              </div>
+              <div className="detail-content">
+                <span className="detail-label">Situação</span>
+                <span className={`detail-value situation-${student.situacao?.toLowerCase()}`}>
+                  {student.situacao}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer com informações extras se necessário */}
+        {student.plano && (
+          <div className="student-card-footer">
+            <div className="plan-info">
+              <Calendar size={12} />
+              <span>{student.plano}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Componente: Card de Estatísticas
@@ -392,50 +628,132 @@ export default function UnifiedPersonalDashboard() {
         </div>
         
         <div className="issues-list">
-          {invalidTaxes.map((personal, index) => (
-            <div key={index} className="issue-card">
-              <div className="issue-header">
-                <div className="personal-info">
-                  <User size={16} />
-                  <span className="personal-name">{personal.personal}</span>
-                  <span className="units-badge">
-                    {personal.unidades.join(', ')}
-                  </span>
-                </div>
-                <div className="student-count">
-                  {personal.totalAlunos} alunos
-                </div>
-              </div>
-              
-              <div className="issue-details">
-                <div className="tax-comparison">
-                  <div className="current-tax">
-                    <label>Taxa Atual:</label>
-                    <span className="tax-value error">{personal.taxValidation.currentTax}</span>
+          {invalidTaxes.map((personal, index) => {
+            const isExpanded = expandedPersonals.has(personal.personal);
+            const studentsData = getStudentsForPersonal(personal.personal);
+            
+            return (
+              <div key={index} className="issue-card clickable-card">
+                <div className="issue-header">
+                  <div className="personal-info">
+                    <User size={16} />
+                    <span className="personal-name">{personal.personal}</span>
+                    <span className="units-badge">
+                      {personal.unidades.join(', ')}
+                    </span>
                   </div>
-                  <div className="expected-tax">
-                    <label>Taxa Esperada:</label>
-                    <span className="tax-value correct">{personal.taxValidation.expectedTax}</span>
+                  <div className="student-count">
+                    {personal.totalAlunos} alunos
                   </div>
                 </div>
                 
-                <div className="students-breakdown">
-                  <div className="breakdown-item">
-                    <Activity size={14} />
-                    <span>{personal.alunosAbertos} Abertos</span>
+                <div className="issue-details">
+                  <div className="tax-comparison">
+                    <div className="current-tax">
+                      <label>Taxa Atual:</label>
+                      <span className="tax-value error">{personal.taxValidation.currentTax}</span>
+                    </div>
+                    <div className="expected-tax">
+                      <label>Taxa Esperada:</label>
+                      <span className="tax-value correct">{personal.taxValidation.expectedTax}</span>
+                    </div>
                   </div>
-                  <div className="breakdown-item">
-                    <CheckCircle size={14} />
-                    <span>{personal.alunosIsentos} Isentos</span>
+                  
+                  <div className="students-breakdown">
+                    <div className="breakdown-item">
+                      <Activity size={14} />
+                      <span>{personal.alunosAbertos} Abertos</span>
+                    </div>
+                    <div className="breakdown-item">
+                      <CheckCircle size={14} />
+                      <span>{personal.alunosIsentos} Isentos</span>
+                    </div>
+                    <div className="breakdown-item">
+                      <DollarSign size={14} />
+                      <span>{personal.alunosQuitados} Quitados</span>
+                    </div>
                   </div>
-                  <div className="breakdown-item">
-                    <DollarSign size={14} />
-                    <span>{personal.alunosQuitados} Quitados</span>
-                  </div>
+                  
+                  <button 
+                    className="view-students-btn-validation"
+                    onClick={() => togglePersonalExpansionImproved(personal.personal)}
+                  >
+                    <Eye size={14} />
+                    {isExpanded ? 'Ocultar Alunos' : `Ver ${personal.totalAlunos} Alunos`}
+                    {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
                 </div>
+
+                {/* Seção Expandida de Alunos */}
+                {isExpanded && (
+                  <div className="students-expanded-section-validation">
+                    <div className="students-header-validation">
+                      <h4>
+                        <Users size={18} />
+                        Alunos de {personal.personal}
+                      </h4>
+                      <div className="students-stats-badges">
+                        {(() => {
+                          const categorized = studentsData.reduce((acc, student) => {
+                            const classification = classifyStudentImproved(student);
+                            acc[classification.status] = (acc[classification.status] || 0) + 1;
+                            return acc;
+                          }, {});
+                          
+                          return Object.entries(categorized).map(([status, count]) => {
+                            const colors = {
+                              'Aberto': { bg: '#fffbeb', color: '#d97706' },
+                              'Isento': { bg: '#eff6ff', color: '#1d4ed8' },
+                              'Quitado': { bg: '#ecfdf5', color: '#059669' },
+                              'Pendente': { bg: '#fef2f2', color: '#dc2626' },
+                              'Indefinido': { bg: '#f9fafb', color: '#6b7280' }
+                            };
+                            
+                            return (
+                              <span 
+                                key={status}
+                                className="category-badge"
+                                style={{
+                                  backgroundColor: colors[status]?.bg,
+                                  color: colors[status]?.color
+                                }}
+                              >
+                                {count} {status}
+                              </span>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                    
+                    <div className="students-grid-validation">
+                      {studentsData
+                        .sort((a, b) => {
+                          const aClassification = classifyStudentImproved(a);
+                          const bClassification = classifyStudentImproved(b);
+                          return aClassification.priority - bClassification.priority;
+                        })
+                        .map((student, idx) => (
+                          <StudentCardImproved 
+                            key={`${student.aluno}-${idx}`}
+                            student={student}
+                            index={idx}
+                          />
+                        ))
+                      }
+                    </div>
+                    
+                    {studentsData.length === 0 && (
+                      <div className="no-students-message">
+                        <UserX size={24} />
+                        <p>Nenhum aluno encontrado para este personal</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -838,148 +1156,243 @@ export default function UnifiedPersonalDashboard() {
               {activeTab === 'overview' && (
                 <div className="overview-content">
                   {searchTerm ? (
-                    // Mostra resultados da busca
                     <div className="search-results-section">
                       <div className="search-results-header">
                         <h3>
                           <Search size={20} />
                           Resultados para "{searchTerm}"
                         </h3>
-                        <button 
-                          className="clear-search-btn"
-                          onClick={() => setSearchTerm('')}
-                        >
-                          <X size={16} />
-                          Limpar busca
-                        </button>
+                        
+                        {/* NOVOS CONTROLES DE EXPANSÃO */}
+                        <div className="expansion-controls">
+                          <button 
+                            className="expansion-control-btn"
+                            onClick={expandAllPersonals}
+                            title="Expandir todos os cards"
+                          >
+                            <ChevronDown size={16} />
+                            Expandir Todos
+                          </button>
+                          
+                          <button 
+                            className="expansion-control-btn"
+                            onClick={collapseAllPersonals}
+                            title="Recolher todos os cards"
+                          >
+                            <ChevronUp size={16} />
+                            Recolher Todos
+                          </button>
+                          
+                          <div className="results-summary">
+                            <span className="results-count">
+                              {filteredPersonalStats.length} personal{filteredPersonalStats.length !== 1 ? 's' : ''}
+                            </span>
+                            <span className="expanded-count">
+                              {expandedPersonals.size} expandido{expandedPersonals.size !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          
+                          <button 
+                            className="clear-search-btn"
+                            onClick={() => setSearchTerm('')}
+                          >
+                            <X size={16} />
+                            Limpar busca
+                          </button>
+                        </div>
                       </div>
                       
                       {filteredPersonalStats.length > 0 ? (
-                        <div className="personal-cards-grid">
-                          {filteredPersonalStats.map((personal, index) => (
-                            <div key={index} className="personal-result-card">
-                              <div className="personal-card-header">
-                                <div className="personal-avatar">
-                                  <User size={20} />
-                                </div>
-                                <div className="personal-info">
-                                  <h4>{personal.personal}</h4>
-                                  <div className="personal-badges">
-                                    {personal.unidades.map(unidade => (
-                                      <span key={unidade} className={`unit-badge unit-${unidade}`}>
-                                        {unidade === 'alphaville' ? 'Alphaville' : 
-                                         unidade === 'buenavista' ? 'Buena Vista' : 
-                                         unidade === 'marista' ? 'Marista' : unidade}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="personal-stats-grid">
-                                <div className="stat-item">
-                                  <div className="stat-icon users">
-                                    <Users size={16} />
-                                  </div>
-                                  <div className="stat-info">
-                                    <span className="stat-number">{personal.totalAlunos}</span>
-                                    <span className="stat-label">Total</span>
-                                  </div>
-                                </div>
-                                
-                                <div className="stat-item">
-                                  <div className="stat-icon pending">
-                                    <Clock size={16} />
-                                  </div>
-                                  <div className="stat-info">
-                                    <span className="stat-number">{personal.alunosAbertos}</span>
-                                    <span className="stat-label">Abertos</span>
-                                  </div>
-                                </div>
-                                
-                                <div className="stat-item">
-                                  <div className="stat-icon exempt">
-                                    <CheckCircle size={16} />
-                                  </div>
-                                  <div className="stat-info">
-                                    <span className="stat-number">{personal.alunosIsentos}</span>
-                                    <span className="stat-label">Isentos</span>
-                                  </div>
-                                </div>
-                                
-                                <div className="stat-item">
-                                  <div className="stat-icon paid">
-                                    <DollarSign size={16} />
-                                  </div>
-                                  <div className="stat-info">
-                                    <span className="stat-number">{personal.alunosQuitados}</span>
-                                    <span className="stat-label">Quitados</span>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Validação de Taxa */}
-                              <div className="tax-validation-card">
-                                {(() => {
-                                  const taxValidation = taxValidationData.find(p => p.personal === personal.personal);
-                                  const validation = taxValidation?.taxValidation;
-                                  const isValid = validation?.isValid;
-                                  const taxType = validation?.taxType;
-                                  
-                                  let statusClass = 'tax-valid';
-                                  let icon = <CheckCircle size={16} />;
-                                  let label = 'Taxa Correta';
-                                  
-                                  if (taxType === 'open') {
-                                    statusClass = 'tax-open';
-                                    icon = <UserX size={16} />;
-                                    label = 'Em Aberto';
-                                  } else if (taxType === 'exempt') {
-                                    statusClass = 'tax-exempt';
-                                    icon = <Star size={16} />;
-                                    label = 'Isento';
-                                  } else if (taxType === 'special') {
-                                    statusClass = 'tax-special';
-                                    icon = <Clock size={16} />;
-                                    label = 'Taxa Especial';
-                                  } else if (!isValid) {
-                                    statusClass = 'tax-invalid';
-                                    icon = <AlertTriangle size={16} />;
-                                    label = 'Taxa Incorreta';
-                                  }
-                                  
-                                  return (
-                                    <div className={`tax-status ${statusClass}`}>
-                                      <div className="tax-icon">
-                                        {icon}
-                                      </div>
-                                      <div className="tax-info">
-                                        <span className="tax-label">
-                                          {label}
-                                        </span>
-                                        {taxType === 'regular' && !isValid && validation && (
-                                          <div className="tax-details">
-                                            <small>Atual: {validation.currentTax}</small>
-                                            <small>Esperada: {validation.expectedTax}</small>
-                                          </div>
-                                        )}
+                        <div className="improved-personal-cards-grid">
+                          {filteredPersonalStats.map((personal, index) => {
+                            const isExpanded = expandedPersonals.has(personal.personal);
+                            const studentsData = getStudentsForPersonal(personal.personal);
+                            
+                            return (
+                              <div key={index} className="horizontal-personal-card" data-unidade={personal.unidades[0]} data-personal={personal.personal}>
+                                {/* Layout Horizontal Compacto */}
+                                <div className="horizontal-card-content">
+                                  {/* Seção Esquerda - Info do Personal */}
+                                  <div className="personal-info-section">
+                                    <div className="personal-avatar-horizontal">
+                                      <User size={20} />
+                                    </div>
+                                    <div className="personal-details-horizontal">
+                                      <h3 className="personal-name-horizontal">{personal.personal}</h3>
+                                      <div className="personal-badges-horizontal">
+                                        {personal.unidades.map(unidade => (
+                                          <span key={unidade} className={`unit-badge-horizontal unit-${unidade}`}>
+                                            <MapPin size={10} />
+                                            {unidade === 'alphaville' ? 'Alphaville' : 
+                                             unidade === 'buenavista' ? 'Buena Vista' : 
+                                             unidade === 'marista' ? 'Marista' : unidade}
+                                          </span>
+                                        ))}
                                       </div>
                                     </div>
-                                  );
-                                })()}
+                                  </div>
+
+                                  {/* Seção Central - Contador Principal */}
+                                  <div className="counter-section-horizontal">
+                                    <div className="counter-circle-horizontal">
+                                      <Users size={20} />
+                                      <span className="counter-number-horizontal">{personal.totalAlunos}</span>
+                                    </div>
+                                    <span className="counter-label-horizontal">Total de Alunos</span>
+                                  </div>
+
+                                  {/* Seção Central-Direita - Stats Compactos */}
+                                  <div className="stats-section-horizontal">
+                                    <div className="stat-item-horizontal stat-pending">
+                                      <Clock size={14} />
+                                      <span className="stat-number-horizontal">{personal.alunosAbertos}</span>
+                                      <span className="stat-label-horizontal">Abertos</span>
+                                    </div>
+                                    
+                                    <div className="stat-item-horizontal stat-exempt">
+                                      <CheckCircle size={14} />
+                                      <span className="stat-number-horizontal">{personal.alunosIsentos}</span>
+                                      <span className="stat-label-horizontal">Isentos</span>
+                                    </div>
+                                    
+                                    <div className="stat-item-horizontal stat-paid">
+                                      <DollarSign size={14} />
+                                      <span className="stat-number-horizontal">{personal.alunosQuitados}</span>
+                                      <span className="stat-label-horizontal">Quitados</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Seção Direita - Status e Ações */}
+                                  <div className="actions-section-horizontal">
+                                    {/* Status da Taxa */}
+                                    <div className="tax-status-horizontal">
+                                      {(() => {
+                                        const taxValidation = taxValidationData.find(p => p.personal === personal.personal);
+                                        const validation = taxValidation?.taxValidation;
+                                        const isValid = validation?.isValid;
+                                        const taxType = validation?.taxType;
+                                        
+                                        let icon = <CheckCircle size={14} />;
+                                        let label = 'Taxa Correta';
+                                        let bgColor = '#dcfce7';
+                                        let textColor = '#059669';
+                                        
+                                        if (taxType === 'open') {
+                                          icon = <UserX size={14} />;
+                                          label = 'Em Aberto';
+                                          bgColor = '#f3f4f6';
+                                          textColor = '#6b7280';
+                                        } else if (taxType === 'exempt') {
+                                          icon = <Star size={14} />;
+                                          label = 'Isento';
+                                          bgColor = '#dbeafe';
+                                          textColor = '#1d4ed8';
+                                        } else if (taxType === 'special') {
+                                          icon = <Clock size={14} />;
+                                          label = 'Taxa Especial';
+                                          bgColor = '#fef3c7';
+                                          textColor = '#d97706';
+                                        } else if (!isValid) {
+                                          icon = <AlertTriangle size={14} />;
+                                          label = 'Taxa Incorreta';
+                                          bgColor = '#fee2e2';
+                                          textColor = '#dc2626';
+                                        }
+                                        
+                                        return (
+                                          <div 
+                                            className="tax-badge-horizontal"
+                                            style={{ backgroundColor: bgColor, color: textColor }}
+                                          >
+                                            {icon}
+                                            <span>{label}</span>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+
+                                    {/* Botão de Ver Alunos */}
+                                    <button 
+                                      className="view-students-btn-horizontal"
+                                      onClick={() => togglePersonalExpansionImproved(personal.personal)}
+                                    >
+                                      <Eye size={14} />
+                                      {isExpanded ? 'Ocultar' : 'Ver Alunos'}
+                                      {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Seção Expandida de Alunos */}
+                                {isExpanded && (
+                                  <div className="students-expanded-section">
+                                    <div className="students-header-improved">
+                                      <h4>
+                                        <Users size={18} />
+                                        Alunos de {personal.personal}
+                                      </h4>
+                                      <div className="students-stats-badges">
+                                        {(() => {
+                                          const categorized = studentsData.reduce((acc, student) => {
+                                            const classification = classifyStudentImproved(student);
+                                            acc[classification.status] = (acc[classification.status] || 0) + 1;
+                                            return acc;
+                                          }, {});
+                                          
+                                          return Object.entries(categorized).map(([status, count]) => {
+                                            const colors = {
+                                              'Aberto': { bg: '#fffbeb', color: '#d97706' },
+                                              'Isento': { bg: '#eff6ff', color: '#1d4ed8' },
+                                              'Quitado': { bg: '#ecfdf5', color: '#059669' },
+                                              'Pendente': { bg: '#fef2f2', color: '#dc2626' },
+                                              'Indefinido': { bg: '#f9fafb', color: '#6b7280' }
+                                            };
+                                            
+                                            return (
+                                              <span 
+                                                key={status}
+                                                className="category-badge"
+                                                style={{
+                                                  backgroundColor: colors[status]?.bg,
+                                                  color: colors[status]?.color
+                                                }}
+                                              >
+                                                {count} {status}
+                                              </span>
+                                            );
+                                          });
+                                        })()}
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="students-grid-improved">
+                                      {studentsData
+                                        .sort((a, b) => {
+                                          const aClassification = classifyStudentImproved(a);
+                                          const bClassification = classifyStudentImproved(b);
+                                          return aClassification.priority - bClassification.priority;
+                                        })
+                                        .map((student, idx) => (
+                                          <StudentCardImproved 
+                                            key={`${student.aluno}-${idx}`}
+                                            student={student}
+                                            index={idx}
+                                          />
+                                        ))
+                                      }
+                                    </div>
+                                    
+                                    {studentsData.length === 0 && (
+                                      <div className="no-students-improved">
+                                        <Users size={32} />
+                                        <p>Nenhum aluno encontrado</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                              
-                              <div className="personal-actions">
-                                <button 
-                                  className="view-students-btn"
-                                  onClick={() => handleViewStudents(personal.personal)}
-                                >
-                                  <Eye size={14} />
-                                  Ver Alunos
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="no-search-results">
@@ -2149,6 +2562,7 @@ export default function UnifiedPersonalDashboard() {
           transition: all 0.3s ease;
           position: relative;
           overflow: hidden;
+          cursor: pointer;
         }
 
         .personal-result-card:hover {
@@ -2676,13 +3090,13 @@ export default function UnifiedPersonalDashboard() {
         /* No Students */
         .no-students {
           text-align: center;
-          padding: 60px 20px;
+          padding: 40px 20px;
           color: #64748b;
         }
 
         .no-students svg {
-          color: #cbd5e1;
-          margin-bottom: 20px;
+          margin-bottom: 16px;
+          opacity: 0.5;
         }
 
         .no-students h3 {
@@ -2789,6 +3203,1203 @@ export default function UnifiedPersonalDashboard() {
             flex-direction: column;
             gap: 8px;
             text-align: center;
+          }
+        }
+
+        /* Estilos para cards melhorados */
+        .improved-personal-cards-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          margin-top: 24px;
+        }
+
+        .improved-personal-card {
+          background: white;
+          border: 2px solid #e2e8f0;
+          border-radius: 20px;
+          padding: 24px;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .improved-personal-card:hover {
+          border-color: #10b981;
+          transform: translateY(-4px);
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .improved-personal-card[data-unidade="alphaville"] {
+          border-left: 6px solid #10b981;
+        }
+
+        .improved-personal-card[data-unidade="buenavista"] {
+          border-left: 6px solid #3b82f6;
+        }
+
+        .improved-personal-card[data-unidade="marista"] {
+          border-left: 6px solid #f59e0b;
+        }
+
+        .card-header-improved {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 20px;
+        }
+
+        .personal-avatar-improved {
+          width: 56px;
+          height: 56px;
+          background: linear-gradient(135deg, #10b981, #059669);
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .personal-info-improved {
+          flex: 1;
+        }
+
+        .personal-name-improved {
+          margin: 0 0 8px 0;
+          color: #1e293b;
+          font-size: 20px;
+          font-weight: 700;
+        }
+
+        .personal-badges-improved {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .unit-badge-improved {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 12px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .unit-badge-improved.unit-alphaville {
+          background: #d1fae5;
+          color: #059669;
+        }
+
+        .unit-badge-improved.unit-buenavista {
+          background: #dbeafe;
+          color: #1d4ed8;
+        }
+
+        .unit-badge-improved.unit-marista {
+          background: #fef3c7;
+          color: #d97706;
+        }
+
+        .expansion-indicator {
+          color: #64748b;
+          transition: transform 0.2s ease;
+        }
+
+        .main-counter-improved {
+          text-align: center;
+          margin: 24px 0;
+        }
+
+        .counter-circle {
+          width: 120px;
+          height: 120px;
+          background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+          border-radius: 50%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 12px;
+          color: white;
+          box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .counter-circle::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -50%;
+          width: 200%;
+          height: 200%;
+          background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+          transform: rotate(45deg);
+          animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+          0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+          100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .counter-number {
+          font-size: 32px;
+          font-weight: 800;
+          margin-top: 4px;
+        }
+
+        .counter-label {
+          color: #64748b;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .stats-grid-improved {
+          display: flex;
+          flex-direction: row;
+          gap: 16px;
+          margin: 20px 0;
+          justify-content: space-between;
+        }
+
+        .stat-item-improved {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 16px;
+          text-align: center;
+          transition: all 0.2s ease;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .stat-item-improved:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-item-improved.stat-pending {
+          border-color: #fbbf24;
+          background: #fffbeb;
+        }
+
+        .stat-item-improved.stat-exempt {
+          border-color: #10b981;
+          background: #ecfdf5;
+        }
+
+        .stat-item-improved.stat-paid {
+          border-color: #3b82f6;
+          background: #eff6ff;
+        }
+
+        .stat-icon-improved {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 8px;
+        }
+
+        .stat-pending .stat-icon-improved {
+          background: #fef3c7;
+          color: #d97706;
+        }
+
+        .stat-exempt .stat-icon-improved {
+          background: #d1fae5;
+          color: #059669;
+        }
+
+        .stat-paid .stat-icon-improved {
+          background: #dbeafe;
+          color: #1d4ed8;
+        }
+
+        .stat-content-improved {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .stat-number-improved {
+          font-size: 24px;
+          font-weight: 700;
+          color: #1e293b;
+        }
+
+        .stat-label-improved {
+          font-size: 12px;
+          font-weight: 600;
+          color: #64748b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .tax-validation-improved {
+          margin: 20px 0;
+        }
+
+        .tax-status-badge {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 16px;
+          border-radius: 12px;
+          font-weight: 600;
+          font-size: 14px;
+        }
+
+        .tax-icon-improved {
+          display: flex;
+          align-items: center;
+        }
+
+        .expand-button-improved {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          background: #f1f5f9;
+          border: 2px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 12px 20px;
+          color: #475569;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          margin-top: 16px;
+        }
+
+        .expand-button-improved:hover {
+          background: #e2e8f0;
+          border-color: #cbd5e1;
+          color: #334155;
+        }
+
+        .students-expanded-section {
+          margin-top: 24px;
+          padding-top: 24px;
+          border-top: 2px solid #e2e8f0;
+          animation: slideDown 0.3s ease-out;
+        }
+
+        .students-header-improved {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+        }
+
+        .students-header-improved h4 {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin: 0;
+          color: #1e293b;
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .students-grid-improved {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 12px;
+        }
+
+        .student-card-improved {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 12px;
+          transition: all 0.2s ease;
+        }
+
+        .student-card-improved:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .student-card-improved.student-aberto {
+          border-left: 3px solid #f59e0b;
+        }
+
+        .student-card-improved.student-quitado {
+          border-left: 3px solid #10b981;
+        }
+
+        .student-card-improved.student-isento {
+          border-left: 3px solid #3b82f6;
+        }
+
+        .student-card-improved.student-indefinido {
+          border-left: 3px solid #ef4444;
+        }
+
+        .student-header-improved {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+
+        .student-avatar-improved {
+          width: 28px;
+          height: 28px;
+          background: #e2e8f0;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+        }
+
+        .student-info-improved {
+          flex: 1;
+        }
+
+        .student-name-improved {
+          margin: 0 0 4px 0;
+          color: #1e293b;
+          font-size: 14px;
+          font-weight: 600;
+        }
+
+        .student-meta-improved {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .unit-info-improved {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          color: #64748b;
+          font-size: 11px;
+        }
+
+        .status-badge-improved {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 500;
+        }
+
+        .status-badge-improved.status-aberto {
+          background: #fef3c7;
+          color: #d97706;
+        }
+
+        .status-badge-improved.status-quitado {
+          background: #d1fae5;
+          color: #059669;
+        }
+
+        .status-badge-improved.status-isento {
+          background: #dbeafe;
+          color: #2563eb;
+        }
+
+        .status-badge-improved.status-indefinido {
+          background: #fee2e2;
+          color: #dc2626;
+        }
+
+        .student-details-improved {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .detail-row-improved {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .detail-label-improved {
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .detail-value-improved {
+          color: #1e293b;
+          font-size: 11px;
+          font-weight: 600;
+        }
+
+        .no-students-improved {
+          text-align: center;
+          padding: 32px 16px;
+          color: #64748b;
+        }
+
+        .no-students-improved p {
+          margin: 8px 0 0 0;
+          font-size: 14px;
+        }
+
+        /* CSS para Cards de Alunos Melhorados */
+        .student-card-enhanced {
+          background: white;
+          border-radius: 12px;
+          padding: 16px;
+          border-left: 4px solid;
+          border-right: 1px solid #e2e8f0;
+          border-top: 1px solid #e2e8f0;
+          border-bottom: 1px solid #e2e8f0;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .student-card-enhanced:hover {
+          transform: translateY(-3px) scale(1.02);
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+          border-right-color: transparent;
+          border-top-color: transparent;
+          border-bottom-color: transparent;
+        }
+
+        .student-card-enhanced::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 0;
+          height: 0;
+          border-style: solid;
+          border-width: 0 20px 20px 0;
+          border-color: transparent currentColor transparent transparent;
+          opacity: 0.1;
+        }
+
+        /* Header do Card do Aluno */
+        .student-card-header {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+
+        .student-avatar-circle {
+          width: 32px;
+          height: 32px;
+          background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+          flex-shrink: 0;
+          border: 2px solid #e2e8f0;
+          transition: all 0.3s ease;
+        }
+
+        .student-card-enhanced:hover .student-avatar-circle {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          border-color: #10b981;
+          transform: scale(1.1);
+        }
+
+        .student-basic-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .student-name-enhanced {
+          margin: 0 0 4px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #1e293b;
+          line-height: 1.2;
+          word-break: break-word;
+        }
+
+        .student-location {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .student-status-indicator {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          flex-shrink: 0;
+          animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+
+        /* Status Badge Enhanced */
+        .status-badge-enhanced {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding: 8px 12px;
+          border-radius: 8px;
+          border: 1px solid;
+          margin-bottom: 12px;
+          text-align: center;
+        }
+
+        .status-text {
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .status-description {
+          font-size: 10px;
+          font-weight: 500;
+          opacity: 0.8;
+        }
+
+        /* Detalhes Organizados */
+        .student-details-enhanced {
+          margin-top: 12px;
+        }
+
+        .detail-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .detail-item-enhanced {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          padding: 6px 0;
+          border-bottom: 1px solid #f8fafc;
+        }
+
+        .detail-item-enhanced:last-child {
+          border-bottom: none;
+        }
+
+        .detail-icon {
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #64748b;
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+
+        .detail-content {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .detail-label {
+          font-size: 9px;
+          color: #64748b;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .detail-value {
+          font-size: 12px;
+          color: #1e293b;
+          font-weight: 600;
+          word-break: break-word;
+          line-height: 1.3;
+        }
+
+        .detail-value.has-value {
+          color: #059669;
+        }
+
+        .detail-value.no-value {
+          color: #6b7280;
+          font-style: italic;
+        }
+
+        .detail-value.situation-livre {
+          color: #f59e0b;
+        }
+
+        .detail-value.situation-pago {
+          color: #059669;
+        }
+
+        /* Footer do Card */
+        .student-card-footer {
+          margin-top: 12px;
+          padding-top: 8px;
+          border-top: 1px solid #f1f5f9;
+        }
+
+        .plan-info {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        /* CSS para Badges de Categoria e Header Melhorado */
+        .students-stats-badges {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+
+        .category-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          border: 1px solid currentColor;
+          opacity: 0.9;
+          transition: all 0.3s ease;
+        }
+
+        .category-badge:hover {
+          opacity: 1;
+          transform: scale(1.05);
+        }
+
+        /* Melhorar o header dos alunos */
+        .students-header-improved {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 20px;
+          padding: 16px;
+          background: white;
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .students-header-improved h4 {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin: 0 0 8px;
+          color: #1e293b;
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        /* Grid melhorado com animação stagger */
+        .students-grid-improved {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 16px;
+          animation: fadeInGrid 0.6s ease-out;
+        }
+
+        @keyframes fadeInGrid {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* Animação de entrada */
+        .student-card-enhanced {
+          animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes slideInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* CSS para os controles de expansão */
+        .expansion-controls {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        
+        .expansion-control-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          background: white;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          color: #64748b;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        
+        .expansion-control-btn:hover {
+          background: #f8fafc;
+          border-color: #10b981;
+          color: #10b981;
+        }
+        
+        .results-summary {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding: 8px 12px;
+          background: #f8fafc;
+          border-radius: 8px;
+        }
+        
+        .results-count {
+          font-size: 12px;
+          color: #1e293b;
+          font-weight: 600;
+        }
+        
+        .expanded-count {
+          font-size: 11px;
+          color: #64748b;
+          font-weight: 500;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+          .expansion-controls {
+            width: 100%;
+            justify-content: space-between;
+          }
+          
+          .expansion-control-btn {
+            flex: 1;
+            justify-content: center;
+          }
+
+          .students-header-improved {
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
+          }
+          
+          .students-stats-badges {
+            justify-content: flex-start;
+          }
+          
+          .students-grid-improved {
+            grid-template-columns: 1fr;
+          }
+
+          .student-card-enhanced {
+            padding: 12px;
+          }
+          
+          .student-card-header {
+            gap: 8px;
+          }
+          
+          .student-avatar-circle {
+            width: 28px;
+            height: 28px;
+          }
+          
+          .student-name-enhanced {
+            font-size: 14px;
+          }
+          
+          .detail-grid {
+            gap: 6px;
+          }
+        }
+
+        /* Horizontal Card Layout */
+        .horizontal-personal-card {
+          background: white;
+          border: 2px solid #e2e8f0;
+          border-radius: 16px;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+          transition: all 0.3s ease;
+          overflow: hidden;
+        }
+
+        .horizontal-personal-card:hover {
+          border-color: #10b981;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        .horizontal-personal-card[data-unidade="alphaville"] {
+          border-left: 4px solid #10b981;
+        }
+
+        .horizontal-personal-card[data-unidade="buenavista"] {
+          border-left: 4px solid #3b82f6;
+        }
+
+        .horizontal-personal-card[data-unidade="marista"] {
+          border-left: 4px solid #f59e0b;
+        }
+
+        .horizontal-card-content {
+          display: flex;
+          align-items: center;
+          padding: 20px;
+          gap: 24px;
+        }
+
+        /* Seção Info do Personal */
+        .personal-info-section {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 200px;
+        }
+
+        .personal-avatar-horizontal {
+          width: 40px;
+          height: 40px;
+          background: linear-gradient(135deg, #10b981, #059669);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .personal-details-horizontal {
+          flex: 1;
+        }
+
+        .personal-name-horizontal {
+          margin: 0 0 4px 0;
+          color: #1e293b;
+          font-size: 16px;
+          font-weight: 600;
+          line-height: 1.2;
+        }
+
+        .personal-badges-horizontal {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .unit-badge-horizontal {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          padding: 2px 8px;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .unit-badge-horizontal.unit-alphaville {
+          background: #d1fae5;
+          color: #059669;
+        }
+
+        .unit-badge-horizontal.unit-buenavista {
+          background: #dbeafe;
+          color: #1d4ed8;
+        }
+
+        .unit-badge-horizontal.unit-marista {
+          background: #fef3c7;
+          color: #d97706;
+        }
+
+        /* Seção Contador */
+        .counter-section-horizontal {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          min-width: 100px;
+        }
+
+        .counter-circle-horizontal {
+          width: 60px;
+          height: 60px;
+          background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+          border-radius: 50%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .counter-number-horizontal {
+          font-size: 18px;
+          font-weight: 700;
+          line-height: 1;
+        }
+
+        .counter-label-horizontal {
+          font-size: 12px;
+          color: #64748b;
+          font-weight: 500;
+          text-align: center;
+        }
+
+        /* Seção Stats */
+        .stats-section-horizontal {
+          display: flex;
+          gap: 20px;
+          flex: 1;
+          justify-content: center;
+        }
+
+        .stat-item-horizontal {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          padding: 12px;
+          border-radius: 12px;
+          min-width: 70px;
+          transition: all 0.2s ease;
+        }
+
+        .stat-item-horizontal:hover {
+          transform: translateY(-2px);
+        }
+
+        .stat-item-horizontal.stat-pending {
+          background: #fffbeb;
+          border: 1px solid #fde68a;
+        }
+
+        .stat-item-horizontal.stat-exempt {
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+        }
+
+        .stat-item-horizontal.stat-paid {
+          background: #ecfdf5;
+          border: 1px solid #a7f3d0;
+        }
+
+        .stat-number-horizontal {
+          font-size: 16px;
+          font-weight: 700;
+          color: #1e293b;
+        }
+
+        .stat-label-horizontal {
+          font-size: 11px;
+          color: #64748b;
+          font-weight: 500;
+        }
+
+        /* Seção Ações */
+        .actions-section-horizontal {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          align-items: flex-end;
+          min-width: 140px;
+        }
+
+        .tax-badge-horizontal {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 600;
+          border: 1px solid currentColor;
+          opacity: 0.9;
+        }
+
+        .view-students-btn-horizontal {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          color: #475569;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .view-students-btn-horizontal:hover {
+          background: #10b981;
+          color: white;
+          border-color: #10b981;
+          transform: translateY(-1px);
+        }
+
+        /* Validation Cards Styles */
+        .clickable-card {
+          cursor: pointer;
+        }
+
+        .view-students-btn-validation {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          color: #475569;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          margin-top: 12px;
+        }
+
+        .view-students-btn-validation:hover {
+          background: #dc2626;
+          color: white;
+          border-color: #dc2626;
+          transform: translateY(-1px);
+        }
+
+        .students-expanded-section-validation {
+          margin-top: 20px;
+          padding-top: 20px;
+          border-top: 2px solid #fee2e2;
+          background: #fefefe;
+          border-radius: 12px;
+          padding: 20px;
+        }
+
+        .students-header-validation {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 16px;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+
+        .students-header-validation h4 {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin: 0;
+          color: #1e293b;
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .students-grid-validation {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 16px;
+          margin-top: 16px;
+        }
+
+        .no-students-message {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          padding: 40px;
+          color: #64748b;
+          text-align: center;
+        }
+
+        .no-students-message p {
+          margin: 0;
+          font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+          .horizontal-card-content {
+            flex-direction: column;
+            gap: 16px;
+            align-items: stretch;
+          }
+          
+          .personal-info-section,
+          .counter-section-horizontal,
+          .stats-section-horizontal,
+          .actions-section-horizontal {
+            min-width: auto;
+          }
+          
+          .stats-section-horizontal {
+            justify-content: space-around;
+          }
+          
+          .actions-section-horizontal {
+            align-items: center;
+            flex-direction: row;
+            justify-content: space-between;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .category-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+          }
+          
+          .horizontal-card-content {
+            padding: 16px;
+          }
+          
+          .stats-section-horizontal {
+            gap: 12px;
+          }
+          
+          .stat-item-horizontal {
+            padding: 8px;
+            min-width: 60px;
           }
         }
       `}</style>

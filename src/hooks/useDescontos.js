@@ -74,7 +74,6 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       );
       
       if (matches.length >= 2) {
-        console.log(`🎯 Match fuzzy: "${responsavelDesconto}" → "${respOficial}" (${matches.length} matches: ${matches.join(', ')})`);
         return true;
       }
     }
@@ -167,45 +166,12 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
           const isOficial = matchResponsavel(desc.responsavel, responsaveisOficiaisSet);
           
           if (!isOficial) {
-            console.log(`🚫 Desconto filtrado - responsável não oficial: "${desc.responsavel}" (matrícula: ${desc.matricula})`);
           }
           
           return isOficial;
         });
 
-        console.log(`📊 [${unidade}] Descontos carregados (collectionGroup): ${all.length}`);
-        console.log(`   ↳ após filtro por mês: ${byMonth.length}`);
-        console.log(`   ↳ após filtro por responsáveis da unidade: ${byResp.length}`);
-        
-        // Debug específico para matricula 011338
-        const target011338 = all.filter(d => String(d.matricula || '').includes('011338'));
-        console.log(`🎯 Debug matrícula 011338:`, target011338.length, target011338.map(d => ({
-          matricula: d.matricula,
-          responsavel: d.responsavel,
-          unidade: d.unidade,
-          totalDesconto: d.totalDesconto
-        })));
-        
-        // Debug: mostrar se passou pelos filtros
-        if (target011338.length > 0) {
-          const desc011338 = target011338[0];
-          const mesDesc = parseMes(desc011338.dataLancamento);
-          const passouMes = !selectedMonth || !mesDesc ? true : (mesDesc === selectedMonth);
-          const respNorm = normalize(desc011338.responsavel);
-          const isOficial = responsaveisOficiaisSet.size === 0 || responsaveisOficiaisSet.has(respNorm);
-          
-          console.log(`🔍 Filtros para 011338:`, {
-            mes: mesDesc,
-            selectedMonth,
-            passouMes,
-            responsavel: desc011338.responsavel,
-            respNorm,
-            isOficial,
-            responsaveisOficiaisSet: Array.from(responsaveisOficiaisSet)
-          });
-          
-          console.log(`❓ 011338 foi filtrado? Passou mês: ${passouMes}, É oficial: ${isOficial}`);
-        }
+        // Debug logs removed
         
         setDescontos(byResp);
         setLoading(false);
@@ -224,39 +190,12 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
   // ===== FILTRAR VENDAS POR UNIDADE E MÊS (RIGOROSO) =====
   const vendasDaUnidade = useMemo(() => {
     if (!vendas.length) {
-      console.log(`⚠️ [${unidade}] Nenhuma venda disponível`);
       return [];
     }
     
-    console.log(`🔍 [${unidade}] Iniciando filtro rigoroso por unidade e mês`);
-    console.log(`   - Total de vendas disponíveis: ${vendas.length}`);
-    console.log(`   - Mês selecionado: ${selectedMonth}`);
-    console.log(`   - Metas disponíveis: ${metasFonte.length} (fonte: ${metas.length > 0 ? 'parâmetro' : 'internas'})`);
     
-    // DEBUG: Mostrar amostra das vendas
-    if (vendas.length > 0) {
-      console.log(`📋 Amostra de vendas (primeiras 3):`, vendas.slice(0, 3).map(v => ({
-        responsavel: v.responsavel,
-        unidade: v.unidade,
-        dataFormatada: v.dataFormatada,
-        dataLancamento: v.dataLancamento
-      })));
-    }
     
-    // DEBUG: Mostrar amostra das metas
-    if (metasFonte.length > 0) {
-      console.log(`🎯 Amostra de metas (primeiras 3):`);
-      metasFonte.slice(0, 3).forEach((m, i) => {
-        console.log(`   ${i+1}. ${m.responsavel} | Meta: R$ ${m.meta}`);
-      });
-    }
     
-    // Verificar se temos metas para filtrar por unidade
-    if (metasFonte.length > 0) {
-      console.log(`👥 [${unidade}] Responsáveis oficiais da unidade:`, Array.from(responsaveisOficiaisSet));
-    } else {
-      console.warn(`⚠️ [${unidade}] SEM METAS! Vou mostrar todas as vendas do mês (modo debug)`);
-    }
     
     // Filtro IGUAL ao useVendas: por unidade e mês
     const uni = unidade.toLowerCase();
@@ -270,39 +209,22 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       if (!vendaMes) return false;
       if (vendaMes !== selectedMonth) return false;
       
-      // DEBUG: Log das primeiras 5 vendas para entender o filtro
-      if (debugCount < 5) {
-        console.log(`🔍 ${venda.responsavel} | Unidade: ${venda.unidade} | Mês: ${vendaMes} | ✅ PASSOU`);
-        debugCount++;
-      }
       
       return true;
     });
     
-    console.log(`✅ [${unidade}] Filtro aplicado:`);
-    console.log(`   - Vendas da unidade/mês: ${vendasFiltradas.length}`);
-    console.log(`   - Taxa de filtro: ${((vendasFiltradas.length / vendas.length) * 100).toFixed(1)}%`);
-    
-    // Debug: Mostrar responsáveis únicos nas vendas filtradas
-    const responsaveisNasVendas = [...new Set(vendasFiltradas.map(v => v.responsavel))];
-    console.log(`   - Responsáveis encontrados nas vendas:`, responsaveisNasVendas);
     
     return vendasFiltradas;
   }, [vendas, metas, unidade, selectedMonth]);
 
   // ===== RECONCILIAÇÃO CORRETA: VENDAS x DESCONTOS =====
   const vendasComDesconto = useMemo(() => {
-    console.log(`🔄 [${unidade}] Iniciando reconciliação CORRETA...`);
-    console.log(`   - Vendas da unidade/mês: ${vendasDaUnidade.length}`);
-    console.log(`   - Descontos carregados: ${descontos.length}`);
     
     if (!vendasDaUnidade.length) {
-      console.log(`⚠️ [${unidade}] Sem vendas da unidade para reconciliar`);
       return [];
     }
     
     if (!descontos.length) {
-      console.log(`⚠️ [${unidade}] Sem descontos - todas as vendas sem desconto`);
       return vendasDaUnidade.map(venda => ({
         ...venda,
         temDesconto: false,
@@ -383,19 +305,6 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       grupo.totalDesconto += tt;
     });
     
-    console.log(`📋 [${unidade}] Descontos agrupados por matrícula: ${Object.keys(descontosPorMatricula).length}`);
-    
-    // Log de sanidade para debug
-    const sampleKey = "011338";
-    const allKeys = Object.keys(descontosPorMatricula);
-    console.log("🔎 keys descontos:", allKeys.slice(0,10));
-    console.log("🔎 total keys:", allKeys.length);
-    const keys011 = allKeys.filter(k => k.includes('011'));
-    console.log("🔎 keys contendo '011':", keys011);
-    if (keys011.length > 0) {
-      console.log("🔎 primeiro key '011':", keys011[0], descontosPorMatricula[keys011[0]]);
-    }
-    console.log("🔎 tem 011338?", !!descontosPorMatricula[sampleKey], descontosPorMatricula[sampleKey]);
     
     // Debug detalhado para matricula específica
     const targetMatricula = "011338";
@@ -403,7 +312,6 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       const norm = String(d.matricula || '').replace(/\D/g, '').padStart(6, '0');
       return norm === targetMatricula;
     });
-    console.log(`🎯 Descontos para ${targetMatricula}:`, descontosTarget.length, descontosTarget);
     
     // PASSO 2: Aplicar lógica CORRETA de reconciliação
     const vendasProcessadas = vendasDaUnidade.map(venda => {
@@ -415,7 +323,6 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       if (!isOficial) {
         // trata como sem desconto (mesmo que exista desconto na outra unidade)
         const valorPago = Number(venda.valor || 0);
-        console.log(`🚫 Venda ${venda.matricula} - responsável ${venda.responsavel} não é oficial`);
         return {
           ...venda,
           temDesconto: false,
@@ -433,14 +340,6 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
       const descontoGrupo = descontosPorMatricula[matriculaNorm];
       
-      // Debug específico para 011338
-      if (matriculaNorm === "011338") {
-        console.log(`🔍 Processando venda 011338:`);
-        console.log(`   - Responsável: ${venda.responsavel}`);
-        console.log(`   - É oficial: ${isOficial}`);
-        console.log(`   - Tem grupo desconto: ${!!descontoGrupo}`);
-        console.log(`   - Grupo:`, descontoGrupo);
-      }
       
       const valorPago = Number(venda.valor || 0); // Valor que o cliente efetivamente pagou
       
@@ -485,25 +384,7 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     const totalDescontos = comDesconto.reduce((sum, v) => sum + v.totalDesconto, 0);
     const totalValorCheio = vendasProcessadas.reduce((sum, v) => sum + v.valorCheio, 0);
     
-    console.log(`✅ [${unidade}] Reconciliação CORRETA concluída:`);
-    console.log(`   - Vendas com desconto: ${comDesconto.length}`);
-    console.log(`   - Vendas sem desconto: ${semDesconto.length}`);
-    console.log(`   - Total de descontos: R$ ${totalDescontos.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   - Valor cheio total: R$ ${totalValorCheio.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`);
-    console.log(`   - % Desconto geral: ${totalValorCheio > 0 ? ((totalDescontos / totalValorCheio) * 100).toFixed(2) : 0}%`);
     
-    // Exemplo de venda com desconto para debug
-    if (comDesconto.length > 0) {
-      const exemplo = comDesconto[0];
-      console.log(`📌 [${unidade}] Exemplo de venda com desconto:`);
-      console.log(`   - Matrícula: ${exemplo.matricula}`);
-      console.log(`   - Valor pago: R$ ${exemplo.valor}`);
-      console.log(`   - Desconto plano: R$ ${exemplo.descontoPlano}`);
-      console.log(`   - Desconto matrícula: R$ ${exemplo.descontoMatricula}`);
-      console.log(`   - Total desconto: R$ ${exemplo.totalDesconto}`);
-      console.log(`   - Valor cheio: R$ ${exemplo.valorCheio}`);
-      console.log(`   - % Desconto: ${exemplo.percentualDesconto}%`);
-    }
     
     return vendasProcessadas;
   }, [vendasDaUnidade, descontos, unidade, responsaveisOficiaisSet] );
@@ -582,7 +463,6 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
 
   // ===== ANÁLISE POR CONSULTOR =====
   const analiseConsultores = useMemo(() => {
-    console.log(`👥 [${unidade}] Analisando consultores...`);
     
     // Agrupar vendas por consultor
     const consultoresMap = {};
@@ -656,14 +536,12 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     // Ordenar por total de vendas (decrescente)
     consultoresArray.sort((a, b) => b.totalVendas - a.totalVendas);
     
-    console.log(`✅ [${unidade}] Análise de consultores concluída:`, consultoresArray.length);
     
     return consultoresArray;
   }, [vendasComDesconto, unidade]);
 
   // ===== ESTATÍSTICAS GERAIS =====
   const estatisticas = useMemo(() => {
-    console.log(`📈 [${unidade}] Calculando estatísticas gerais...`);
     
     const stats = {
       totalVendas: vendasComDesconto.length,

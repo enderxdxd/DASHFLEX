@@ -23,23 +23,9 @@ const normalizarMatricula = (matricula) => {
  * }
  */
 const reconciliarVendasComDescontos = (vendas, descontos) => {
-  console.log('🔄 Iniciando reconciliação de vendas com descontos');
-  console.log('📊 Vendas a processar:', vendas.length);
-  console.log('💰 Descontos disponíveis:', descontos.length);
+  // Debug logs removed
   
-  // Debug: Verificar estrutura do primeiro desconto
-  if (descontos.length > 0) {
-    console.log('🔍 Estrutura do primeiro desconto:', {
-      matricula: descontos[0].matricula,
-      nome: descontos[0].nome,
-      descontoPlano: descontos[0].descontoPlano,
-      descontoMatricula: descontos[0].descontoMatricula,
-      totalDesconto: descontos[0].totalDesconto,
-      temDescontoPlano: descontos[0].temDescontoPlano,
-      temDescontoMatricula: descontos[0].temDescontoMatricula,
-      itensDesconto: descontos[0].itensDesconto
-    });
-  }
+  // Debug logs removed
   
   // Primeiro, vamos agrupar os descontos por matrícula
   // Uma matrícula pode ter múltiplos descontos (PLANO + MATRÍCULA)
@@ -63,17 +49,7 @@ const reconciliarVendasComDescontos = (vendas, descontos) => {
   descontos.forEach(desc => {
     const matriculaNorm = String(desc.matricula || '').replace(/\D/g, '').padStart(6, '0');
     
-    // Debug específico para 011338
-    if (matriculaNorm === '011338') {
-      console.log('🎯 Processando desconto para 011338:', {
-        matricula: desc.matricula,
-        matriculaNorm,
-        itensDesconto: desc.itensDesconto,
-        descontoPlano: desc.descontoPlano,
-        descontoMatricula: desc.descontoMatricula,
-        totalDesconto: desc.totalDesconto
-      });
-    }
+    // Debug logs removed
     
     if (!descontosPorMatricula[matriculaNorm]) {
       descontosPorMatricula[matriculaNorm] = {
@@ -123,7 +99,6 @@ const reconciliarVendasComDescontos = (vendas, descontos) => {
     grupo.totalDesconto += tt;
   });
   
-  console.log('📋 Descontos agrupados por matrícula:', Object.keys(descontosPorMatricula).length);
   
   // Agora reconciliar com as vendas
   const vendasComDesconto = vendas.map(venda => {
@@ -177,19 +152,8 @@ const reconciliarVendasComDescontos = (vendas, descontos) => {
   
   // Log de diagnóstico
   const vendasComDescontoCount = vendasComDesconto.filter(v => v.temDesconto).length;
-  console.log('✅ Reconciliação concluída:');
-  console.log('   - Vendas com desconto:', vendasComDescontoCount);
-  console.log('   - Vendas sem desconto:', vendas.length - vendasComDescontoCount);
-  console.log('   - Taxa de match:', ((vendasComDescontoCount / vendas.length) * 100).toFixed(1) + '%');
   
-  // Amostra de vendas com desconto para debug
-  const amostraComDesconto = vendasComDesconto.filter(v => v.temDesconto).slice(0, 3);
-  if (amostraComDesconto.length > 0) {
-    console.log('📌 Amostra de vendas com desconto:');
-    amostraComDesconto.forEach(v => {
-      console.log(`   - ${v.matricula} | ${v.nome} | Plano: R$ ${v.descontoPlano} | Mat: R$ ${v.descontoMatricula}`);
-    });
-  }
+  // Debug logs removed
   
   return vendasComDesconto;
 };
@@ -198,7 +162,6 @@ const reconciliarVendasComDescontos = (vendas, descontos) => {
  * Analisa descontos agrupados por consultor
  */
 const analisarDescontosPorConsultor = (vendasComDesconto) => {
-  console.log('👥 Iniciando análise por consultor');
   
   const consultores = {};
   
@@ -313,7 +276,6 @@ const analisarDescontosPorConsultor = (vendasComDesconto) => {
   });
   
   const consultoresArray = Object.values(consultores);
-  console.log(`✅ Análise por consultor concluída: ${consultoresArray.length} consultores`);
   
   return consultoresArray;
 };
@@ -322,7 +284,6 @@ const analisarDescontosPorConsultor = (vendasComDesconto) => {
  * Calcula estatísticas gerais dos descontos
  */
 const calcularEstatisticasGeraisDesconto = (vendasComDesconto) => {
-  console.log('📈 Calculando estatísticas gerais');
   
   if (!vendasComDesconto || !vendasComDesconto.length) {
     console.warn('⚠️ Nenhuma venda para calcular estatísticas');
@@ -418,7 +379,6 @@ const calcularEstatisticasGeraisDesconto = (vendasComDesconto) => {
     }
   });
   
-  console.log('✅ Estatísticas calculadas:', estatisticas);
   
   return estatisticas;
 };

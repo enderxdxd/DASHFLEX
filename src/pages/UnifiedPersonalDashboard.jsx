@@ -1,14 +1,16 @@
 // src/pages/UnifiedPersonalDashboard.jsx - VERSÃO REDESENHADA
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, memo, Suspense, lazy } from 'react';
 // Precisa importar X também
 import { 
   Users, Calendar, TrendingUp, AlertTriangle, CheckCircle, Clock, DollarSign, Search, X, Eye, MapPin, Activity, UserX, Star, Filter, User, ChevronUp, ChevronDown, AlertCircle, FileSpreadsheet, BarChart3, Upload, Trash2
 } from 'lucide-react';
 
 import NavBar from '../components/NavBar.jsx';
-import UnifiedPersonalUploader from '../components/personal/UnifiedPersonalUploader';
-import PersonalStudentTable from '../components/personal/PersonalStudentTable';
 import { usePersonals } from '../hooks/usePersonals';
+// Lazy loading para componentes pesados
+const UnifiedPersonalUploader = lazy(() => import('../components/personal/UnifiedPersonalUploader'));
+const PersonalStudentTable = lazy(() => import('../components/personal/PersonalStudentTable'));
+
 
 export default function UnifiedPersonalDashboard() {
   const [selectedView, setSelectedView] = useState('dashboard');
@@ -36,71 +38,40 @@ export default function UnifiedPersonalDashboard() {
     setExpandedPersonals(newExpanded);
   };
 
-  // Função melhorada para toggle com efeito visual
-  const togglePersonalExpansionImproved = (personalName) => {
-    const newExpanded = new Set(expandedPersonals);
-    
-    if (newExpanded.has(personalName)) {
-      // Fechar com animação
-      const cardElement = document.querySelector(`[data-personal="${personalName}"]`);
-      if (cardElement) {
-        cardElement.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-        cardElement.style.transform = 'scale(0.98)';
-        setTimeout(() => {
-          cardElement.style.transform = 'scale(1)';
-        }, 200);
+  // Função melhorada para toggle com efeito visual - OTIMIZADA
+  const togglePersonalExpansionImproved = useCallback((personalName) => {
+    setExpandedPersonals(prev => {
+      const newExpanded = new Set(prev);
+      
+      if (newExpanded.has(personalName)) {
+        newExpanded.delete(personalName);
+      } else {
+        newExpanded.add(personalName);
       }
-      newExpanded.delete(personalName);
-    } else {
-      // Abrir com animação
-      const cardElement = document.querySelector(`[data-personal="${personalName}"]`);
-      if (cardElement) {
-        cardElement.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-        cardElement.style.transform = 'scale(1.02)';
-        setTimeout(() => {
-          cardElement.style.transform = 'scale(1)';
-        }, 200);
-      }
-      newExpanded.add(personalName);
-    }
-    
-    setExpandedPersonals(newExpanded);
-  };
+      
+      return newExpanded;
+    });
+  }, []);
 
-  // Função para expandir todos
-  const expandAllPersonals = () => {
-    const allPersonalNames = filteredPersonalStats.map(p => p.personal);
-    setExpandedPersonals(new Set(allPersonalNames));
-  };
 
-  // Função para recolher todos
-  const collapseAllPersonals = () => {
+
+  const collapseAllPersonals = useCallback(() => {
     setExpandedPersonals(new Set());
-  };
+  }, []);
 
-  // Função para obter estatísticas rápidas do personal
-  const getPersonalQuickStats = (personalName) => {
-    const students = getStudentsForPersonal(personalName);
-    const categorized = students.reduce((acc, student) => {
-      const classification = classifyStudentImproved(student);
-      acc[classification.status] = (acc[classification.status] || 0) + 1;
-      return acc;
-    }, {});
-    
-    return {
-      total: students.length,
-      categories: categorized,
-      hasUrgent: categorized['Aberto'] > 0 || categorized['Pendente'] > 0
-    };
-  };
   
   // Hooks para cada unidade
   const alphaville = usePersonals('alphaville');
   const buenavista = usePersonals('buenavista'); 
   const marista = usePersonals('marista');
 
-  // Dados unificados
+  // Dados unificados - otimizado
   const allPersonalsData = useMemo(() => {
+    // Só recalcula se algum dos arrays mudou de tamanho ou referência
+    if (!alphaville.personals.length && !buenavista.personals.length && !marista.personals.length) {
+      return [];
+    }
+    
     const data = [
       ...alphaville.personals.map(p => ({ ...p, unidade: 'alphaville' })),
       ...buenavista.personals.map(p => ({ ...p, unidade: 'buenavista' })),
@@ -122,9 +93,23 @@ export default function UnifiedPersonalDashboard() {
     return !adminKeywords.some(keyword => alunoLower.includes(keyword));
   };
 
+  // Função isRealStudent otimizada com useCallback
+  const isRealStudentOptimized = useCallback((aluno) => {
+    if (!aluno) return false;
+    const alunoLower = aluno.toLowerCase().trim();
+    const adminKeywords = [
+      'assinar contrato', 'atualizar telefone', 'atualizar cpf', 'observar se tem alunos',
+      'caso nao solicitar isencao', 'caso não solicitar isenção', 'solicitar isenção',
+      'alunos de personal do alphaville', 'alunos de personal no marista', 
+      'alunos de personal da buenavista', 'alunos de personal buena vista'
+    ];
+    return !adminKeywords.some(keyword => alunoLower.includes(keyword));
+  }, []);
+
   const realStudentsData = useMemo(() => {
-    return allPersonalsData.filter(item => isRealStudent(item.aluno));
-  }, [allPersonalsData]);
+    if (!allPersonalsData.length) return [];
+    return allPersonalsData.filter(item => isRealStudentOptimized(item.aluno));
+  }, [allPersonalsData, isRealStudentOptimized]);
 
   // Função melhorada para classificar alunos com mais detalhes
   const classifyStudentImproved = (item) => {
@@ -231,17 +216,45 @@ export default function UnifiedPersonalDashboard() {
     return { isValid, expectedTax, totalStudents, taxType: 'regular' };
   };
 
-  // Estatísticas por personal (agrupado por pessoa)
+  // Estatísticas por personal (agrupado por pessoa) - OTIMIZADO
   const personalStats = useMemo(() => {
+    if (!realStudentsData.length) {
+      return {
+        personalsData: [],
+        totalPersonals: 0,
+        totalAlunosReais: 0,
+        totalAlunosUnicos: 0,
+        valorTotalFaturamento: 0
+      };
+    }
+
     const filteredData = selectedUnidade === 'all' 
       ? realStudentsData 
       : realStudentsData.filter(item => item.unidade === selectedUnidade);
 
-    const personalGroups = filteredData.reduce((acc, item) => {
+    if (!filteredData.length) {
+      return {
+        personalsData: [],
+        totalPersonals: 0,
+        totalAlunosReais: 0,
+        totalAlunosUnicos: 0,
+        valorTotalFaturamento: 0
+      };
+    }
+
+    const personalGroups = {};
+    let totalFaturamento = 0;
+    const uniqueStudents = new Set();
+
+    // Single loop para melhor performance
+    for (const item of filteredData) {
       const personal = item.personal || 'Sem Personal';
+      const valor = item.valorFinal || 0;
+      totalFaturamento += valor;
+      uniqueStudents.add(item.aluno);
       
-      if (!acc[personal]) {
-        acc[personal] = {
+      if (!personalGroups[personal]) {
+        personalGroups[personal] = {
           personal,
           unidades: new Set(),
           alunos: new Set(),
@@ -249,55 +262,48 @@ export default function UnifiedPersonalDashboard() {
           alunosIsentos: new Set(),
           alunosQuitados: new Set(),
           totalFaturamento: 0,
-          produtos: new Set() // Rastrear produtos aplicados
+          produtos: new Set()
         };
       }
       
+      const group = personalGroups[personal];
       const classification = classifyStudent(item);
       
-      acc[personal].unidades.add(item.unidade);
-      acc[personal].alunos.add(item.aluno);
-      acc[personal].totalFaturamento += (item.valorFinal || 0);
+      group.unidades.add(item.unidade);
+      group.alunos.add(item.aluno);
+      group.totalFaturamento += valor;
       
-      // Adicionar produtos/taxas aplicados
-      if (item.produto) acc[personal].produtos.add(item.produto);
-      if (item.plano) acc[personal].produtos.add(item.plano);
+      if (item.produto) group.produtos.add(item.produto);
+      if (item.plano) group.produtos.add(item.plano);
       
       switch (classification) {
         case 'Aberto':
-          acc[personal].alunosAbertos.add(item.aluno);
+          group.alunosAbertos.add(item.aluno);
           break;
         case 'Isento':
-          acc[personal].alunosIsentos.add(item.aluno);
+          group.alunosIsentos.add(item.aluno);
           break;
         case 'Quitado':
-          acc[personal].alunosQuitados.add(item.aluno);
+          group.alunosQuitados.add(item.aluno);
           break;
-        default:
-          console.warn('Aluno não classificado:', item);
       }
-      
-      return acc;
-    }, {});
+    }
 
     const personalArray = Object.values(personalGroups).map(group => {
-      const alunosAbertos = group.alunosAbertos.size;
-      const alunosIsentos = group.alunosIsentos.size;
-      const alunosQuitados = group.alunosQuitados.size;
       const unidadesArray = Array.from(group.unidades);
       const produtosArray = Array.from(group.produtos);
       
       return {
         ...group,
         totalAlunos: group.alunos.size,
-        alunosAbertos,
-        alunosIsentos, 
-        alunosQuitados,
+        alunosAbertos: group.alunosAbertos.size,
+        alunosIsentos: group.alunosIsentos.size,
+        alunosQuitados: group.alunosQuitados.size,
         unidades: unidadesArray,
         produtos: produtosArray,
         unidade: unidadesArray.length === 1 ? unidadesArray[0] : 'Múltiplas',
         alunos: Array.from(group.alunos),
-        alunosParaDivergencia: alunosQuitados + alunosIsentos
+        alunosParaDivergencia: group.alunosQuitados.size + group.alunosIsentos.size
       };
     }).sort((a, b) => b.totalAlunos - a.totalAlunos);
 
@@ -305,15 +311,33 @@ export default function UnifiedPersonalDashboard() {
       personalsData: personalArray,
       totalPersonals: personalArray.length,
       totalAlunosReais: filteredData.length,
-      totalAlunosUnicos: [...new Set(filteredData.map(item => item.aluno))].length,
-      valorTotalFaturamento: filteredData.reduce((sum, item) => sum + (item.valorFinal || 0), 0)
+      totalAlunosUnicos: uniqueStudents.size,
+      valorTotalFaturamento: totalFaturamento
     };
   }, [realStudentsData, selectedUnidade]);
 
-  // 🎯 VALIDAÇÃO DE TAXAS CORRIGIDA
+  // Dados filtrados por busca - OTIMIZADO
+  const filteredPersonalStats = useMemo(() => {
+    if (!searchTerm.trim()) return personalStats.personalsData;
+    if (!personalStats.personalsData.length) return [];
+    
+    const searchLower = searchTerm.toLowerCase().trim();
+    return personalStats.personalsData.filter(personal =>
+      personal.personal.toLowerCase().includes(searchLower)
+    );
+  }, [personalStats.personalsData, searchTerm]);
+
+  // Funções otimizadas com useCallback
+  const expandAllPersonals = useCallback(() => {
+    const allPersonalNames = filteredPersonalStats.map(p => p.personal);
+    setExpandedPersonals(new Set(allPersonalNames));
+  }, [filteredPersonalStats]);
+
+  // 🎯 VALIDAÇÃO DE TAXAS CORRIGIDA - OTIMIZADA
   const taxValidationData = useMemo(() => {
+    if (!personalStats.personalsData.length) return [];
+    
     return personalStats.personalsData.map(personal => {
-      // Pegar o primeiro produto encontrado como referência
       const currentTax = personal.produtos[0] || '';
       const validation = validateUnifiedTax(personal.totalAlunos, currentTax);
       
@@ -349,14 +373,6 @@ export default function UnifiedPersonalDashboard() {
     ).slice(0, 8);
   }, [personalStats.personalsData, searchTerm]);
 
-  // Dados filtrados por busca
-  const filteredPersonalStats = useMemo(() => {
-    if (!searchTerm) return personalStats.personalsData;
-    return personalStats.personalsData.filter(personal =>
-      personal.personal.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [personalStats.personalsData, searchTerm]);
-
   const personalsWithPendingStudents = useMemo(() => {
     return filteredPersonalStats.filter(personal => personal.alunosAbertos > 0);
   }, [filteredPersonalStats]);
@@ -388,17 +404,17 @@ export default function UnifiedPersonalDashboard() {
     };
   }, [personalStats, taxValidationData, personalsWithPendingStudents, personalsWithOpenTax, personalsWithExemptTax, personalsWithSpecialTax]);
 
-  // Funções para modal de exclusão
-  const handleDeleteAllData = () => {
+  // Funções para modal de exclusão - OTIMIZADAS
+  const handleDeleteAllData = useCallback(() => {
     setShowDeleteModal(true);
-  };
+  }, []);
 
-  const cancelDelete = () => {
+  const cancelDelete = useCallback(() => {
     setShowDeleteModal(false);
     setDeleteConfirmText('');
-  };
+  }, []);
 
-  const confirmDeleteAllData = async () => {
+  const confirmDeleteAllData = useCallback(async () => {
     if (deleteConfirmText !== "CONFIRMAR EXCLUSÃO") return;
     
     try {
@@ -411,11 +427,14 @@ export default function UnifiedPersonalDashboard() {
       setErrors(['Erro ao excluir dados: ' + error.message]);
       setSuccessMessages([]);
     }
-  };
+  }, [deleteConfirmText]);
 
-  // MELHORAR a função getStudentsForPersonal com classificação visual
-  const getStudentsForPersonal = (personalName) => {
-    return realStudentsData.filter(item => item.personal === personalName)
+  // MELHORAR a função getStudentsForPersonal com classificação visual - OTIMIZADA
+  const getStudentsForPersonal = useCallback((personalName) => {
+    if (!realStudentsData.length || !personalName) return [];
+    
+    return realStudentsData
+      .filter(item => item.personal === personalName)
       .map(item => {
         const classification = classifyStudentImproved(item);
         return {
@@ -426,23 +445,41 @@ export default function UnifiedPersonalDashboard() {
         };
       })
       .sort((a, b) => a.sortOrder - b.sortOrder);
-  };
+  }, [realStudentsData]);
 
-  // Função para lidar com visualização de alunos
-  const handleViewStudents = (personalName) => {
-    if (selectedPersonalForStudents === personalName && showStudents) {
-      // Se já está mostrando os alunos deste personal, fechar
-      setShowStudents(false);
-      setSelectedPersonalForStudents('');
-    } else {
-      // Mostrar alunos do personal selecionado
-      setSelectedPersonalForStudents(personalName);
-      setShowStudents(true);
-    }
-  };
+  // Função para obter estatísticas rápidas do personal - OTIMIZADA
+  const getPersonalQuickStats = useCallback((personalName) => {
+    const students = getStudentsForPersonal(personalName);
+    if (!students.length) return { total: 0, categories: {}, hasUrgent: false };
+    
+    const categorized = students.reduce((acc, student) => {
+      const classification = classifyStudentImproved(student);
+      acc[classification.status] = (acc[classification.status] || 0) + 1;
+      return acc;
+    }, {});
+    
+    return {
+      total: students.length,
+      categories: categorized,
+      hasUrgent: categorized['Aberto'] > 0 || categorized['Pendente'] > 0
+    };
+  }, [getStudentsForPersonal]);
 
-  // NOVO COMPONENTE - StudentCardImproved
-  const StudentCardImproved = ({ student, index }) => {
+  // Função para lidar com visualização de alunos - OTIMIZADA
+  const handleViewStudents = useCallback((personalName) => {
+    setSelectedPersonalForStudents(prev => {
+      if (prev === personalName) {
+        setShowStudents(false);
+        return '';
+      } else {
+        setShowStudents(true);
+        return personalName;
+      }
+    });
+  }, []);
+
+  // NOVO COMPONENTE - StudentCardImproved - MEMOIZADO
+  const StudentCardImproved = memo(({ student, index }) => {
     const classification = classifyStudentImproved(student);
     
     return (
@@ -551,10 +588,10 @@ export default function UnifiedPersonalDashboard() {
         )}
       </div>
     );
-  };
+  });
 
-  // Componente: Card de Estatísticas
-  const StatCard = ({ icon: Icon, title, value, subtitle, color = "blue", onClick }) => (
+  // Componente: Card de Estatísticas - MEMOIZADO
+  const StatCard = memo(({ icon: Icon, title, value, subtitle, color = "blue", onClick }) => (
     <div 
       className={`stat-card stat-card-${color} ${onClick ? 'clickable' : ''}`}
       onClick={onClick}
@@ -568,10 +605,10 @@ export default function UnifiedPersonalDashboard() {
         {subtitle && <div className="stat-subtitle">{subtitle}</div>}
       </div>
     </div>
-  );
+  ));
 
-  // Componente: Relatório de Validação de Taxas
-  const TaxValidationReport = () => {
+  // Componente: Relatório de Validação de Taxas - MEMOIZADO
+  const TaxValidationReport = memo(() => {
     // Filtrar apenas taxas regulares inválidas
     const invalidTaxes = taxValidationData.filter(p => 
       p.taxValidation.taxType === 'regular' && !p.taxValidation.isValid
@@ -757,10 +794,10 @@ export default function UnifiedPersonalDashboard() {
         </div>
       </div>
     );
-  };
+  });
 
-  // Componente: Personals com Alunos Pendentes
-  const PendingStudentsReport = () => {
+  // Componente: Personals com Alunos Pendentes - MEMOIZADO
+  const PendingStudentsReport = memo(() => {
     if (personalsWithPendingStudents.length === 0) {
       return (
         <div className="validation-success">
@@ -833,10 +870,10 @@ export default function UnifiedPersonalDashboard() {
         </div>
       </div>
     );
-  };
+  });
 
-  // Componente: Personals em Aberto
-  const OpenPersonalsReport = () => {
+  // Componente: Personals em Aberto - MEMOIZADO
+  const OpenPersonalsReport = memo(() => {
     if (personalsWithOpenTax.length === 0) {
       return (
         <div className="validation-success">
@@ -984,7 +1021,7 @@ export default function UnifiedPersonalDashboard() {
         </div>
       </div>
     );
-  };
+  });
 
   return (
     <div className="unified-personal-dashboard">
@@ -1035,7 +1072,14 @@ export default function UnifiedPersonalDashboard() {
 
         {selectedView === 'upload' ? (
           <div className="upload-section">
-            <UnifiedPersonalUploader />
+            <Suspense fallback={
+              <div className="loading-container">
+                <div className="loading-spinner"></div>
+                <p>Carregando uploader...</p>
+              </div>
+            }>
+              <UnifiedPersonalUploader />
+            </Suspense>
           </div>
         ) : (
           <>
@@ -1410,10 +1454,17 @@ export default function UnifiedPersonalDashboard() {
                     </div>
                   ) : (
                     // Mostra tabela geral quando não há busca
-                    <PersonalStudentTable 
-                      personalStats={personalStats}
-                      selectedUnidade={selectedUnidade}
-                    />
+                    <Suspense fallback={
+                      <div className="loading-container">
+                        <div className="loading-spinner"></div>
+                        <p>Carregando tabela...</p>
+                      </div>
+                    }>
+                      <PersonalStudentTable 
+                        personalStats={personalStats}
+                        selectedUnidade={selectedUnidade}
+                      />
+                    </Suspense>
                   )}
                 </div>
               )}
@@ -1500,6 +1551,37 @@ export default function UnifiedPersonalDashboard() {
 
       {/* Styles */}
       <style jsx>{`
+        /* Loading Styles */
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 60px 20px;
+          color: #64748b;
+        }
+
+        .loading-spinner {
+          width: 40px;
+          height: 40px;
+          border: 4px solid #f3f4f6;
+          border-top: 4px solid #10b981;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        .loading-container p {
+          margin: 0;
+          font-size: 16px;
+          font-weight: 500;
+        }
+
         .unified-personal-dashboard {
           min-height: 100vh;
           background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);

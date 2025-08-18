@@ -109,21 +109,8 @@ export const useGroupedVendas = (vendas) => {
     // Converter o objeto de grupos em array
     const planosAgrupadosArray = Object.values(planosAgrupados);
     
-    // Log para debug
-    console.log('📊 Agrupamento de Planos:');
-    console.log(`- Total de vendas originais: ${vendas.length}`);
-    console.log(`- Vendas de planos antes do agrupamento: ${vendasPlanos.length}`);
-    console.log(`- Vendas de planos após agrupamento: ${planosAgrupadosArray.length}`);
-    console.log(`- Redução: ${vendasPlanos.length - planosAgrupadosArray.length} vendas agrupadas`);
     
-    // Log detalhado dos agrupamentos
-    planosAgrupadosArray.forEach(grupo => {
-      if (grupo._groupedCount > 1) {
-        console.log(`  ✅ Agrupado: Matrícula ${grupo.matricula} - ${grupo._groupedCount} vendas = R$ ${grupo.valor.toFixed(2)}`);
-        console.log(`     Valores originais: ${grupo._originalValues.map(v => `R$ ${v.toFixed(2)}`).join(' + ')}`);
-      }
-    });
-
+    
     // Combinar planos agrupados com outras vendas
     const vendasFinais = [...planosAgrupadosArray, ...outrasVendas];
     

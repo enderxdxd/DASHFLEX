@@ -109,9 +109,7 @@ export default function PersonalFileUploader({ onDataProcessed, onError, unidade
             return;
           }
 
-          // Log das colunas para debug
-          console.log('Colunas encontradas na planilha:', columns);
-          console.log('Primeira linha de dados:', jsonData[0]);
+          // Debug logs removed
 
           // Processamento dos dados - usa as colunas na ordem que aparecem
           const processedData = jsonData.map((row, index) => {
@@ -178,35 +176,25 @@ export default function PersonalFileUploader({ onDataProcessed, onError, unidade
       const functionsUrl = process.env.REACT_APP_FUNCTIONS_URL || 
                           'https://southamerica-east1-chatpos-aff1a.cloudfunctions.net/uploadPersonal';
       
-      console.log('🔍 DEBUG - Variáveis de ambiente:');
-      console.log('REACT_APP_FUNCTIONS_URL:', process.env.REACT_APP_FUNCTIONS_URL);
-      console.log('URL final utilizada:', functionsUrl);
-      console.log('Todas as variáveis REACT_APP:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP')));
+      // Debug logs removed
       
-      console.log('🔗 Enviando dados para:', functionsUrl);
 
       // Cria FormData para enviar arquivo + dados
       const formData = new FormData();
       formData.append('file', file);
       formData.append('unidade', unidade);
 
-      console.log('📦 Enviando arquivo:', file.name);
-      console.log('📦 Unidade:', unidade);
 
       const response = await fetch(functionsUrl, {
         method: 'POST',
         body: formData // Remove Content-Type header - deixa o browser definir automaticamente
       });
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
 
-      // Pega o texto da resposta primeiro para debug
+      // Pega o texto da resposta primeiro
       const responseText = await response.text();
-      console.log('📡 Response text (primeiros 500 chars):', responseText.substring(0, 500));
 
       if (!response.ok) {
-        console.error('❌ Erro na resposta:', responseText);
         throw new Error(`Erro HTTP ${response.status}: ${responseText.substring(0, 200)}`);
       }
 

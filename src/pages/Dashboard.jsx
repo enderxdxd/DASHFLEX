@@ -110,8 +110,6 @@ const Dashboard = () => {
       (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase()
     );
     
-    console.log('🏢 Vendas da unidade (todas):', vendasDaUnidade.length);
-    
     const vendasMesAtual = vendasDaUnidade.filter(v => {
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth;
       return mesCorreto; // Remove filtro de responsáveis oficiais
@@ -127,15 +125,12 @@ const Dashboard = () => {
     const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
 
-    console.log('🏢 Faturamento Unidade - Atual:', totalAtual, 'Anterior:', totalAnterior);
-    console.log('🏢 Vendas mês atual:', vendasMesAtual.length, 'Vendas mês anterior:', vendasMesAnterior.length);
 
     return { totalAtual, totalAnterior, percentChange };
   }, [vendasFiltradas, unidade, selectedMonth]);
 
   // 2. Faturamento DOS CONSULTORES (todas as vendas dos consultores da unidade, mesmo que de outras unidades)
   const faturamentoConsultores = useMemo(() => {
-    console.log('👥 Calculando faturamento dos consultores');
     
     const vendasMesAtual = vendasFiltradas.filter(v => {
       const resp = (v.responsavel || '').trim().toLowerCase();
@@ -157,8 +152,6 @@ const Dashboard = () => {
     const totalAtual = vendasMesAtual.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
-
-    console.log('👥 Faturamento Consultores - Atual:', totalAtual, 'Anterior:', totalAnterior);
 
     return { totalAtual, totalAnterior, percentChange };
   }, [vendasFiltradas, selectedMonth, responsaveisOficiais]);
@@ -235,10 +228,7 @@ const Dashboard = () => {
 
   // Debug: Verificar filtros ativos
   useEffect(() => {
-    console.log('🔍 Debug - Produtos selecionados:', produtosSelecionados);
-    console.log('🔍 Debug - Total vendas brutas:', vendas.length);
-    console.log('🔍 Debug - Vendas após filtro produtos:', vendasFiltradas.length);
-    console.log('🔍 Debug - Responsáveis oficiais:', responsaveisOficiais);
+    
     
     if (vendas.length > 0) {
       const somaTotal = vendas
@@ -246,7 +236,6 @@ const Dashboard = () => {
         .filter(v => dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth)
         .reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
       
-      console.log('🔍 Debug - Soma TOTAL da unidade no mês (sem filtros):', somaTotal);
     }
   }, [vendas, vendasFiltradas, produtosSelecionados, responsaveisOficiais, unidade, selectedMonth]);
 

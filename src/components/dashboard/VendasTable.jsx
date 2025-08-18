@@ -27,6 +27,9 @@ const VendasTable = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [deleteMonth, setDeleteMonth] = useState(dayjs().format("YYYY-MM"));
   const [loadingDelete, setLoadingDelete] = useState(false);
+  const [deleteMode, setDeleteMode] = useState('month'); // 'month' | 'range'
+  const [startDate, setStartDate] = useState(dayjs().startOf('month').toDate());
+  const [endDate, setEndDate] = useState(dayjs().endOf('month').toDate());
   const itemsPerPage = 10;
   const totalPages = Math.ceil(totalVendas / itemsPerPage);
   const { unidade } = useParams();
@@ -102,6 +105,53 @@ const VendasTable = ({
       setLoadingDelete(false);
     }
   };
+
+  const handleDeleteRangeClick = async () => {
+    const startDateStr = dayjs(startDate).format('YYYY-MM-DD');
+    const endDateStr = dayjs(endDate).format('YYYY-MM-DD');
+    
+    if (!window.confirm(`Excluir todas as vendas entre ${dayjs(startDate).format('DD/MM/YYYY')} e ${dayjs(endDate).format('DD/MM/YYYY')}?`)) return;
+    
+    try {
+      setLoadingDelete(true);
+      const count = await deleteVendasPorIntervalo(unidade, startDateStr, endDateStr);
+      alert(`✅ ${count} vendas deletadas no período selecionado`);
+    } catch (err) {
+      console.error(err);
+      alert("❌ Erro ao deletar vendas do período.");
+    } finally {
+      setLoadingDelete(false);
+    }
+  };
+
+  // Função para deletar vendas por intervalo de datas
+  const deleteVendasPorIntervalo = async (unidade, startDate, endDate) => {
+    const vendasRef = collection(db, "faturamento", unidade.toLowerCase(), "vendas");
+    const snapshot = await getDocs(vendasRef);
+    
+    if (snapshot.empty) {
+      return 0;
+    }
+    
+    const batch = writeBatch(db);
+    let count = 0;
+    
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const vendaDate = data.dataFormatada;
+      
+      if (vendaDate && vendaDate >= startDate && vendaDate <= endDate) {
+        batch.delete(doc.ref);
+        count++;
+      }
+    });
+    
+    if (count > 0) {
+      await batch.commit();
+    }
+    
+    return count;
+  };
   
   // Salvar alterações
   const saveChanges = async (id) => {
@@ -173,16 +223,36 @@ const VendasTable = ({
           <div className="delete-buttons">
             {role === "admin" && (
               <>
-                <input
-                  type="month"
-                  className="month-input"
-                  value={deleteMonth}
-                  onChange={e => setDeleteMonth(e.target.value)}
-                />
+                <div className="date-inputs-container">
+                  <DatePicker
+                    selected={startDate}
+                    onChange={date => setStartDate(date)}
+                    selectsStart
+                    startDate={startDate}
+                    endDate={endDate}
+                    placeholderText="Data inicial"
+                    dateFormat="dd/MM/yyyy"
+                    className="date-input"
+                    maxDate={endDate}
+                  />
+                  <span className="date-separator">até</span>
+                  <DatePicker
+                    selected={endDate}
+                    onChange={date => setEndDate(date)}
+                    selectsEnd
+                    startDate={startDate}
+                    endDate={endDate}
+                    minDate={startDate}
+                    placeholderText="Data final"
+                    dateFormat="dd/MM/yyyy"
+                    className="date-input"
+                  />
+                </div>
+                
                 <button
                   className="delete-button"
-                  onClick={handleDeleteMonthClick}
-                  disabled={loadingDelete}
+                  onClick={handleDeleteRangeClick}
+                  disabled={loadingDelete || !startDate || !endDate}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -190,7 +260,7 @@ const VendasTable = ({
                     <path d="M10 11V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M14 11V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  {loadingDelete ? "Deletando..." : "Deletar"}
+                  {loadingDelete ? "Deletando..." : "Deletar Período"}
                 </button>
               </>
             )}
@@ -463,7 +533,7 @@ const VendasTable = ({
     box-shadow: var(--shadow-table, 0 4px 20px rgba(0, 0, 0, 0.03)), var(--shadow-table-accent, 0 1px 3px rgba(0, 0, 0, 0.05));
     border: 1px solid var(--border-primary, rgba(226, 232, 240, 0.8));
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   
@@ -565,25 +635,105 @@ const VendasTable = ({
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
   }
   
-  /* Input de mês */
-  .month-input {
-    padding: 10px 16px;
+  /* Toggle minimalista */
+  .mode-toggle {
+    display: inline-flex;
+    background: var(--bg-input, #f8fafc);
+    border: 1px solid var(--border-input, #e2e8f0);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+  }
+  
+  .toggle-option {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+  }
+  
+  .toggle-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .toggle-label {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary, #64748b);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  
+  .toggle-option input[type="radio"]:checked + .toggle-label {
+    background: var(--primary, #6366f1);
+    color: white;
+    box-shadow: 0 1px 3px rgba(99, 102, 241, 0.3);
+  }
+  
+  .toggle-option:hover .toggle-label {
+    color: var(--text-primary, #1e293b);
+  }
+  
+  .toggle-option input[type="radio"]:checked + .toggle-label:hover {
+    color: white;
+  }
+  
+  /* Container padronizado para inputs de data */
+  .date-inputs-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 20;
+  }
+  
+  /* Container de intervalo de datas */
+  .date-range-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 20;
+  }
+  
+  .date-input {
+    padding: 10px 14px;
     background: linear-gradient(135deg, var(--bg-input, #f8fafc) 0%, var(--bg-input-light, #f1f5f9) 100%);
     border: 1px solid var(--border-input, #e2e8f0);
     border-radius: 8px;
     font-size: 13px;
     color: var(--text-primary, #1e293b);
     height: 40px;
+    width: 140px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: var(--shadow-input, 0 1px 3px rgba(0, 0, 0, 0.05));
+    box-sizing: border-box;
+    position: relative;
+    z-index: 10;
   }
   
-  .month-input:focus {
+  .date-input:focus {
     outline: none;
     border-color: var(--primary, #6366f1);
     box-shadow: 0 0 0 3px var(--primary-alpha, rgba(99, 102, 241, 0.1));
+  }
+  
+  .date-separator {
+    font-size: 12px;
+    color: var(--text-secondary, #64748b);
+    font-weight: 500;
+    white-space: nowrap;
+    padding: 0 4px;
   }
   
   /* Botão de deletar */
@@ -621,6 +771,7 @@ const VendasTable = ({
   .table-wrapper {
     position: relative;
     width: 100%;
+    z-index: 1;
   }
   
   .table-container {
@@ -630,6 +781,8 @@ const VendasTable = ({
     border: 1px solid var(--border-table, #e2e8f0);
     box-shadow: var(--shadow-table-container, 0 2px 8px rgba(0, 0, 0, 0.05));
     background: var(--bg-table, white);
+    position: relative;
+    z-index: 1;
   }
   
   /* TABELA PRINCIPAL - LAYOUT FIXO */
@@ -1162,6 +1315,19 @@ const VendasTable = ({
       width: 100%;
     }
     
+    .delete-mode-selector {
+      width: 100%;
+    }
+    
+    .date-range-container {
+      width: 100%;
+      justify-content: space-between;
+    }
+    
+    .date-input {
+      width: calc(50% - 20px);
+    }
+    
     .vendas-table {
       font-size: 12px;
       min-width: 800px;
@@ -1210,7 +1376,8 @@ const VendasTable = ({
     
     .search-input,
     .month-input,
-    .delete-button {
+    .delete-button,
+    .date-input {
       height: 36px;
       font-size: 12px;
     }

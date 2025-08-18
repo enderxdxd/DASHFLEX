@@ -16,7 +16,6 @@ export function usePersonals(unidade) {
     if (!unidade) return;
 
     setLoading(true);
-    console.log(`🔥 Carregando dados do Firestore para unidade: ${unidade}`);
 
     try {
       const personalsRef = collection(db, 'faturamento', unidade, 'personals');
@@ -31,19 +30,16 @@ export function usePersonals(unidade) {
           });
         });
 
-        console.log(`📊 Dados carregados do Firestore para ${unidade}:`, firestoreData.length, 'registros');
         
         setPersonals(firestoreData);
         setLoading(false);
       }, (error) => {
-        console.error('❌ Erro ao carregar dados do Firestore:', error);
         setError('Erro ao carregar dados do servidor: ' + error.message);
         setLoading(false);
       });
 
       return unsubscribe;
     } catch (err) {
-      console.error('❌ Erro ao configurar listener do Firestore:', err);
       setError('Erro ao conectar com o servidor: ' + err.message);
       setLoading(false);
     }
@@ -63,11 +59,6 @@ export function usePersonals(unidade) {
       // Garante que newData é um array
       const dataArray = Array.isArray(newData) ? newData : [newData];
       
-      console.log('📊 Adicionando dados ao hook usePersonals:', {
-        unidade,
-        novosRegistros: dataArray.length,
-        registrosExistentes: personals.length
-      });
       
       const updatedData = [...personals, ...dataArray];
       setPersonals(updatedData);
@@ -75,7 +66,6 @@ export function usePersonals(unidade) {
       setSuccessMessage(`${dataArray.length} registros adicionados com sucesso!`);
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
-      console.error('❌ Erro ao adicionar dados no hook usePersonals:', err);
       setError('Erro ao adicionar dados: ' + err.message);
       setTimeout(() => setError(null), 5000);
     } finally {
@@ -99,7 +89,7 @@ export function usePersonals(unidade) {
   // Carregar dados ao montar o componente
   useEffect(() => {
     if (unidade) {
-      console.log(`🚀 Inicializando hook usePersonals para unidade: ${unidade}`);
+      
       
       // Configura listener do Firestore para dados em tempo real
       const unsubscribe = loadPersonalsFromFirestore();
@@ -107,7 +97,6 @@ export function usePersonals(unidade) {
       // Cleanup function
       return () => {
         if (unsubscribe && typeof unsubscribe === 'function') {
-          console.log(`🧹 Limpando listener do Firestore para ${unidade}`);
           unsubscribe();
         }
       };

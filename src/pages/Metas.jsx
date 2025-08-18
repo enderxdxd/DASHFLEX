@@ -119,13 +119,7 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
     const totalVendas = vendasArr.reduce((soma, v) => soma + (Number(v?.valor) || 0), 0);
     const metaIndividualBatida = totalVendas >= metaValor;
     
-    console.log("🔍 DEBUG COMISSÃO:", {
-      totalVendas: totalVendas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-      metaValor: metaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-      metaIndividualBatida,
-      unidadeBatida,
-      totalVendasArray: vendasArr.length
-    });
+    
     
     let totalComissao = 0;
     
@@ -153,19 +147,16 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
           comissaoVenda = plano.semMeta || 0; // Meta individual não batida
         }
         
-        console.log(`💎 ${index + 1}. Plano ${plano.plano}: R$ ${valorVenda.toLocaleString('pt-BR')} → Comissão: R$ ${comissaoVenda} (${unidadeBatida ? 'TME' : metaIndividualBatida ? 'comMeta' : 'semMeta'})`);
       } else {
         // ✅ VENDA NÃO É UM PLANO: Usar taxa percentual
         const taxa = metaIndividualBatida ? taxaCom : taxaSem;
         comissaoVenda = valorVenda * taxa;
         
-        console.log(`📦 ${index + 1}. Outros: R$ ${valorVenda.toLocaleString('pt-BR')} → Comissão: R$ ${comissaoVenda.toFixed(2)} (${(taxa * 100).toFixed(1)}%)`);
       }
       
       totalComissao += comissaoVenda;
     });
     
-    console.log(`💰 TOTAL COMISSÃO CALCULADA: R$ ${totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
     return totalComissao;
   } 
   
@@ -186,17 +177,7 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
       return soma + (Number(faixa.premio) || 0);
     }, 0);
     
-    // Log detalhado para depuração
-    console.group('📊 Cálculo de Premiação');
-    console.log('Meta:', metaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-    console.log('Acumulado:', acumulado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-    console.log('Percentual:', percentual.toFixed(2) + '%');
-    console.log('Faixas atingidas:', faixasAtingidas.length);
-    faixasAtingidas.forEach((f, i) => {
-      console.log(`  ${i+1}. ${f.percentual}% = R$ ${Number(f.premio || 0).toFixed(2)}`);
-    });
-    console.log('Total de prêmio:', premioTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-    console.groupEnd();
+    // Debug logs removed
     
     return premioTotal;
   }
@@ -210,28 +191,16 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
  * Use esta função temporariamente para debugar o caso específico
  */
 function debugCalculoASMIHS(vendasArr, configRem, metaValor, unidadeBatida) {
-  console.group("🔍 DEBUG DETALHADO - ASMIHS");
-  
-  console.log("📊 Dados de entrada:");
-  console.log("- Total de vendas:", vendasArr.length);
-  console.log("- Planos configurados:", configRem.comissaoPlanos?.length || 0);
-  console.log("- Meta individual:", metaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-  console.log("- Meta da unidade batida:", unidadeBatida);
+  // Debug function - logs removed
   
   const totalVendas = vendasArr.reduce((s, v) => s + Number(v.valor || 0), 0);
   const metaIndividualBatida = totalVendas >= metaValor;
   
-  console.log("- Total em vendas:", totalVendas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-  console.log("- Meta individual batida:", metaIndividualBatida);
-  
-  // Verificar cada venda individualmente
   let totalComissao = 0;
   let totalPlanos = 0;
   let totalOutros = 0;
   let planosCount = 0;
   let outrosCount = 0;
-  
-  console.log("\n📋 ANÁLISE VENDA POR VENDA:");
   
   vendasArr.forEach((venda, index) => {
     const valor = Number(venda.valor || 0);
@@ -256,7 +225,6 @@ function debugCalculoASMIHS(vendasArr, configRem, metaValor, unidadeBatida) {
       totalPlanos += comissao;
       planosCount++;
       
-      console.log(`${index + 1}. 💎 R$ ${valor.toLocaleString('pt-BR')} (${venda.produto || 'N/A'}) → Plano ${plano.plano} → R$ ${comissao} (${unidadeBatida ? 'TME' : metaIndividualBatida ? 'comMeta' : 'semMeta'})`);
     } else {
       // Não é um plano
       const taxa = metaIndividualBatida ? 0.015 : 0.012;
@@ -265,18 +233,10 @@ function debugCalculoASMIHS(vendasArr, configRem, metaValor, unidadeBatida) {
       totalOutros += comissao;
       outrosCount++;
       
-      console.log(`${index + 1}. 📦 R$ ${valor.toLocaleString('pt-BR')} (${venda.produto || 'N/A'}) → Outros ${(taxa * 100).toFixed(1)}% → R$ ${comissao.toFixed(2)}`);
     }
   });
   
-  console.log("\n💰 RESUMO FINAL:");
-  console.log(`- Vendas de planos: ${planosCount} vendas`);
-  console.log(`- Outros produtos: ${outrosCount} vendas`);
-  console.log("- Comissão dos planos: R$", totalPlanos.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-  console.log("- Comissão dos outros: R$", totalOutros.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-  console.log("- TOTAL CALCULADO: R$", totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-  
-  console.groupEnd();
+  // Debug logs removed
   
   return {
     totalComissao,
@@ -458,26 +418,18 @@ function debugConsultor(nomeConsultor, todasVendas, configRem, metas) {
     return;
   }
   
-  console.log('📊 Meta encontrada:', metaConsultor);
   
   // Filtrar vendas do consultor
   const vendasConsultor = todasVendas.filter(v => 
     v.responsavel.toLowerCase() === metaConsultor.responsavel.toLowerCase()
   );
   
-  console.log(`📈 Total de vendas encontradas: ${vendasConsultor.length}`);
   
   // Verificar se a unidade bateu a meta
   const metaUnidade = configRem.metaUnidade || 0;
   const totalVendasUnidade = todasVendas.reduce((s, v) => s + Number(v.valor || 0), 0);
   const unidadeBatida = totalVendasUnidade >= metaUnidade;
   
-  console.log('🏢 Status da unidade:', {
-    metaUnidade,
-    totalVendasUnidade,
-    unidadeBatida,
-    metaIndividual: metaConsultor.meta
-  });
   
   // Calcular remuneração usando a função principal
   const remuneracao = calcularRemuneracao(
@@ -488,38 +440,19 @@ function debugConsultor(nomeConsultor, todasVendas, configRem, metas) {
     configRem
   );
   
-  console.log('💰 Remuneração calculada:', remuneracao);
   
   // Comparar com o PlanosVisualizer
   console.log('🔄 Comparando com PlanosVisualizer...');
   const comparacao = compararComPlanosVisualizer(
     vendasConsultor,
     configRem,
-    Number(metaConsultor.meta || 0),
+    Number(metaConsultor.meta),
     unidadeBatida
   );
   
   console.log('📊 Resumo da comparação:', comparacao.resumo);
   
-  // Mostrar detalhes das primeiras 5 vendas
-  console.log('📋 Detalhes das primeiras 5 vendas (Metas vs PlanosVisualizer):');
-  for (let i = 0; i < Math.min(5, vendasConsultor.length); i++) {
-    const venda = vendasConsultor[i];
-    const detalheMetas = comparacao.detalhesMetas.find(d => d.id === i);
-    const detalhePV = comparacao.detalhesPV.find(d => d.id === i);
-    
-    console.log(`\n📦 Venda #${i + 1}: R$ ${Number(venda.valor || 0).toLocaleString('pt-BR')} (${venda.produto || 'N/A'})`);
-    console.log('   Metas.jsx:', {
-      plano: detalheMetas?.plano || 'N/A',
-      tipoCalculo: detalheMetas?.tipoCalculo || 'N/A',
-      comissao: detalheMetas?.comissao?.toFixed(2) || '0.00'
-    });
-    console.log('   PlanosVisualizer:', {
-      plano: detalhePV?.plano || 'N/A',
-      tipoCalculo: detalhePV?.tipoCalculo || 'N/A',
-      comissao: detalhePV?.comissao?.toFixed(2) || '0.00'
-    });
-  }
+  // Debug logs removed
   
   console.groupEnd();
   
@@ -531,57 +464,31 @@ function debugConsultor(nomeConsultor, todasVendas, configRem, metas) {
   };
 }
 
-// 🔍 FUNÇÃO DE DEBUG - ADICIONE TEMPORARIAMENTE
+// Debug function - logs removed
 function debugCalculoASMIHS(vendasArr, configRem) {
-  console.group("🔍 DEBUG DETALHADO - ASMIHS");
-  
-  console.log("📊 Dados de entrada:");
-  console.log("- Total de vendas:", vendasArr.length);
-  console.log("- Planos configurados:", configRem.comissaoPlanos);
-  console.log("- Meta da unidade:", configRem.metaUnidade);
-  
   const totalVendas = vendasArr.reduce((s, v) => s + Number(v.valor || 0), 0);
-  console.log("- Total em vendas: R$", totalVendas.toLocaleString('pt-BR'));
   
-  // Verificar cada venda individualmente
   let totalComissao = 0;
   let totalPlanos = 0;
   let totalOutros = 0;
   
-  console.log("\n📋 ANÁLISE VENDA POR VENDA:");
-  
   vendasArr.forEach((venda, index) => {
     const valor = Number(venda.valor || 0);
     
-    // Verificar se encaixa em algum plano
     const plano = configRem.comissaoPlanos?.find(p => 
       valor >= (p.min || 0) && valor <= (p.max || Infinity)
     );
     
     if (plano) {
-      // É um plano
-      const comissao = plano.comMeta || 0; // Assumindo que bateu meta individual
+      const comissao = plano.comMeta || 0;
       totalComissao += comissao;
       totalPlanos += comissao;
-      
-      console.log(`${index + 1}. 💎 R$ ${valor.toLocaleString('pt-BR')} (${venda.produto || 'N/A'}) → Plano ${plano.plano} → R$ ${comissao}`);
     } else {
-      // Não é um plano
-      const comissao = valor * 0.015; // Assumindo que bateu meta (1,5%)
+      const comissao = valor * 0.015;
       totalComissao += comissao;
       totalOutros += comissao;
-      
-      console.log(`${index + 1}. 📦 R$ ${valor.toLocaleString('pt-BR')} (${venda.produto || 'N/A'}) → Outros 1,5% → R$ ${comissao.toFixed(2)}`);
     }
   });
-  
-  console.log("\n💰 RESUMO FINAL:");
-  console.log("- Comissão dos planos: R$", totalPlanos.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-  console.log("- Comissão dos outros: R$", totalOutros.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-  console.log("- TOTAL CALCULADO: R$", totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-  console.log("- DIFERENÇA COM METAS: R$", (3080.10 - totalComissao).toFixed(2));
-  
-  console.groupEnd();
   
   return totalComissao;
 }

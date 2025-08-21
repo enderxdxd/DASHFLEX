@@ -70,6 +70,8 @@ const DescontosPage = () => {
     setSelectedMonth,
     tipoFiltro,
     setTipoFiltro,
+    desconsiderarMatricula,
+    setDesconsiderarMatricula,
     resetFiltros,
     currentPage,
     setCurrentPage,
@@ -139,11 +141,28 @@ const DescontosPage = () => {
               </p>
             </div>
             
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-center">
               <MonthSelector
                 value={selectedMonth}
                 onChange={setSelectedMonth}
               />
+              
+              {/* Toggle para desconsiderar matrícula - visível em todas as views */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="desconsiderar-matricula"
+                  checked={desconsiderarMatricula}
+                  onChange={(e) => setDesconsiderarMatricula(e.target.checked)}
+                  className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+                />
+                <label 
+                  htmlFor="desconsiderar-matricula" 
+                  className="text-sm font-medium text-orange-800 cursor-pointer whitespace-nowrap"
+                >
+                  Desconsiderar matrícula
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -548,6 +567,26 @@ const DescontosPage = () => {
               <div className="flex items-center gap-3 mb-4">
                 <Filter className="w-5 h-5 text-blue-600" />
                 <h3 className="text-lg font-semibold text-gray-900">Filtros</h3>
+              </div>
+
+              {/* Toggle para desconsiderar matrícula */}
+              <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={desconsiderarMatricula}
+                      onChange={(e) => setDesconsiderarMatricula(e.target.checked)}
+                      className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 focus:ring-2"
+                    />
+                    <span className="text-sm font-medium text-orange-800">
+                      Desconsiderar desconto de matrícula
+                    </span>
+                  </label>
+                  <div className="text-xs text-orange-600 ml-6">
+                    Quando ativado, apenas descontos de plano serão considerados no cálculo
+                  </div>
+                </div>
               </div>
               
               <div className="filters-grid">

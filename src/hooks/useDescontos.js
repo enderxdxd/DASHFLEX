@@ -39,6 +39,7 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
   const [filtroNome, setFiltroNome] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
   const [tipoFiltro, setTipoFiltro] = useState("todos");
+  const [desconsiderarMatricula, setDesconsiderarMatricula] = useState(false);
   
   // Ordenação e paginação
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
@@ -345,17 +346,21 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       
       if (descontoGrupo && descontoGrupo.totalDesconto > 0) {
         // TEM DESCONTO: Valor Cheio = Valor Pago + Total Descontos
-        const totalDesconto = descontoGrupo.totalDesconto;
+        // Se desconsiderar matrícula, usar apenas desconto de plano
+        const descontoPlanoFinal = descontoGrupo.descontoPlano;
+        const descontoMatriculaFinal = desconsiderarMatricula ? 0 : descontoGrupo.descontoMatricula;
+        const totalDesconto = descontoPlanoFinal + descontoMatriculaFinal;
+        
         const valorCheio = valorPago + totalDesconto;
         const percentualDesconto = valorCheio > 0 ? (totalDesconto / valorCheio) * 100 : 0;
         
         return {
           ...venda,
-          temDesconto: true,
-          temDescontoPlano: descontoGrupo.descontoPlano > 0,
-          temDescontoMatricula: descontoGrupo.descontoMatricula > 0,
-          descontoPlano: descontoGrupo.descontoPlano,
-          descontoMatricula: descontoGrupo.descontoMatricula,
+          temDesconto: totalDesconto > 0,
+          temDescontoPlano: descontoPlanoFinal > 0,
+          temDescontoMatricula: descontoMatriculaFinal > 0,
+          descontoPlano: descontoPlanoFinal,
+          descontoMatricula: descontoMatriculaFinal,
           totalDesconto,
           valorCheio,
           percentualDesconto: parseFloat(percentualDesconto.toFixed(2)),
@@ -387,7 +392,7 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     
     
     return vendasProcessadas;
-  }, [vendasDaUnidade, descontos, unidade, responsaveisOficiaisSet] );
+  }, [vendasDaUnidade, descontos, unidade, responsaveisOficiaisSet, desconsiderarMatricula] );
 
   // ===== FILTROS APLICADOS (sem filtro por mês, já aplicado em vendasDaUnidade) =====
   const dadosFiltrados = useMemo(() => {
@@ -627,6 +632,7 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     setFiltroMatricula("");
     setFiltroNome("");
     setTipoFiltro("todos");
+    setDesconsiderarMatricula(false);
     setCurrentPage(1);
   };
 
@@ -745,6 +751,8 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     setSelectedMonth,
     tipoFiltro,
     setTipoFiltro,
+    desconsiderarMatricula,
+    setDesconsiderarMatricula,
     resetFiltros,
     
     // Paginação

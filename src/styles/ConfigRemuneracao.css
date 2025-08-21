@@ -2300,41 +2300,34 @@
     box-shadow: var(--shadow);
   }
   
-  .oportunidade-card:hover {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-lg);
-  }
-  
   .oportunidade-card.critico {
-    border-left: 4px solid var(--danger-color);
-    background: linear-gradient(135deg, var(--white) 0%, var(--danger-light) 100%);
+    border-left-color: var(--danger-color);
   }
   
   .oportunidade-card.alto {
-    border-left: 4px solid var(--warning-color);
-    background: linear-gradient(135deg, var(--white) 0%, var(--warning-light) 100%);
+    border-left-color: var(--warning-color);
   }
   
   .oportunidade-card.medio {
-    border-left: 4px solid var(--success-color);
-    background: linear-gradient(135deg, var(--white) 0%, var(--success-light) 100%);
+    border-left-color: var(--success-color);
   }
   
   .oportunidade-header {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    gap: 12px;
+    margin-bottom: 12px;
   }
   
   .impacto-badge {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.75rem;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
     font-weight: 600;
+    text-transform: uppercase;
   }
   
   .impacto-badge.critico {
@@ -2352,23 +2345,13 @@
     color: var(--success-color);
   }
   
-  .oportunidade-header h5 {
-    margin: 0;
-    color: var(--gray-900);
-    font-size: 1.1rem;
-    font-weight: 600;
-  }
-  
   .oportunidade-content p {
-    margin: 0 0 1rem 0;
+    margin: 0 0 8px 0;
     color: var(--gray-700);
-    line-height: 1.5;
   }
   
-  .valor-destaque {
-    background: var(--gray-50);
-    padding: 0.75rem;
-    border-radius: 8px;
+  .oportunidade-valor {
+    font-weight: 600;
     margin-bottom: 1rem;
   }
   
@@ -2539,4 +2522,592 @@
   
   .dark .oportunidade-actions small {
     color: var(--text-secondary) !important;
+  }
+
+  /* Análise por Plano Styles */
+  .analise-planos-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .planos-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    background: var(--white);
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid var(--gray-200);
+    margin-bottom: 1.5rem;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 150px;
+  }
+
+  .filter-group label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--gray-700);
+  }
+
+  .filter-select,
+  .filter-input {
+    padding: 0.5rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    background: var(--white);
+    color: var(--gray-800);
+  }
+
+  .filter-select:focus,
+  .filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px var(--primary-light);
+  }
+
+  .planos-summary-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .summary-stat {
+    flex: 1;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+
+  .stat-label {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+  }
+
+  .consultores-planos-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .consultor-plano-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+  }
+
+  .consultor-plano-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .consultor-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  .consultor-info h5 {
+    margin: 0 0 0.75rem 0;
+    color: var(--gray-800);
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .consultor-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .badge-primary {
+    background: var(--primary-light);
+    color: var(--primary-color);
+  }
+
+  .badge-success {
+    background: var(--success-light);
+    color: var(--success-color);
+  }
+
+  .badge-warning {
+    background: var(--warning-light);
+    color: var(--warning-color);
+  }
+
+  .consultor-metrics {
+    text-align: right;
+  }
+
+  .metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .metric-label {
+    font-size: 0.75rem;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .metric-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+
+  .consultor-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .duracao-breakdown h6,
+  .planos-detalhes h6 {
+    margin: 0 0 0.75rem 0;
+    color: var(--gray-700);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .duracao-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .duracao-summary-item {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 0.75rem;
+  }
+
+  .duracao-text {
+    font-size: 0.875rem;
+    color: var(--gray-700);
+    font-weight: 500;
+  }
+
+  .planos-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .plano-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+  }
+
+  .plano-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .plano-duracao-badge {
+    background: var(--primary-color);
+    color: var(--white);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .plano-periodo {
+    font-size: 0.75rem;
+    color: var(--gray-600);
+  }
+
+  .plano-valor {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--success-color);
+  }
+
+  .planos-mais {
+    text-align: center;
+    padding: 0.75rem;
+    color: var(--gray-500);
+    font-size: 0.875rem;
+    font-style: italic;
+    background: var(--gray-50);
+    border-radius: 6px;
+  }
+
+  /* Comprehensive Plans Table */
+  .planos-table-section {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .planos-table-section .section-header h5 {
+    margin: 0 0 0.5rem 0;
+    color: var(--gray-800);
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .planos-table-section .section-header p {
+    margin: 0 0 1.5rem 0;
+    color: var(--gray-600);
+    font-size: 0.875rem;
+  }
+
+  .planos-complete-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+  }
+
+  .planos-complete-table th {
+    background: var(--gray-50);
+    color: var(--gray-700);
+    font-weight: 600;
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 2px solid var(--gray-200);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .planos-complete-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--gray-200);
+    color: var(--gray-800);
+  }
+
+  .planos-complete-table .row-even {
+    background: var(--white);
+  }
+
+  .planos-complete-table .row-odd {
+    background: var(--gray-50);
+  }
+
+  .planos-complete-table tr:hover {
+    background: var(--primary-light) !important;
+  }
+
+  .consultor-cell {
+    font-weight: 500;
+    color: var(--gray-800);
+  }
+
+  .dias-cell {
+    text-align: center;
+    color: var(--gray-600);
+    font-size: 0.8rem;
+  }
+
+  .valor-cell {
+    text-align: right;
+    font-weight: 600;
+    color: var(--success-color);
+  }
+
+  .comissao-cell {
+    text-align: right;
+    font-weight: 600;
+    color: var(--primary-color);
+  }
+
+  .duracao-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .duracao-mensal {
+    background: #e3f2fd;
+    color: #1976d2;
+  }
+
+  .duracao-trimestral {
+    background: #f3e5f5;
+    color: #7b1fa2;
+  }
+
+  .duracao-semestral {
+    background: #e8f5e8;
+    color: #388e3c;
+  }
+
+  .duracao-octomestral {
+    background: #fff3e0;
+    color: #f57c00;
+  }
+
+  .duracao-anual {
+    background: #fce4ec;
+    color: #c2185b;
+  }
+
+  .duracao-bianual {
+    background: #f1f8e9;
+    color: #689f38;
+  }
+
+  .table-summary {
+    padding: 1rem;
+    background: var(--gray-50);
+    border-radius: 8px;
+    border: 1px solid var(--gray-200);
+  }
+
+  .table-summary p {
+    margin: 0;
+    color: var(--gray-700);
+    font-size: 0.875rem;
+  }
+
+  .planos-duracao-section {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .planos-duracao-section h5 {
+    margin: 0 0 1rem 0;
+    color: var(--gray-800);
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .duracao-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+
+  .duracao-item {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .duracao-item h6 {
+    margin: 0 0 0.5rem 0;
+    color: var(--gray-700);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .duracao-count {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 0.25rem;
+  }
+
+  .duracao-value {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--success-color);
+    font-weight: 500;
+  }
+
+  .consultores-planos-section {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .consultores-planos-section h5 {
+    margin: 0 0 1rem 0;
+    color: var(--gray-800);
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .consultores-planos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+
+  .consultor-planos-card {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .consultor-planos-card h6 {
+    margin: 0 0 0.75rem 0;
+    color: var(--gray-800);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .planos-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .plano-tipo-badge {
+    background: var(--primary-light);
+    color: var(--primary-color);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .planos-detalhados-section {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  .planos-detalhados-section h5 {
+    margin: 0 0 1rem 0;
+    color: var(--gray-800);
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .planos-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+
+  .planos-table th,
+  .planos-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  .planos-table th {
+    background: var(--gray-50);
+    color: var(--gray-700);
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .planos-table td {
+    color: var(--gray-800);
+    font-size: 0.875rem;
+  }
+
+  .planos-table tr:hover {
+    background: var(--gray-50);
+  }
+
+  /* Dark mode styles for Análise por Plano */
+  .dark .planos-filters,
+  .dark .summary-stat,
+  .dark .consultor-plano-card {
+    background: var(--gray-800) !important;
+    border-color: var(--gray-700) !important;
+  }
+
+  .dark .filter-group label,
+  .dark .stat-label,
+  .dark .consultor-info h5,
+  .dark .duracao-breakdown h6,
+  .dark .planos-detalhes h6 {
+    color: var(--gray-200) !important;
+  }
+
+  .dark .filter-select,
+  .dark .filter-input {
+    background: var(--gray-700) !important;
+    border-color: var(--gray-600) !important;
+    color: var(--gray-200) !important;
+  }
+
+  .dark .filter-select:focus,
+  .dark .filter-input:focus {
+    border-color: var(--primary-color) !important;
+  }
+
+  .dark .consultor-card-header {
+    border-color: var(--gray-600) !important;
+  }
+
+  .dark .metric-value {
+    color: var(--gray-200) !important;
+  }
+
+  .dark .duracao-summary-item,
+  .dark .plano-item {
+    background: var(--gray-700) !important;
+    border-color: var(--gray-600) !important;
+  }
+
+  .dark .duracao-text,
+  .dark .plano-periodo {
+    color: var(--gray-300) !important;
+  }
+
+  .dark .planos-mais {
+    background: var(--gray-700) !important;
+    color: var(--gray-400) !important;
   }

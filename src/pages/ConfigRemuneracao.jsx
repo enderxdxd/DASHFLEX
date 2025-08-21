@@ -8,6 +8,9 @@ import { useGroupedVendas } from '../hooks/useGroupedVendas';
 import { useConfigRem } from '../hooks/useConfigRem';
 import { useMetas } from '../hooks/useMetas';
 import { usePersistedProdutos } from '../hooks/usePersistedProdutos';
+import { calcularRemuneracaoPorDuracao, calcularDuracaoPlano, verificarDescontoPlano } from '../utils/calculoRemuneracaoDuracao';
+
+import { useDescontosSimples } from '../utils/useDescontosSimples';
 import { 
   Settings, 
   Target, 
@@ -26,15 +29,37 @@ import {
   Info,
   Filter,
   Mail,
-  MessageCircle
+  MessageCircle,
+  Trophy,
+  Calendar
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Trophy} from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import '../styles/ConfigRemuneracao.css';
 import Navbar from '../components/NavBar';
 // Dark mode is handled globally by useDarkMode hook
+
+
+
+
+const obterCategoriaDuracao = (duracaoMeses) => {
+  if (!duracaoMeses || duracaoMeses <= 0) return 'Mensal';
+  if (duracaoMeses === 1) return 'Mensal';
+  if (duracaoMeses === 3) return 'Trimestral';
+  if (duracaoMeses === 6) return 'Semestral';
+  if (duracaoMeses === 8) return 'Octomestral';
+  if (duracaoMeses === 12) return 'Anual';
+  if (duracaoMeses === 24) return 'Bianual';
+  // Para valores não padrão, usar lógica de proximidade
+  if (duracaoMeses <= 2) return 'Mensal';
+  if (duracaoMeses <= 4) return 'Trimestral';
+  if (duracaoMeses <= 7) return 'Semestral';
+  if (duracaoMeses <= 10) return 'Octomestral';
+  if (duracaoMeses <= 18) return 'Anual';
+  return 'Bianual';
+};
+
 
 const gerarPlanosPadraoLocal = (unidade) => {
   console.log('🔍 DEBUG gerarPlanosPadraoLocal - Recebeu unidade:', unidade);
@@ -122,11 +147,18 @@ const gerarFaixasPremiacaoLocal = (unidade) => {
 
 const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas, responsaveis, metas }) => {
   const [selectedConsultor, setSelectedConsultor] = useState('');
+  const [selectedDuracao, setSelectedDuracao] = useState(null);
+  const [minValue, setMinValue] = useState(null);
+  const [maxValue, setMaxValue] = useState(null);
+  const [sortBy, setSortBy] = useState('quantidade');
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'));
   const [activeView, setActiveView] = useState('overview');
   
   // Hook para produtos selecionados (mesmo filtro do Dashboard/Analytics)
   const [produtosSelecionados, setProdutosSelecionados, produtosLoaded] = usePersistedProdutos(unidade);
+  
+  // Hook para buscar descontos do Firebase
+  const { descontos } = useDescontosSimples(unidade);
 
   // Filtrar vendas por mês e produtos selecionados (igual ao Dashboard/Analytics)
   const vendasParaMeta = React.useMemo(() => {
@@ -176,69 +208,39 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
   }, [vendasParaMeta, metas, selectedConsultor]);
 
   const calcularRemuneracaoDetalhada = (metaValor, vendasArr, unidadeBatida, configRem) => {
-    const { comissaoPlanos = [], taxaSem = 0.012, taxaCom = 0.015 } = configRem || {};
+    // Calcula totais necessários
+    const totalVendasIndividual = vendasArr.reduce((soma, v) => soma + Number(v.valor || 0), 0);
     
-    let totalComissaoPlanos = 0;
-    let totalComissaoOutros = 0;
-    let vendasPlanos = [];
-    let vendasOutros = [];
+    // Total de vendas da unidade/time (mesmo cálculo do Metas.jsx)
+    const totalVendasTime = vendasParaMeta
+      .reduce((soma, v) => soma + Number(v.valor || 0), 0);
     
-    const totalVendas = vendasArr.reduce((s, v) => s + Number(v.valor || 0), 0);
-    const metaIndividualBatida = totalVendas >= metaValor;
-    
-    vendasArr.forEach(venda => {
-      const valorVenda = Number(venda.valor || 0);
-      
-      // 🔧 CORREÇÃO: Identifica planos por NOME "plano" E valor dentro do intervalo
-      // Evita confusão com outros produtos (ex: taxa de personal) que podem ter valores similares
-      const plano = (venda.produto.trim().toLowerCase() === "plano" && Array.isArray(comissaoPlanos)) 
-        ? comissaoPlanos.find(p => 
-            valorVenda >= (p.min || 0) && 
-            valorVenda <= (p.max || Infinity)
-          )
-        : null;
-      
-      if (plano) {
-        // ✅ VENDA É UM PLANO: Usar valor fixo baseado nas metas
-        let comissaoVenda;
-        if (unidadeBatida) {
-          comissaoVenda = plano.metaTME || 0; // Meta da unidade batida
-        } else if (metaIndividualBatida) {
-          comissaoVenda = plano.comMeta || 0; // Meta individual batida
-        } else {
-          comissaoVenda = plano.semMeta || 0; // Meta individual não batida
-        }
-        
-        totalComissaoPlanos += comissaoVenda;
-        vendasPlanos.push({
-          ...venda,
-          comissao: comissaoVenda,
-          planoConfig: plano,
-          tipoComissao: unidadeBatida ? 'TME' : (metaIndividualBatida ? 'comMeta' : 'semMeta')
-        });
-      } else {
-        // ✅ VENDA NÃO É UM PLANO: Usar taxa percentual
-        const taxa = metaIndividualBatida ? taxaCom : taxaSem;
-        const comissaoVenda = valorVenda * taxa;
-        
-        totalComissaoOutros += comissaoVenda;
-        vendasOutros.push({
-          ...venda,
-          comissao: comissaoVenda,
-          taxa: taxa,
-          tipoComissao: metaIndividualBatida ? 'comMeta' : 'semMeta'
-        });
-      }
+    // Usa a nova função de cálculo
+    const resultado = calcularRemuneracaoPorDuracao({
+      vendas: vendasArr,
+      metaIndividual: metaValor,
+      metaTime: configRem.metaUnidade || 0,
+      totalVendasIndividual,
+      totalVendasTime,
+      descontos,
+      tipo: 'comissao',
+      produtosSelecionados
     });
     
+    // Formata o resultado para manter compatibilidade com o resto do código
     return {
-      totalComissaoPlanos,
-      totalComissaoOutros,
-      totalComissao: totalComissaoPlanos + totalComissaoOutros,
-      vendasPlanos,
-      vendasOutros,
-      metaIndividualBatida,
-      totalVendas
+      totalComissaoPlanos: resultado.comissaoPlanos,
+      totalComissaoOutros: resultado.comissaoProdutos,
+      totalComissao: resultado.totalComissao,
+      vendasPlanos: resultado.vendasDetalhadas.filter(v => v.tipo === 'plano'),
+      vendasOutros: resultado.vendasDetalhadas.filter(v => v.tipo === 'produto'),
+      metaIndividualBatida: resultado.bateuMetaIndividual,
+      totalVendas: totalVendasIndividual,
+      
+      // Adiciona informações extras da nova lógica
+      qtdPlanosSemDesconto: resultado.qtdPlanosSemDesconto,
+      qtdPlanosComDesconto: resultado.qtdPlanosComDesconto,
+      bateuMetaTime: resultado.bateuMetaTime
     };
   };
 
@@ -291,51 +293,76 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
   const dadosConsultores = analiseConsultores();
   const estatisticas = estatisticasGerais();
   
-  // 📊 NOVA FUNCIONALIDADE: Análise detalhada por faixas de planos
+  // 📊 NOVA FUNCIONALIDADE: Análise detalhada por faixas de duração
   const analisePorFaixas = () => {
-    const faixasAnalise = {};
+    // Nova análise baseada em duração ao invés de intervalos de valores
+    const faixasPorDuracao = {
+      1: { nome: 'Mensal', vendas: [], valorTotal: 0, comissaoTotal: 0 },
+      3: { nome: 'Trimestral', vendas: [], valorTotal: 0, comissaoTotal: 0 },
+      6: { nome: 'Semestral', vendas: [], valorTotal: 0, comissaoTotal: 0 },
+      8: { nome: 'Octomestral', vendas: [], valorTotal: 0, comissaoTotal: 0 },
+      12: { nome: 'Anual', vendas: [], valorTotal: 0, comissaoTotal: 0 },
+      24: { nome: 'Bianual', vendas: [], valorTotal: 0, comissaoTotal: 0 }
+    };
     
-    comissaoPlanos.forEach(plano => {
-      const faixaKey = `${plano.plano} (R$ ${plano.min?.toLocaleString('pt-BR')} - R$ ${plano.max?.toLocaleString('pt-BR')})`;
+    // Processa cada venda de plano
+    vendasFiltradas.forEach(venda => {
+      const ehPlano = venda.produto?.toLowerCase().includes('plano');
       
-      const vendasDaFaixa = vendasFiltradas.filter(venda => {
-        const valor = Number(venda.valor || 0);
-        return venda.produto.trim().toLowerCase() === "plano" && 
-               valor >= (plano.min || 0) && 
-               valor <= (plano.max || Infinity);
-      });
-      
-      const valorTotal = vendasDaFaixa.reduce((s, v) => s + Number(v.valor || 0), 0);
-      const ticketMedio = vendasDaFaixa.length > 0 ? valorTotal / vendasDaFaixa.length : 0;
-      
-      // Calcular comissão total desta faixa
-      let comissaoTotal = 0;
-      vendasDaFaixa.forEach(venda => {
-        const consultor = dadosConsultores.find(c => 
-          c.responsavel.trim().toLowerCase() === venda.responsavel.trim().toLowerCase()
-        );
-        if (consultor) {
-          const vendaComissao = consultor.vendasPlanos.find(vp => 
-            vp.produto === venda.produto && vp.valor === venda.valor
+      if (ehPlano) {
+        // Use duration from Excel if available, otherwise fallback to date calculation
+        let duracao;
+        if (venda.duracaoMeses && venda.duracaoMeses > 0) {
+          duracao = venda.duracaoMeses;
+        } else if (venda.dataInicio && venda.dataFim) {
+          duracao = calcularDuracaoPlano(venda.dataInicio, venda.dataFim);
+        } else {
+          return; // Skip if no duration data available
+        }
+        
+        if (faixasPorDuracao[duracao]) {
+          faixasPorDuracao[duracao].vendas.push(venda);
+          faixasPorDuracao[duracao].valorTotal += Number(venda.valor || 0);
+          
+          // Calcula comissão desta venda específica
+          const temDesconto = verificarDescontoPlano(venda, descontos);
+          const consultor = dadosConsultores.find(c => 
+            c.responsavel?.toLowerCase() === venda.responsavel?.toLowerCase()
           );
-          if (vendaComissao) {
-            comissaoTotal += vendaComissao.comissao || 0;
+          
+          if (consultor) {
+            // Busca o valor de comissão calculado para este consultor
+            const vendaComissao = consultor.vendasPlanos.find(vp => 
+              vp.matricula === venda.matricula && 
+              vp.valor === venda.valor
+            );
+            
+            if (vendaComissao) {
+              faixasPorDuracao[duracao].comissaoTotal += vendaComissao.valorComissao || 0;
+            }
           }
         }
-      });
-      
-      faixasAnalise[faixaKey] = {
-        planoConfig: plano,
-        vendas: vendasDaFaixa.length,
-        valorTotal,
-        ticketMedio,
-        comissaoTotal,
-        comissaoMedia: vendasDaFaixa.length > 0 ? comissaoTotal / vendasDaFaixa.length : 0,
-        participacao: estatisticas.planos.quantidade > 0 ? (vendasDaFaixa.length / estatisticas.planos.quantidade) * 100 : 0
-      };
+      }
     });
     
-    return Object.entries(faixasAnalise).map(([faixa, dados]) => ({ faixa, ...dados }));
+    // Converte para array e calcula estatísticas
+    return Object.entries(faixasPorDuracao)
+      .filter(([_, dados]) => dados.vendas.length > 0)
+      .map(([duracao, dados]) => ({
+        faixa: `${dados.nome} (${duracao} ${Number(duracao) === 1 ? 'mês' : 'meses'})`,
+        planoConfig: {
+          duracao: Number(duracao),
+          nome: dados.nome
+        },
+        vendas: dados.vendas.length,
+        valorTotal: dados.valorTotal,
+        ticketMedio: dados.vendas.length > 0 ? dados.valorTotal / dados.vendas.length : 0,
+        comissaoTotal: dados.comissaoTotal,
+        comissaoMedia: dados.vendas.length > 0 ? dados.comissaoTotal / dados.vendas.length : 0,
+        participacao: estatisticas.planos.quantidade > 0 
+          ? (dados.vendas.length / estatisticas.planos.quantidade) * 100 
+          : 0
+      }));
   };
   
   // 🏆 NOVA FUNCIONALIDADE: Ranking de performance
@@ -788,11 +815,11 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
           Por Consultor
         </button>
         <button 
-          className={`view-tab ${activeView === 'faixas' ? 'active' : ''}`}
-          onClick={() => setActiveView('faixas')}
+          className={`view-tab ${activeView === 'analise-planos' ? 'active' : ''}`}
+          onClick={() => setActiveView('analise-planos')}
         >
-          <BarChart3 size={16} />
-          Por Faixas
+          <Calendar size={16} />
+          Análise por Plano
         </button>
         <button 
           className={`view-tab ${activeView === 'ranking' ? 'active' : ''}`}
@@ -1078,6 +1105,608 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
           )}
         </div>
       )}
+
+      {activeView === 'analise-planos' && (
+        <div className="analise-planos-content">
+          <div className="section-header">
+            <h4><Calendar size={16} /> Análise por Plano - Visão por Consultor</h4>
+            <p>Análise detalhada dos planos vendidos organizados por consultor</p>
+          </div>
+
+          {/* Filtros Avançados */}
+          <div className="planos-filters">
+            <div className="filter-group">
+              <label>Filtrar por Duração:</label>
+              <select 
+                value={selectedDuracao || ''} 
+                onChange={(e) => setSelectedDuracao(e.target.value || null)}
+                className="filter-select"
+              >
+                <option value="">Todas as durações</option>
+                <option value="1">Mensal (até 31 dias)</option>
+                <option value="3">Trimestral (32-95 dias)</option>
+                <option value="6">Semestral (96-185 dias)</option>
+                <option value="8">Octomestral (186-250 dias)</option>
+                <option value="12">Anual (251-370 dias)</option>
+                <option value="24">Bianual (371+ dias)</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <label>Valor Mínimo:</label>
+              <input
+                type="number"
+                placeholder="R$ 0,00"
+                value={minValue || ''}
+                onChange={(e) => setMinValue(e.target.value ? Number(e.target.value) : null)}
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label>Valor Máximo:</label>
+              <input
+                type="number"
+                placeholder="R$ 999.999,99"
+                value={maxValue || ''}
+                onChange={(e) => setMaxValue(e.target.value ? Number(e.target.value) : null)}
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-group">
+              <label>Ordenar por:</label>
+              <select 
+                value={sortBy || 'quantidade'} 
+                onChange={(e) => setSortBy(e.target.value)}
+                className="filter-select"
+              >
+                <option value="quantidade">Quantidade de Planos</option>
+                <option value="valor">Valor Total</option>
+                <option value="comissao">Comissão Total</option>
+                <option value="ticket">Ticket Médio</option>
+                <option value="nome">Nome do Consultor</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Estatísticas Resumo */}
+          <div className="planos-summary-stats">
+            <div className="summary-stat">
+              <span className="stat-label">Total de Planos</span>
+              <span className="stat-value">{(() => {
+                return vendasFiltradas.filter(v => {
+                  if (v.produto?.toLowerCase() !== 'plano') return false;
+                  
+                  // Aplicar filtros
+                  if (selectedDuracao) {
+                    if (!v.dataInicio || !v.dataFim) return false;
+                    const inicio = dayjs(v.dataInicio);
+                    const fim = dayjs(v.dataFim);
+                    
+                    // Use duration from Excel if available, otherwise fallback to date calculation
+                    let duracaoPlano;
+                    if (v.duracaoMeses && v.duracaoMeses > 0) {
+                      duracaoPlano = obterCategoriaDuracao(v.duracaoMeses);
+                    } else if (inicio.isValid() && fim.isValid()) {
+                      const diffDays = fim.diff(inicio, 'day');
+                      if (diffDays <= 31) duracaoPlano = 'Mensal';
+                      else if (diffDays <= 95) duracaoPlano = 'Trimestral';
+                      else if (diffDays <= 185) duracaoPlano = 'Semestral';
+                      else if (diffDays <= 250) duracaoPlano = 'Octomestral';
+                      else if (diffDays <= 370) duracaoPlano = 'Anual';
+                      else duracaoPlano = 'Bianual';
+                    } else {
+                      return false;
+                    }
+                    
+                    const filtroMap = {
+                      '1': 'Mensal',
+                      '3': 'Trimestral',
+                      '6': 'Semestral',
+                      '8': 'Octomestral',
+                      '12': 'Anual',
+                      '24': 'Bianual'
+                    };
+                    
+                    if (duracaoPlano !== filtroMap[selectedDuracao]) return false;
+                  }
+                  
+                  const valor = Number(v.valor || 0);
+                  if (minValue && valor < minValue) return false;
+                  if (maxValue && valor > maxValue) return false;
+                  
+                  return true;
+                }).length;
+              })()}</span>
+            </div>
+            <div className="summary-stat">
+              <span className="stat-label">Valor Total</span>
+              <span className="stat-value">R$ {(() => {
+                const planosVendas = vendasFiltradas.filter(v => {
+                  if (v.produto?.toLowerCase() !== 'plano') return false;
+                  
+                  if (selectedDuracao) {
+                    if (!v.dataInicio || !v.dataFim) return false;
+                    const inicio = dayjs(v.dataInicio);
+                    const fim = dayjs(v.dataFim);
+                    const diffDays = fim.diff(inicio, 'day');
+                    
+                    const duracao = Number(selectedDuracao);
+                    if (duracao === 1 && diffDays > 31) return false;
+                    if (duracao === 3 && (diffDays <= 31 || diffDays > 95)) return false;
+                    if (duracao === 6 && (diffDays <= 95 || diffDays > 185)) return false;
+                    if (duracao === 8 && (diffDays <= 185 || diffDays > 250)) return false;
+                    if (duracao === 12 && (diffDays <= 250 || diffDays > 370)) return false;
+                    if (duracao === 24 && diffDays <= 370) return false;
+                  }
+                  
+                  const valor = Number(v.valor || 0);
+                  if (minValue && valor < minValue) return false;
+                  if (maxValue && valor > maxValue) return false;
+                  
+                  return true;
+                });
+                return planosVendas.reduce((s, v) => s + Number(v.valor || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+              })()}</span>
+            </div>
+            <div className="summary-stat">
+              <span className="stat-label">Consultores Ativos</span>
+              <span className="stat-value">{(() => {
+                const planosVendas = vendasFiltradas.filter(v => {
+                  if (v.produto?.toLowerCase() !== 'plano') return false;
+                  
+                  if (selectedDuracao) {
+                    if (!v.dataInicio || !v.dataFim) return false;
+                    const inicio = dayjs(v.dataInicio);
+                    const fim = dayjs(v.dataFim);
+                    const diffDays = fim.diff(inicio, 'day');
+                    
+                    const duracao = Number(selectedDuracao);
+                    if (duracao === 1 && diffDays > 31) return false;
+                    if (duracao === 3 && (diffDays <= 31 || diffDays > 95)) return false;
+                    if (duracao === 6 && (diffDays <= 95 || diffDays > 185)) return false;
+                    if (duracao === 8 && (diffDays <= 185 || diffDays > 250)) return false;
+                    if (duracao === 12 && (diffDays <= 250 || diffDays > 370)) return false;
+                    if (duracao === 24 && diffDays <= 370) return false;
+                  }
+                  
+                  const valor = Number(v.valor || 0);
+                  if (minValue && valor < minValue) return false;
+                  if (maxValue && valor > maxValue) return false;
+                  
+                  return true;
+                });
+                return new Set(planosVendas.map(v => v.responsavel)).size;
+              })()}</span>
+            </div>
+          </div>
+
+          {/* Cards dos Consultores */}
+          <div className="consultores-planos-cards">
+            {(() => {
+              // Filtrar e processar dados dos consultores
+              const consultoresData = responsaveis
+                .filter(consultor => selectedConsultor === '' || consultor === selectedConsultor)
+                .map(consultor => {
+                  const planosConsultor = vendasFiltradas.filter(v => {
+                    if (v.produto?.toLowerCase() !== 'plano' || v.responsavel !== consultor) return false;
+                    
+                    // Aplicar filtros
+                    if (selectedDuracao) {
+                      const duracao = Number(selectedDuracao);
+                      // Use duration from Excel if available
+                      if (v.duracaoMeses && v.duracaoMeses > 0) {
+                        if (duracao === 1 && v.duracaoMeses > 1) return false;
+                        if (duracao === 3 && v.duracaoMeses !== 3) return false;
+                        if (duracao === 6 && v.duracaoMeses !== 6) return false;
+                        if (duracao === 8 && v.duracaoMeses !== 8) return false;
+                        if (duracao === 12 && v.duracaoMeses !== 12) return false;
+                        if (duracao === 24 && v.duracaoMeses !== 24) return false;
+                      } else {
+                        // Fallback to date calculation
+                        if (!v.dataInicio || !v.dataFim) return false;
+                        const inicio = dayjs(v.dataInicio);
+                        const fim = dayjs(v.dataFim);
+                        const diffDays = fim.diff(inicio, 'day');
+                        
+                        if (duracao === 1 && diffDays > 31) return false;
+                        if (duracao === 3 && (diffDays <= 31 || diffDays > 95)) return false;
+                        if (duracao === 6 && (diffDays <= 95 || diffDays > 185)) return false;
+                        if (duracao === 8 && (diffDays <= 185 || diffDays > 250)) return false;
+                        if (duracao === 12 && (diffDays <= 250 || diffDays > 370)) return false;
+                        if (duracao === 24 && diffDays <= 370) return false;
+                      }
+                    }
+                    
+                    const valor = Number(v.valor || 0);
+                    if (minValue && valor < minValue) return false;
+                    if (maxValue && valor > maxValue) return false;
+                    
+                    return true;
+                  });
+                  
+                  if (planosConsultor.length === 0) return null;
+
+                  const valorTotal = planosConsultor.reduce((s, v) => s + Number(v.valor || 0), 0);
+                  const ticketMedio = valorTotal / planosConsultor.length;
+                  
+                  // Calcular comissão total
+                  let comissaoTotal = 0;
+                  const planoPorDuracao = {};
+                  
+                  planosConsultor.forEach(plano => {
+                    // Use duration from Excel if available, otherwise fallback to date calculation
+                    let duracao;
+                    if (plano.duracaoMeses && plano.duracaoMeses > 0) {
+                      duracao = obterCategoriaDuracao(plano.duracaoMeses);
+                    } else if (plano.dataInicio && plano.dataFim) {
+                      const inicio = dayjs(plano.dataInicio);
+                      const fim = dayjs(plano.dataFim);
+                      
+                      if (!inicio.isValid() || !fim.isValid()) return;
+                      
+                      const diffDays = fim.diff(inicio, 'day');
+                      
+                      // Corrigir lógica de categorização
+                      if (diffDays <= 31) duracao = 'Mensal';
+                      else if (diffDays <= 95) duracao = 'Trimestral';
+                      else if (diffDays <= 185) duracao = 'Semestral';
+                      else if (diffDays <= 250) duracao = 'Octomestral';
+                      else if (diffDays <= 370) duracao = 'Anual';
+                      else duracao = 'Bianual';
+                    } else {
+                      return; // Skip if no duration data available
+                    }
+                    
+                    planoPorDuracao[duracao] = (planoPorDuracao[duracao] || 0) + 1;
+                    
+                    // Mapear duração para índice da tabela de comissão
+                    const duracaoParaIndice = { 
+                      'Mensal': 0, 
+                      'Trimestral': 1, 
+                      'Semestral': 2, 
+                      'Octomestral': 3, 
+                      'Anual': 4, 
+                      'Bianual': 5 
+                    };
+                    const indice = duracaoParaIndice[duracao] || 0;
+                    
+                    let comissaoValor = 0;
+                    if (unidadeBatida) {
+                      const tabelaTME = [15, 28, 43, 51, 65, 107];
+                      comissaoValor = tabelaTME[indice] || 0;
+                    } else {
+                      const metaConsultor = metas.find(m => m.responsavel === plano.responsavel);
+                      const vendasConsultor = vendasFiltradas.filter(v => v.responsavel === plano.responsavel);
+                      const totalVendasConsultor = vendasConsultor.reduce((s, v) => s + Number(v.valor || 0), 0);
+                      const bateuMetaIndividual = metaConsultor && totalVendasConsultor >= Number(metaConsultor.meta || 0);
+                      
+                      if (bateuMetaIndividual) {
+                        const tabelaComMeta = [12, 24, 37, 47, 60, 103];
+                        comissaoValor = tabelaComMeta[indice] || 0;
+                      } else {
+                        const tabelaSemMeta = [9, 18, 28, 42, 53, 97];
+                        comissaoValor = tabelaSemMeta[indice] || 0;
+                      }
+                    }
+                    
+                    comissaoTotal += comissaoValor;
+                  });
+
+                  return {
+                    consultor,
+                    planosConsultor,
+                    valorTotal,
+                    ticketMedio,
+                    comissaoTotal,
+                    planoPorDuracao,
+                    quantidade: planosConsultor.length
+                  };
+                })
+                .filter(Boolean);
+
+              // Ordenar consultores
+              consultoresData.sort((a, b) => {
+                switch (sortBy) {
+                  case 'valor': return b.valorTotal - a.valorTotal;
+                  case 'comissao': return b.comissaoTotal - a.comissaoTotal;
+                  case 'ticket': return b.ticketMedio - a.ticketMedio;
+                  case 'nome': return a.consultor.localeCompare(b.consultor);
+                  default: return b.quantidade - a.quantidade;
+                }
+              });
+
+              return consultoresData.map(({ consultor, planosConsultor, valorTotal, ticketMedio, comissaoTotal, planoPorDuracao, quantidade }) => (
+                <div key={consultor} className="consultor-plano-card">
+                  <div className="consultor-card-header">
+                    <div className="consultor-info">
+                      <h5 className="consultor-name">{consultor}</h5>
+                      <div className="consultor-badges">
+                        <span className="badge badge-primary">{quantidade} planos</span>
+                        <span className="badge badge-success">R$ {valorTotal.toLocaleString('pt-BR')}</span>
+                        <span className="badge badge-warning">Comissão: R$ {comissaoTotal.toLocaleString('pt-BR')}</span>
+                      </div>
+                    </div>
+                    <div className="consultor-metrics">
+                      <div className="metric">
+                        <span className="metric-label">Ticket Médio</span>
+                        <span className="metric-value">R$ {ticketMedio.toLocaleString('pt-BR')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="consultor-card-content">
+                    <div className="duracao-breakdown">
+                      <h6>Distribuição por Duração</h6>
+                      <div className="duracao-summary">
+                        {Object.entries(planoPorDuracao)
+                          .sort(([a], [b]) => {
+                            const ordem = ['Mensal', 'Trimestral', 'Semestral', 'Octomestral', 'Anual', 'Bianual'];
+                            return ordem.indexOf(a) - ordem.indexOf(b);
+                          })
+                          .map(([duracao, qtd]) => (
+                            <div key={duracao} className="duracao-summary-item">
+                              <span className="duracao-text">{duracao}: {qtd} planos</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+
+          {/* Tabela Completa de Todos os Planos */}
+          <div className="planos-table-section">
+            <div className="section-header">
+              <h5>📋 Tabela Completa de Planos</h5>
+              <p>Lista detalhada de todos os planos para verificação</p>
+            </div>
+            
+            <div className="planos-table-container">
+              <table className="planos-complete-table">
+                <thead>
+                  <tr>
+                    <th>Consultor</th>
+                    <th>Tipo</th>
+                    <th>Data Início</th>
+                    <th>Data Fim</th>
+                    <th>Duração</th>
+                    <th>Valor</th>
+                    <th>Desconto</th>
+                    <th>Comissão</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    // Filtrar todos os planos com os filtros aplicados
+                    const todosPlanos = vendasFiltradas.filter(v => {
+                      if (v.produto?.toLowerCase() !== 'plano') return false;
+                      if (selectedConsultor && v.responsavel !== selectedConsultor) return false;
+                      
+                      // Aplicar filtros de duração e valor
+                      if (selectedDuracao) {
+                        let duracaoPlano;
+                        // Use duration from Excel if available
+                        if (v.duracaoMeses && v.duracaoMeses > 0) {
+                          duracaoPlano = obterCategoriaDuracao(v.duracaoMeses);
+                        } else if (v.dataInicio && v.dataFim) {
+                          const inicio = dayjs(v.dataInicio);
+                          const fim = dayjs(v.dataFim);
+                          
+                          if (!inicio.isValid() || !fim.isValid()) return false;
+                          
+                          const diffDays = fim.diff(inicio, 'day');
+                          
+                          if (diffDays <= 31) duracaoPlano = 'Mensal';
+                          else if (diffDays <= 95) duracaoPlano = 'Trimestral';
+                          else if (diffDays <= 185) duracaoPlano = 'Semestral';
+                          else if (diffDays <= 250) duracaoPlano = 'Octomestral';
+                          else if (diffDays <= 370) duracaoPlano = 'Anual';
+                          else duracaoPlano = 'Bianual';
+                        } else {
+                          return false;
+                        }
+                        
+                        const filtroMap = {
+                          '1': 'Mensal',
+                          '3': 'Trimestral',
+                          '6': 'Semestral',
+                          '8': 'Octomestral',
+                          '12': 'Anual',
+                          '24': 'Bianual'
+                        };
+                        
+                        if (duracaoPlano !== filtroMap[selectedDuracao]) return false;
+                      }
+                      
+                      const valor = Number(v.valor || 0);
+                      if (minValue && valor < minValue) return false;
+                      if (maxValue && valor > maxValue) return false;
+                      
+                      return true;
+                    });
+
+                    // Ordenar planos
+                    todosPlanos.sort((a, b) => {
+                      if (sortBy === 'nome') return a.responsavel.localeCompare(b.responsavel);
+                      if (sortBy === 'valor') return Number(b.valor || 0) - Number(a.valor || 0);
+                      // Por padrão, ordenar por consultor e depois por data
+                      const consultorCompare = a.responsavel.localeCompare(b.responsavel);
+                      if (consultorCompare !== 0) return consultorCompare;
+                      return dayjs(a.dataInicio).diff(dayjs(b.dataInicio));
+                    });
+
+                    return todosPlanos.map((plano, index) => {
+                      const inicio = dayjs(plano.dataInicio);
+                      const fim = dayjs(plano.dataFim);
+                      
+                      // DEBUG: Log para verificar dados
+                      if (index === 0) {
+                        console.log('🔍 DEBUG Plano:', {
+                          duracaoMeses: plano.duracaoMeses,
+                          valor: plano.valor,
+                          produto: plano.produto,
+                          dataInicio: plano.dataInicio,
+                          dataFim: plano.dataFim
+                        });
+                      }
+                      
+                      // Use duration from Excel if available, otherwise fallback to date calculation
+                      let nomeDuracao;
+                      let diffDays = 0;
+                      
+                      if (plano.duracaoMeses && plano.duracaoMeses > 0) {
+                        nomeDuracao = obterCategoriaDuracao(plano.duracaoMeses);
+                        // Estimate days for display purposes
+                        diffDays = plano.duracaoMeses * 30;
+                        console.log(`✅ Usando duracaoMeses: ${plano.duracaoMeses} → ${nomeDuracao}`);
+                      } else if (inicio.isValid() && fim.isValid()) {
+                        diffDays = fim.diff(inicio, 'day');
+                        
+                        if (diffDays <= 31) nomeDuracao = 'Mensal';
+                        else if (diffDays <= 95) nomeDuracao = 'Trimestral';
+                        else if (diffDays <= 185) nomeDuracao = 'Semestral';
+                        else if (diffDays <= 250) nomeDuracao = 'Octomestral';
+                        else if (diffDays <= 370) nomeDuracao = 'Anual';
+                        else nomeDuracao = 'Bianual';
+                        console.log(`⚠️ Fallback para datas: ${diffDays} dias → ${nomeDuracao}`);
+                      } else {
+                        console.log('❌ Sem dados de duração disponíveis');
+                        return null;
+                      }
+
+                      // Verificar se tem desconto
+                      const temDesconto = verificarDescontoPlano(plano, descontos);
+                      
+                      // Calcular comissão
+                      const duracaoParaIndice = { 
+                        'Mensal': 0, 
+                        'Trimestral': 1, 
+                        'Semestral': 2, 
+                        'Octomestral': 3, 
+                        'Anual': 4, 
+                        'Bianual': 5 
+                      };
+                      const indice = duracaoParaIndice[nomeDuracao] || 0;
+                      
+                      let comissaoValor = 0;
+                      if (unidadeBatida) {
+                        // TME (Time Meta Atingida)
+                        const tabelaTME = temDesconto 
+                          ? [9, 20, 25, 34, 45, 71]    // COM desconto
+                          : [15, 28, 43, 51, 65, 107]; // SEM desconto
+                        comissaoValor = tabelaTME[indice] || 0;
+                      } else {
+                        const metaConsultor = metas.find(m => m.responsavel === plano.responsavel);
+                        const vendasConsultor = vendasFiltradas.filter(v => v.responsavel === plano.responsavel);
+                        const totalVendasConsultor = vendasConsultor.reduce((s, v) => s + Number(v.valor || 0), 0);
+                        const bateuMetaIndividual = metaConsultor && totalVendasConsultor >= Number(metaConsultor.meta || 0);
+                        
+                        if (bateuMetaIndividual) {
+                          // Individual COM meta
+                          const tabelaComMeta = temDesconto 
+                            ? [6, 16, 23, 30, 42, 67]    // COM desconto
+                            : [12, 24, 37, 47, 60, 103]; // SEM desconto
+                          comissaoValor = tabelaComMeta[indice] || 0;
+                        } else {
+                          // Individual SEM meta
+                          const tabelaSemMeta = temDesconto 
+                            ? [3, 11, 21, 25, 38, 61]   // COM desconto
+                            : [9, 18, 28, 42, 53, 97];  // SEM desconto
+                          comissaoValor = tabelaSemMeta[indice] || 0;
+                        }
+                      }
+
+                      return (
+                        <tr key={index} className={index % 2 === 0 ? 'row-even' : 'row-odd'}>
+                          <td className="consultor-cell">{plano.responsavel}</td>
+                          <td>
+                            <span className={`duracao-badge duracao-${nomeDuracao.toLowerCase()}`}>
+                              {nomeDuracao}
+                            </span>
+                          </td>
+                          <td>{inicio.isValid() ? inicio.format('DD/MM/YYYY') : '-'}</td>
+                          <td>{fim.isValid() ? fim.format('DD/MM/YYYY') : '-'}</td>
+                          <td className="dias-cell">
+                            {plano.duracaoMeses && plano.duracaoMeses > 0 
+                              ? `${plano.duracaoMeses} ${plano.duracaoMeses === 1 ? 'mês' : 'meses'}`
+                              : `${diffDays} dias`
+                            }
+                          </td>
+                          <td className="valor-cell">R$ {Number(plano.valor || 0).toLocaleString('pt-BR')}</td>
+                          <td className="desconto-cell">
+                            <span className={`desconto-badge ${temDesconto ? 'com-desconto' : 'sem-desconto'}`}>
+                              {temDesconto ? 'COM' : 'SEM'}
+                            </span>
+                          </td>
+                          <td className="comissao-cell">R$ {comissaoValor.toLocaleString('pt-BR')}</td>
+                        </tr>
+                      );
+                    }).filter(Boolean);
+                  })()}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="table-summary">
+              <p>
+                <strong>Total de planos exibidos:</strong> {(() => {
+                  const todosPlanos = vendasFiltradas.filter(v => {
+                    if (v.produto?.toLowerCase() !== 'plano') return false;
+                    if (selectedConsultor && v.responsavel !== selectedConsultor) return false;
+                    
+                    if (selectedDuracao) {
+                      let duracaoPlano;
+                      // Use duration from Excel if available
+                      if (v.duracaoMeses && v.duracaoMeses > 0) {
+                        duracaoPlano = obterCategoriaDuracao(v.duracaoMeses);
+                      } else if (v.dataInicio && v.dataFim) {
+                        const inicio = dayjs(v.dataInicio);
+                        const fim = dayjs(v.dataFim);
+                        
+                        if (!inicio.isValid() || !fim.isValid()) return false;
+                        
+                        const diffDays = fim.diff(inicio, 'day');
+                        
+                        if (diffDays <= 31) duracaoPlano = 'Mensal';
+                        else if (diffDays <= 95) duracaoPlano = 'Trimestral';
+                        else if (diffDays <= 185) duracaoPlano = 'Semestral';
+                        else if (diffDays <= 250) duracaoPlano = 'Octomestral';
+                        else if (diffDays <= 370) duracaoPlano = 'Anual';
+                        else duracaoPlano = 'Bianual';
+                      } else {
+                        return false;
+                      }
+                      
+                      const filtroMap = {
+                        '1': 'Mensal',
+                        '3': 'Trimestral',
+                        '6': 'Semestral',
+                        '8': 'Octomestral',
+                        '12': 'Anual',
+                        '24': 'Bianual'
+                      };
+                      
+                      if (duracaoPlano !== filtroMap[selectedDuracao]) return false;
+                    }
+                    
+                    const valor = Number(v.valor || 0);
+                    if (minValue && valor < minValue) return false;
+                    if (maxValue && valor > maxValue) return false;
+                    
+                    return true;
+                  });
+                  return todosPlanos.length;
+                })()}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1093,6 +1722,9 @@ const ConfigRemuneracao = () => {
   const { metas, loading: metasLoading } = useMetas(unidade);
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'));
   const { configRem, loading: configLoading } = useConfigRem(unidade, selectedMonth);
+  
+  // Hook para buscar descontos do Firebase
+  const { descontos } = useDescontosSimples(unidade);
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -1334,109 +1966,6 @@ const ConfigRemuneracao = () => {
                 <small>Meta mensal da unidade. Quando atingida, aplica valores TME nos planos.</small>
               </div>
             </div>
-          </div>
-        )}
-
-        {activeTab === 'planos' && (
-          <div className="tab-panel">
-            <div className="section-header">
-              <h2>Planos de Comissão</h2>
-              <div className="section-actions">
-                <button className="btn secondary" onClick={addPlano}>
-                  <Plus size={16} />
-                  Adicionar
-                </button>
-                <button className="btn secondary" onClick={carregarPlanosPadrao}>
-                  <RefreshCw size={16} />
-                  Carregar Padrão
-                </button>
-              </div>
-            </div>
-            
-            {comissaoPlanos.length === 0 ? (
-              <div className="empty-state">
-                <DollarSign size={48} />
-                <p>Nenhum plano configurado</p>
-                <button className="btn primary" onClick={carregarPlanosPadrao}>
-                  Carregar Planos Padrão
-                </button>
-              </div>
-            ) : (
-              <div className="planos-grid">
-                {comissaoPlanos.map((plano, index) => (
-                  <div key={index} className="plano-card">
-                    <div className="card-header">
-                      <input
-                        type="text"
-                        value={plano.plano}
-                        onChange={(e) => updatePlano(index, 'plano', e.target.value)}
-                        placeholder="Nome do plano"
-                        className="plano-name-input"
-                      />
-                      <button 
-                        className="btn-icon danger"
-                        onClick={() => removePlano(index)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    
-                    <div className="card-content">
-                      <div className="input-row">
-                        <div className="input-group">
-                          <label>Valor Mínimo</label>
-                          <input
-                            type="number"
-                            value={plano.min}
-                            onChange={(e) => updatePlano(index, 'min', e.target.value)}
-                            placeholder="0"
-                          />
-                        </div>
-                        <div className="input-group">
-                          <label>Valor Máximo</label>
-                          <input
-                            type="number"
-                            value={plano.max}
-                            onChange={(e) => updatePlano(index, 'max', e.target.value)}
-                            placeholder="0"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="comissao-values">
-                        <div className="input-group">
-                          <label>Sem Meta (R$)</label>
-                          <input
-                            type="number"
-                            value={plano.semMeta}
-                            onChange={(e) => updatePlano(index, 'semMeta', e.target.value)}
-                            placeholder="0"
-                          />
-                        </div>
-                        <div className="input-group">
-                          <label>Com Meta (R$)</label>
-                          <input
-                            type="number"
-                            value={plano.comMeta}
-                            onChange={(e) => updatePlano(index, 'comMeta', e.target.value)}
-                            placeholder="0"
-                          />
-                        </div>
-                        <div className="input-group">
-                          <label>Meta TME (R$)</label>
-                          <input
-                            type="number"
-                            value={plano.metaTME}
-                            onChange={(e) => updatePlano(index, 'metaTME', e.target.value)}
-                            placeholder="0"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 

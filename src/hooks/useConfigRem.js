@@ -19,6 +19,8 @@ export function useConfigRem(unidade, month) {
     }
 
     setLoading(true);
+    let unsubscribeSecondary = null;
+
     const ref = doc(
       db,
       "faturamento",
@@ -37,6 +39,7 @@ export function useConfigRem(unidade, month) {
             premiacao: Array.isArray(data.premiacao) ? data.premiacao : [],
             comissaoPlanos: Array.isArray(data.comissaoPlanos) ? data.comissaoPlanos : []
           });
+          setLoading(false);
         } else {
           // Se não existir configuração para este mês, tentamos carregar o mês anterior
           const mesAnterior = month.split('-')[1] === '01' 
@@ -51,7 +54,7 @@ export function useConfigRem(unidade, month) {
             `premiacao-${mesAnterior}`
           );
 
-          onSnapshot(
+          unsubscribeSecondary = onSnapshot(
             refAnterior,
             snapAnterior => {
               if (snapAnterior.exists()) {
@@ -78,7 +81,6 @@ export function useConfigRem(unidade, month) {
             }
           );
         }
-        setLoading(false);
       },
       err => {
         console.error(err);
@@ -87,7 +89,12 @@ export function useConfigRem(unidade, month) {
       }
     );
 
-    return () => unsub();
+    return () => {
+      unsub();
+      if (unsubscribeSecondary) {
+        unsubscribeSecondary();
+      }
+    };
   }, [unidade, month]);
 
   return { configRem, loading, error };

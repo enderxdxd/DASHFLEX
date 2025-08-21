@@ -7,6 +7,8 @@ import {
 
 import NavBar from '../components/NavBar.jsx';
 import { usePersonals } from '../hooks/usePersonals';
+import { writeBatch, collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 // Lazy loading para componentes pesados
 const UnifiedPersonalUploader = lazy(() => import('../components/personal/UnifiedPersonalUploader'));
 const PersonalStudentTable = lazy(() => import('../components/personal/PersonalStudentTable'));
@@ -418,11 +420,33 @@ export default function UnifiedPersonalDashboard() {
     if (deleteConfirmText !== "CONFIRMAR EXCLUSÃO") return;
     
     try {
-      setSuccessMessages(['Todos os dados foram excluídos com sucesso!']);
+      showDeleteModal(false);
+      setDeleteConfirmText('');
+      setSuccessMessages([]);
       setErrors([]);
+      
+      // Deletar dados de personals de todas as unidades
+      const unidades = ['alphaville', 'buenavista', 'marista'];
+      const batch = writeBatch(db);
+      let totalDeleted = 0;
+      
+      for (const unidade of unidades) {
+        const personalsRef = collection(db, 'faturamento', unidade, 'personals');
+        const snapshot = await getDocs(personalsRef);
+        
+        snapshot.forEach((doc) => {
+          batch.delete(doc.ref);
+          totalDeleted++;
+        });
+      }
+      
+      // Executar a exclusão
+      await batch.commit();
+      
+      setSuccessMessages([`Todos os dados de personal foram excluídos! (${totalDeleted} registros)`]);
       setShowDeleteModal(false);
       setDeleteConfirmText('');
-      // Aqui você pode adicionar a lógica real de exclusão
+      
     } catch (error) {
       setErrors(['Erro ao excluir dados: ' + error.message]);
       setSuccessMessages([]);
@@ -1493,6 +1517,7 @@ export default function UnifiedPersonalDashboard() {
       </div>
 
       {/* Modal de Confirmação de Exclusão */}
+      {/* Modal de Confirmação de Exclusão */}
       {showDeleteModal && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -1542,7 +1567,7 @@ export default function UnifiedPersonalDashboard() {
                 disabled={deleteConfirmText !== "CONFIRMAR EXCLUSÃO"}
               >
                 <Trash2 size={16} />
-                Excluir Todos os Dados
+                Excluir Permanentemente
               </button>
             </div>
           </div>
@@ -4464,6 +4489,175 @@ export default function UnifiedPersonalDashboard() {
             justify-content: space-between;
           }
         }
+        /* Modal de Confirmação de Exclusão */
+          .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+          }
+
+          .modal-content {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            max-width: 480px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+          }
+
+          .modal-header {
+            text-align: center;
+            padding: 24px 24px 20px;
+            border-bottom: 1px solid #e5e7eb;
+          }
+
+          .warning-icon {
+            color: #ef4444;
+            margin-bottom: 12px;
+          }
+
+          .modal-header h2 {
+            color: #ef4444;
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+          }
+
+          .modal-header p {
+            color: #6b7280;
+            font-size: 14px;
+            margin: 0;
+          }
+
+          .modal-body {
+            padding: 20px 24px;
+          }
+
+          .data-summary {
+            margin-bottom: 20px;
+          }
+
+          .data-summary h3 {
+            color: #374151;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 12px 0;
+          }
+
+          .data-summary ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px;
+          }
+
+          .data-summary li {
+            color: #4b5563;
+            font-size: 14px;
+            margin: 6px 0;
+          }
+
+          .confirmation-input {
+            margin-top: 20px;
+          }
+
+          .confirmation-input label {
+            display: block;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+          }
+
+          .confirm-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+          }
+
+          .confirm-input:focus {
+            outline: none;
+            border-color: #6366f1;
+          }
+
+          .modal-actions {
+            padding: 20px 24px 24px;
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            border-top: 1px solid #e5e7eb;
+          }
+
+          .cancel-btn {
+            padding: 10px 20px;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          .cancel-btn:hover {
+            background: #e5e7eb;
+          }
+
+          .confirm-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            background: #ef4444;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+
+          .confirm-btn:hover:not(:disabled) {
+            background: #dc2626;
+          }
+
+          .confirm-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+          }
+
+          @media (max-width: 640px) {
+            .modal-content {
+              margin: 20px;
+              width: calc(100% - 40px);
+            }
+            
+            .modal-actions {
+              flex-direction: column-reverse;
+            }
+            
+            .cancel-btn,
+            .confirm-btn {
+              width: 100%;
+              justify-content: center;
+            }
+          }
 
         @media (max-width: 480px) {
           .category-badge {

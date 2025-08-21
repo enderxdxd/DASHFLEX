@@ -28,6 +28,9 @@ import {
 } from "chart.js";
 import "react-datepicker/dist/react-datepicker.css";
 import Loading3D from '../components/ui/Loading3D';
+import { calcularRemuneracaoPorDuracao } from '../utils/calculoRemuneracaoDuracao';
+import { useDescontosSimples } from '../utils/useDescontosSimples';
+
 
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
@@ -73,33 +76,9 @@ export default function Metas() {
   const [produtosSelecionados, setProdutosSelecionados, produtosLoaded] =
     usePersistedProdutos();
 
-  /**
-   * Calcula a remuneração com base no tipo (comissão ou premiação)
-   * @param {number} metaValor - Valor da meta a ser atingida
-   * @param {Array} vendasArr - Array de vendas
-   * @param {string} tipo - 'comissao' ou 'premiacao'
-   * @param {boolean} unidadeBatida - Se a meta da unidade foi batida
-   * @param {Object} configRem - Configuração de remuneração
-   * @returns {number} Valor da remuneração calculada
-   */
-  /**
- * Função calcularRemuneracao CORRIGIDA para Metas.jsx
- * Esta versão deve substituir a função atual no arquivo
- */
-/**
- * FUNÇÃO CALCULAR REMUNERAÇÃO CORRIGIDA
- * Esta versão corrige os problemas identificados na função original
- */
+  // Hook para buscar descontos do Firebase
+  const { descontos, loading: loadingDescontos } = useDescontosSimples(unidade);
 
-/**
- * Calcula a remuneração com base no tipo (comissão ou premiação)
- * @param {number} metaValor - Valor da meta a ser atingida
- * @param {Array} vendasArr - Array de vendas
- * @param {string} tipo - 'comissao' ou 'premiacao'
- * @param {boolean} unidadeBatida - Se a meta da unidade foi batida
- * @param {Object} configRem - Configuração de remuneração
- * @returns {number} Valor da remuneração calculada
- */
 function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRem) {
   // Validações iniciais
   if (!Array.isArray(vendasArr)) {
@@ -107,149 +86,84 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
     return 0;
   }
 
-  const { 
-    comissaoPlanos = [], 
-    premiacao = [],
-    taxaSem = 0.012, 
-    taxaCom = 0.015 
-  } = configRem || {};
+  // Calcula totais necessários para a nova lógica
+  const totalVendasIndividual = vendasArr.reduce((soma, v) => soma + Number(v.valor || 0), 0);
   
-  // ===== CÁLCULO PARA COMISSÃO =====
+  // Para o total da equipe, usa vendas agrupadas do mês selecionado
+  const totalVendasTime = vendasAgrupadas
+    .filter(venda => {
+      const dataVenda = dayjs(venda.dataFormatada, 'YYYY-MM-DD');
+      const mesVenda = dataVenda.format('YYYY-MM');
+      return mesVenda === selectedMonth;
+    })
+    .reduce((soma, v) => soma + Number(v.valor || 0), 0);
+
   if (tipo === 'comissao') {
-    const totalVendas = vendasArr.reduce((soma, v) => soma + (Number(v?.valor) || 0), 0);
-    const metaIndividualBatida = totalVendas >= metaValor;
-    
-    
-    
-    let totalComissao = 0;
-    
-    vendasArr.forEach((venda, index) => {
-      const valorVenda = Number(venda?.valor) || 0;
-      
-      // 🔧 CORREÇÃO: Verificar se o produto é "plano" E se encaixa no intervalo de valores
-      // Evita confusão com outros produtos (ex: taxa de personal) que podem ter valores similares
-      const plano = (venda?.produto?.trim().toLowerCase() === "plano" && Array.isArray(comissaoPlanos)) 
-        ? comissaoPlanos.find(p => 
-            valorVenda >= (p.min || 0) && 
-            valorVenda <= (p.max || Infinity)
-          )
-        : null;
-      
-      let comissaoVenda = 0;
-      
-      if (plano) {
-        // ✅ VENDA É UM PLANO: Usar valor fixo baseado nas metas
-        if (unidadeBatida) {
-          comissaoVenda = plano.metaTME || 0; // Meta da unidade batida
-        } else if (metaIndividualBatida) {
-          comissaoVenda = plano.comMeta || 0; // Meta individual batida
-        } else {
-          comissaoVenda = plano.semMeta || 0; // Meta individual não batida
-        }
-        
-      } else {
-        // ✅ VENDA NÃO É UM PLANO: Usar taxa percentual
-        const taxa = metaIndividualBatida ? taxaCom : taxaSem;
-        comissaoVenda = valorVenda * taxa;
-        
-      }
-      
-      totalComissao += comissaoVenda;
+    const resultado = calcularRemuneracaoPorDuracao({
+      vendas: vendasArr,
+      metaIndividual: metaValor,
+      metaTime: configRem.metaUnidade || 0,
+      totalVendasIndividual,
+      totalVendasTime,
+      descontos, // Usa os descontos do hook
+      tipo: 'comissao',
+      produtosSelecionados // Passa o filtro de produtos
     });
     
-    return totalComissao;
-  } 
-  
-  // ===== CÁLCULO PARA PREMIAÇÃO (LÓGICA CUMULATIVA) =====
-  if (tipo === 'premiacao') {
-    const acumulado = vendasArr.reduce((soma, v) => soma + (Number(v?.valor) || 0), 0);
-    const percentual = metaValor > 0 ? (acumulado / metaValor) * 100 : 0;
-    
-    // 🔧 CORREÇÃO: Filtra as faixas atingidas e ordena por percentual
-    const faixasAtingidas = Array.isArray(premiacao)
-      ? premiacao
-          .filter(f => f.percentual <= percentual)
-          .sort((a, b) => (a.percentual || 0) - (b.percentual || 0))
-      : [];
-    
-    // 🔧 CORREÇÃO: Soma cumulativa de todas as faixas atingidas
-    const premioTotal = faixasAtingidas.reduce((soma, faixa) => {
-      return soma + (Number(faixa.premio) || 0);
-    }, 0);
-    
-    // Debug logs removed
-    
-    return premioTotal;
+    console.log(`💰 Nova lógica - ${resultado.totalComissao.toFixed(2)} (${resultado.resumo.totalPlanosProcessados} planos, ${resultado.resumo.totalProdutosProcessados} produtos)`);
+    return resultado.totalComissao;
   }
   
-  console.warn(`Tipo de remuneração não reconhecido: ${tipo}`);
+  if (tipo === 'premiacao') {
+    const resultado = calcularRemuneracaoPorDuracao({
+      vendas: vendasArr,
+      metaIndividual: metaValor,
+      premiacao: configRem.premiacao || [],
+      tipo: 'premiacao'
+    });
+    
+    return resultado.totalPremiacao;
+  }
+  
   return 0;
 }
 
-/**
- * FUNÇÃO DE DEBUG ESPECÍFICA PARA ASMIHS
- * Use esta função temporariamente para debugar o caso específico
- */
-function debugCalculoASMIHS(vendasArr, configRem, metaValor, unidadeBatida) {
-  // Debug function - logs removed
+// Função para debug da nova lógica
+function debugRemuneracao(responsavel) {
+  const metaResp = metas.find(m => 
+    m.responsavel.toLowerCase() === responsavel.toLowerCase()
+  );
   
-  const totalVendas = vendasArr.reduce((s, v) => s + Number(v.valor || 0), 0);
-  const metaIndividualBatida = totalVendas >= metaValor;
+  if (!metaResp) {
+    console.log(`❌ Meta não encontrada para ${responsavel}`);
+    return null;
+  }
   
-  let totalComissao = 0;
-  let totalPlanos = 0;
-  let totalOutros = 0;
-  let planosCount = 0;
-  let outrosCount = 0;
+  const vendasResp = vendasParaMeta.filter(v => 
+    v.responsavel.toLowerCase() === responsavel.toLowerCase()
+  );
   
-  vendasArr.forEach((venda, index) => {
-    const valor = Number(venda.valor || 0);
-    
-    // Verificar se encaixa em algum plano
-    const plano = configRem.comissaoPlanos?.find(p => 
-      valor >= (p.min || 0) && valor <= (p.max || Infinity)
-    );
-    
-    if (plano) {
-      // É um plano - usar lógica corrigida
-      let comissao = 0;
-      if (unidadeBatida) {
-        comissao = plano.metaTME || 0;
-      } else if (metaIndividualBatida) {
-        comissao = plano.comMeta || 0;
-      } else {
-        comissao = plano.semMeta || 0;
-      }
-      
-      totalComissao += comissao;
-      totalPlanos += comissao;
-      planosCount++;
-      
-    } else {
-      // Não é um plano
-      const taxa = metaIndividualBatida ? 0.015 : 0.012;
-      const comissao = valor * taxa;
-      totalComissao += comissao;
-      totalOutros += comissao;
-      outrosCount++;
-      
-    }
+  const totalVendasTime = vendasAgrupadas
+    .filter(venda => {
+      const dataVenda = dayjs(venda.dataFormatada, 'YYYY-MM-DD');
+      const mesVenda = dataVenda.format('YYYY-MM');
+      return mesVenda === selectedMonth;
+    })
+    .reduce((soma, v) => soma + Number(v.valor || 0), 0);
+  
+  const resultado = calcularRemuneracaoPorDuracao({
+    vendas: vendasResp,
+    metaIndividual: Number(metaResp.meta),
+    metaTime: configRem.metaUnidade || 0,
+    totalVendasIndividual: vendasResp.reduce((s, v) => s + Number(v.valor || 0), 0),
+    totalVendasTime,
+    descontos,
+    tipo: metaResp.remuneracaoType || 'comissao',
+    produtosSelecionados
   });
   
-  // Debug logs removed
-  
-  return {
-    totalComissao,
-    totalPlanos,
-    totalOutros,
-    planosCount,
-    outrosCount,
-    breakdown: {
-      metaIndividualBatida,
-      unidadeBatida,
-      totalVendas
-    }
-  };
+  console.log(`🔍 Debug ${responsavel}:`, resultado);
+  return resultado;
 }
 
 /**
@@ -364,10 +278,6 @@ function compararComPlanosVisualizer(vendasArr, configRem, metaValor, unidadeBat
   };
 }
 
-/**
- * VERSÃO SIMPLIFICADA PARA VERIFICAÇÃO RÁPIDA
- * Use esta função para comparar com o valor esperado
- */
 function verificarCalculoRapido(vendasArr, configRem, metaValor, unidadeBatida) {
   const totalVendas = vendasArr.reduce((s, v) => s + Number(v.valor || 0), 0);
   const metaIndividualBatida = totalVendas >= metaValor;
@@ -493,51 +403,8 @@ function debugCalculoASMIHS(vendasArr, configRem) {
   return totalComissao;
 }
 
-/**
- * ADICIONE ESTA CHAMADA na parte onde você calcula a remuneração do ASMIHS
- * Substitua a linha onde você chama calcularRemuneracao para ASMIHS por:
- */
 
-// No loop das metas, onde você calcula a remuneração, adicione isto APENAS para ASMIHS:
-/*
-if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
-  console.log("🎯 DEBUGANDO ASMIHS ESPECIFICAMENTE:");
   
-  const vendasDoResp = vendasParaMeta.filter(
-    (v) => v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase()
-  );
-  
-  console.log("Vendas encontradas para ASMIHS:", vendasDoResp.length);
-  console.log("ConfigRem atual:", configRem);
-  
-  // Debug detalhado
-  const debugResult = debugCalculoASMIHS(vendasDoResp, configRem);
-  
-  // Calcular com a função original
-  const remuneracaoOriginal = calcularRemuneracao(
-    Number(m.meta),
-    vendasDoResp,
-    m.remuneracaoType,
-    unidadeBatida,
-    configRem
-  );
-  
-  console.log("Resultado função original:", remuneracaoOriginal);
-  console.log("Resultado debug:", debugResult);
-  console.log("---");
-}
-*/
-
-/**
- * EXEMPLO DE COMO USAR:
- * 
- * 1. Adicione a função debugCalculoASMIHS no seu arquivo Metas.jsx
- * 2. No loop onde você renderiza as linhas da tabela, adicione o código comentado acima
- * 3. Recarregue a página e veja os logs no console
- * 4. Compare os valores para identificar onde está a diferença
- */
-  
-  // --- Configuração de remuneração ---
   const [loadingConfig, setLoadingConfig] = useState(true);
   
   useEffect(() => {
@@ -731,8 +598,6 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
     [metas]
   );
   
-
-  // --- CRUD de Metas ---
   const [newResponsavel, setNewResponsavel]   = useState("");
   const [newMeta, setNewMeta]                 = useState("");
   const [metaPeriodo, setMetaPeriodo]         = useState(dayjs().format("YYYY-MM"));
@@ -868,6 +733,10 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
     window.metas = metas;
     window.unidade = unidade;
     window.totalUnidade = totalUnidade;
+    window.descontos = descontos;
+    
+    // Expor função de debug da nova lógica
+    window.debugRemuneracao = debugRemuneracao;
     
     // Debug automático quando dados estão disponíveis
     if (vendas.length > 0 && produtosLoaded) {
@@ -884,7 +753,6 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
       // Debug automático se houver problema com produtos selecionados
       if (produtosSelecionados?.length === 0) {
         console.warn("⚠️ PRODUTOS SELECIONADOS VAZIO! Isso pode causar problemas no filtro.");
-        console.log("💡 Selecione produtos no filtro ou use debugProblemaReal() para mais detalhes.");
       }
     }
   }, [
@@ -899,185 +767,11 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
     unidade, 
     totalUnidade
   ]);
-  window.debugMelhorado = function debugMelhorado() {
-    console.group("🔍 DEBUG MELHORADO - COM VARIÁVEIS EXPOSTAS");
-    
-    const debug = window.DEBUG_METAS || {};
-    
-    console.log("1️⃣ ESTADO GERAL:");
-    console.log("- Unidade:", debug.unidade);
-    console.log("- Mês selecionado:", debug.selectedMonth);
-    console.log("- Total vendas:", debug.vendas?.length || 0);
-    console.log("- Vendas para meta:", debug.vendasParaMeta?.length || 0);
-    console.log("- Produtos selecionados:", debug.produtosSelecionados?.length || 0);
-    console.log("- Produtos carregados:", debug.produtosLoaded);
-    
-    console.log("\n2️⃣ CONFIGURAÇÃO:");
-    console.log("- Config carregada:", debug.configRem ? 'SIM' : 'NÃO');
-    console.log("- Planos configurados:", debug.configRem?.comissaoPlanos?.length || 0);
-    console.log("- Meta da unidade:", debug.configRem?.metaUnidade);
-    console.log("- Unidade batida:", debug.unidadeBatida);
-    
-    // Verificar ASMIHS especificamente
-    const vendasASMIHS = (debug.vendasParaMeta || []).filter(v => 
-      v.responsavel?.toLowerCase().includes('asmihs')
-    );
-    
-    console.log("\n3️⃣ ASMIHS ESPECÍFICO:");
-    console.log("- Vendas encontradas:", vendasASMIHS.length);
-    
-    if (vendasASMIHS.length > 0) {
-      const valorTotal = vendasASMIHS.reduce((s, v) => s + Number(v.valor || 0), 0);
-      console.log("- Valor total:", valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-      
-      console.log("- Amostra de vendas:");
-      vendasASMIHS.slice(0, 3).forEach((v, i) => {
-        console.log(`  ${i+1}. R$ ${Number(v.valor).toLocaleString('pt-BR')} - ${v.produto} - ${v.dataFormatada}`);
-      });
-      
-      // Calcular remuneração se tiver dados suficientes
-      const metaASMIHS = debug.metas?.find(m => 
-        m.responsavel.toLowerCase().includes('asmihs')
-      );
-      
-      if (metaASMIHS && debug.configRem?.comissaoPlanos) {
-        console.log("\n4️⃣ CÁLCULO REMUNERAÇÃO ASMIHS:");
-        console.log("- Meta individual:", Number(metaASMIHS.meta).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-        
-        // Usar a função de cálculo
-        try {
-          const remuneracao = calcularRemuneracao(
-            Number(metaASMIHS.meta),
-            vendasASMIHS,
-            metaASMIHS.remuneracaoType || 'comissao',
-            debug.unidadeBatida,
-            debug.configRem
-          );
-          console.log("- Remuneração calculada:", remuneracao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-        } catch (error) {
-          console.error("Erro ao calcular remuneração:", error);
-        }
-      }
-    }
-    
-    // Verificar problemas comuns
-    console.log("\n5️⃣ VERIFICAÇÃO DE PROBLEMAS:");
-    
-    const problemas = [];
-    
-    if (!debug.produtosSelecionados || debug.produtosSelecionados.length === 0) {
-      problemas.push("❌ Produtos selecionados está vazio");
-    }
-    
-    if (!debug.configRem || !debug.configRem.comissaoPlanos) {
-      problemas.push("❌ Configuração de remuneração não carregada");
-    }
-    
-    if (debug.vendas?.length === 0) {
-      problemas.push("❌ Nenhuma venda encontrada");
-    }
-    
-    if (debug.vendasParaMeta?.length === 0 && debug.vendas?.length > 0) {
-      problemas.push("❌ Filtro está bloqueando todas as vendas");
-    }
-    
-    if (problemas.length > 0) {
-      console.log("🚨 PROBLEMAS ENCONTRADOS:");
-      problemas.forEach(p => console.log(p));
-    } else {
-      console.log("✅ Nenhum problema óbvio encontrado");
-    }
-    
-    console.log("\n💡 PRÓXIMOS PASSOS:");
-    
-    if (!debug.produtosSelecionados || debug.produtosSelecionados.length === 0) {
-      console.log("1. Vá em 'Filtrar Produtos' e marque todos os produtos");
-    }
-    
-    if (debug.selectedMonth !== '2025-07') {
-      console.log("2. Mude o mês para 2025-07 (julho) para ver os dados da imagem");
-    }
-    
-    console.log("3. Execute debugConsultor('asmihs') para análise detalhada");
-    
-    console.groupEnd();
-    
-    return debug;
-  };
-  
-  // FUNÇÃO ESPECÍFICA PARA DEBUGAR UM CONSULTOR
-  window.debugConsultor = function debugConsultor(nomeConsultor) {
-    const debug = window.DEBUG_METAS || {};
-    
-    console.group(`🔍 DEBUG CONSULTOR: ${nomeConsultor.toUpperCase()}`);
-    
-    // Encontrar vendas do consultor
-    const vendasConsultor = (debug.vendasParaMeta || []).filter(v => 
-      v.responsavel.toLowerCase().includes(nomeConsultor.toLowerCase())
-    );
-    
-    console.log("📊 Vendas encontradas:", vendasConsultor.length);
-    
-    if (vendasConsultor.length === 0) {
-      console.log("❌ Nenhuma venda encontrada para este consultor");
-      console.log("Verificar:");
-      console.log("1. Nome do consultor está correto?");
-      console.log("2. Mês selecionado tem vendas?");
-      console.log("3. Produtos estão selecionados no filtro?");
-      console.groupEnd();
-      return;
-    }
-    
-    // Mostrar todas as vendas
-    console.log("\n📋 LISTA DE VENDAS:");
-    vendasConsultor.forEach((v, i) => {
-      console.log(`${i+1}. R$ ${Number(v.valor).toLocaleString('pt-BR')} - ${v.produto} - ${v.dataFormatada}`);
-    });
-    
-    const valorTotal = vendasConsultor.reduce((s, v) => s + Number(v.valor || 0), 0);
-    console.log(`\n💰 VALOR TOTAL: ${valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`);
-    
-    // Encontrar meta do consultor
-    const metaConsultor = debug.metas?.find(m => 
-      m.responsavel.toLowerCase().includes(nomeConsultor.toLowerCase())
-    );
-    
-    if (metaConsultor) {
-      console.log(`\n🎯 META: ${Number(metaConsultor.meta).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`);
-      console.log(`📊 % ATINGIDO: ${(valorTotal / Number(metaConsultor.meta) * 100).toFixed(2)}%`);
-      
-      // Calcular remuneração se tiver configuração
-      if (debug.configRem?.comissaoPlanos) {
-        try {
-          const remuneracao = calcularRemuneracao(
-            Number(metaConsultor.meta),
-            vendasConsultor,
-            metaConsultor.remuneracaoType || 'comissao',
-            debug.unidadeBatida,
-            debug.configRem
-          );
-          console.log(`💵 REMUNERAÇÃO: ${remuneracao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`);
-        } catch (error) {
-          console.error("Erro ao calcular remuneração:", error);
-        }
-      }
-    } else {
-      console.log("❌ Meta não encontrada para este consultor");
-    }
-    
-    console.groupEnd();
-  };
-  
-  console.log("🔧 Funções de debug melhoradas carregadas!");
-  console.log("📱 Comandos disponíveis:");
-  console.log("- debugMelhorado() - Análise geral");
-  console.log("- debugConsultor('asmihs') - Análise específica de consultor");
-
-  if (loading) {
+ 
+  if (loading || loadingDescontos) {
     return (
       <div className="loading-state">
-        <Loading3D size={120} />
-        <p>Carregando dados...</p>
+        <Loading3D />
       </div>
     );
   }
@@ -1259,6 +953,30 @@ if (m.responsavel.trim().toLowerCase().includes('asmihs')) {
             {error || successMessage}
           </div>
         )}
+
+        {/* Card informativo sobre a nova lógica */}
+        <div className="info-card" style={{ 
+          background: 'var(--info-bg, #e3f2fd)', 
+          padding: '15px', 
+          borderRadius: '8px',
+          marginBottom: '20px',
+          border: '1px solid var(--info-border, #90caf9)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'start', gap: '10px' }}>
+            <svg style={{ flexShrink: 0, marginTop: '2px', width: '20px', height: '20px' }} viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            <div>
+              <strong>Nova Lógica de Comissão Ativa</strong>
+              <p style={{ margin: '5px 0 0 0', fontSize: '14px' }}>
+                As comissões agora são calculadas baseadas na duração dos planos 
+                (diferença entre data início e fim) ao invés de intervalos de valores.
+                Descontos de matrícula não afetam mais a comissão dos planos.
+              </p>
+            </div>
+          </div>
+        </div>
+
 <section className="metas-list">
   <div className="section-header">
     <h2>Metas Cadastradas</h2>

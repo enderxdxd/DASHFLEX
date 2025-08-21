@@ -111,6 +111,39 @@ app.post("/", (req, res) => {
         // Se o responsável for 'Administrador' e usuário optou pela conversão, usa o respVenda
         const responsavelFinal = shouldConvert && respRecebimento === 'Administrador' && respVenda ? respVenda : respRecebimento;
 
+        // 🔧 NOVA LÓGICA: Usar campo "Duração" da planilha diretamente
+        const duracaoRaw = (row["Duração"] || "").toString().trim();
+        let duracaoMeses = 0;
+        
+        // Extrai número da duração (ex: "12" = 12 meses)
+        if (duracaoRaw) {
+          const duracaoNum = parseInt(duracaoRaw);
+          if (!isNaN(duracaoNum) && duracaoNum > 0) {
+            duracaoMeses = duracaoNum;
+          }
+        }
+        
+        // Processa datas apenas para referência (opcional)
+        const dataInicioRaw = (row["Data Início"] || "").trim();
+        const dataTerminoRaw = (row["Data Término"] || "").trim();
+        
+        let dataInicioFormatada = "";
+        let dataTerminoFormatada = "";
+        
+        if (dataInicioRaw) {
+          const parsedInicio = dayjs(dataInicioRaw, "DD/MM/YYYY");
+          if (parsedInicio.isValid()) {
+            dataInicioFormatada = parsedInicio.format("YYYY-MM-DD");
+          }
+        }
+        
+        if (dataTerminoRaw) {
+          const parsedTermino = dayjs(dataTerminoRaw, "DD/MM/YYYY");
+          if (parsedTermino.isValid()) {
+            dataTerminoFormatada = parsedTermino.format("YYYY-MM-DD");
+          }
+        }
+
         sales.push({
           produto:            (row["Produto"]               || "").trim(),
           matricula:          (row["Matrícula"]             || "").trim(),
@@ -119,9 +152,19 @@ app.post("/", (req, res) => {
           respVenda,                              // mantém o respVenda original
           dataCadastro:       (row["Data de Cadastro"]      || "").trim(),
           numeroContrato:     (row["N° Contrato"]           || "").trim(),
-          dataInicio:         (row["Data Início"]           || "").trim(),
-          dataTermino:        (row["Data Término"]          || "").trim(),
-          duracao:            (row["Duração"]               || "").trim(),
+          
+          // 🔧 NOVA LÓGICA: Usar duração da planilha diretamente
+          dataInicio:         dataInicioFormatada,          // Data formatada YYYY-MM-DD
+          dataTermino:        dataTerminoFormatada,         // Data formatada YYYY-MM-DD
+          dataFim:            dataTerminoFormatada,         // Para compatibilidade com frontend
+          
+          // Campo principal: duração em meses
+          duracaoMeses:       duracaoMeses,                 // Número de meses (1, 3, 6, 12, 24, etc)
+          
+          // Campos originais para referência
+          dataInicioOriginal: (row["Data Início"]           || "").trim(),
+          dataTerminoOriginal:(row["Data Término"]          || "").trim(),
+          duracao:            duracaoRaw,                   // Valor original da planilha
           modalidades:        (row["Modalidades"]           || "").trim(),
           plano:              (row["Plano"]                 || "").trim(),
           situacaoContrato:   (row["Situação de Contrato"]  || "").trim(),

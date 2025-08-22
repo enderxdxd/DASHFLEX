@@ -145,7 +145,7 @@ const gerarFaixasPremiacaoLocal = (unidade) => {
   return faixas;
 };
 
-const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas, responsaveis, metas }) => {
+const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas, responsaveis, metas, metaUnidadeCalculada }) => {
   const [selectedConsultor, setSelectedConsultor] = useState('');
   const [selectedDuracao, setSelectedDuracao] = useState(null);
   const [minValue, setMinValue] = useState(null);
@@ -187,7 +187,7 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
     return vendasDaUnidade.reduce((soma, v) => soma + Number(v.valor || 0), 0);
   }, [vendasParaMeta, metas]);
   
-  const unidadeBatida = totalUnidade >= Number(configRem?.metaUnidade || 0);
+  const unidadeBatida = totalUnidade >= Number(metaUnidadeCalculada || 0);
 
   // Filtrar vendas para análise (apenas responsáveis da unidade + filtro de consultor)
   const vendasFiltradas = React.useMemo(() => {
@@ -219,7 +219,7 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
     const resultado = calcularRemuneracaoPorDuracao({
       vendas: vendasArr,
       metaIndividual: metaValor,
-      metaTime: configRem.metaUnidade || 0,
+      metaTime: metaUnidadeCalculada || 0,
       totalVendasIndividual,
       totalVendasTime,
       descontos,
@@ -410,8 +410,8 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
     });
     
     // Oportunidade da unidade
-    if (!unidadeBatida && totalUnidade >= (configRem?.metaUnidade || 0) * 0.85) {
-      const valorNecessario = (configRem?.metaUnidade || 0) - totalUnidade;
+    if (!unidadeBatida && totalUnidade >= (metaUnidadeCalculada || 0) * 0.85) {
+      const valorNecessario = (metaUnidadeCalculada || 0) - totalUnidade;
       oportunidades.push({
         tipo: 'meta_unidade',
         consultor: 'UNIDADE',
@@ -447,9 +447,9 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
     // Status da meta (dados reais)
     content += '🎯 STATUS DA META\n';
     content += `• Meta da Unidade: ${unidadeBatida ? 'ATINGIDA ✅' : 'NÃO ATINGIDA ⚠️'}\n`;
-    content += `• Meta: R$ ${formatMoney(configRem?.metaUnidade || 0)}\n`;
+    content += `• Meta: R$ ${formatMoney(metaUnidadeCalculada || 0)}\n`;
     content += `• Realizado: R$ ${formatMoney(totalUnidade)}\n`;
-    content += `• Percentual: ${configRem?.metaUnidade > 0 ? (totalUnidade / configRem.metaUnidade * 100).toFixed(1) : '0'}%\n\n`;
+    content += `• Percentual: ${metaUnidadeCalculada > 0 ? (totalUnidade / metaUnidadeCalculada * 100).toFixed(1) : '0'}%\n\n`;
 
     // Resumo real das vendas do período
     content += '📊 RESUMO DO PERÍODO\n';
@@ -591,11 +591,11 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
     yPosition += 8;
     
     doc.setTextColor(100, 100, 100);
-    doc.text(`Meta: R$ ${formatMoney(configRem?.metaUnidade || 0)}`, margin + 5, yPosition);
+    doc.text(`Meta: R$ ${formatMoney(metaUnidadeCalculada || 0)}`, margin + 5, yPosition);
     yPosition += 6;
     doc.text(`Realizado: R$ ${formatMoney(totalUnidade)}`, margin + 5, yPosition);
     yPosition += 6;
-    doc.text(`Percentual: ${configRem?.metaUnidade > 0 ? (totalUnidade / configRem.metaUnidade * 100).toFixed(1) : '0'}%`, margin + 5, yPosition);
+    doc.text(`Percentual: ${metaUnidadeCalculada > 0 ? (totalUnidade / metaUnidadeCalculada * 100).toFixed(1) : '0'}%`, margin + 5, yPosition);
     yPosition += 15;
 
     // Resumo dos Planos
@@ -743,9 +743,9 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
           {unidadeBatida ? '🎯 Meta da Unidade ATINGIDA!' : '⚠️ Meta da Unidade NÃO atingida'}
         </h4>
         <p>
-          Meta: R$ {(configRem?.metaUnidade || 0).toLocaleString('pt-BR')} | 
+          Meta: R$ {(metaUnidadeCalculada || 0).toLocaleString('pt-BR')} | 
           Realizado: R$ {totalUnidade.toLocaleString('pt-BR')} | 
-          {configRem?.metaUnidade > 0 ? `${(totalUnidade / configRem.metaUnidade * 100).toFixed(1)}%` : '0%'}
+          {metaUnidadeCalculada > 0 ? `${(totalUnidade / metaUnidadeCalculada * 100).toFixed(1)}%` : '0%'}
         </p>
         <small>
           <strong>Impacto:</strong> {unidadeBatida ? 'Comissões dos planos usando valores TME (mais altos)' : 'Comissões dos planos usando valores padrão'}
@@ -1726,6 +1726,15 @@ const ConfigRemuneracao = () => {
   // Hook para buscar descontos do Firebase
   const { descontos } = useDescontosSimples(unidade);
   
+  // Calcular meta da unidade automaticamente baseada na soma das metas dos consultores
+  const metaUnidadeCalculada = React.useMemo(() => {
+    const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
+    const somaMetasConsultores = metasDoMes.reduce((soma, meta) => {
+      return soma + Number(meta.meta || 0);
+    }, 0);
+    return somaMetasConsultores;
+  }, [metas, selectedMonth]);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -1739,13 +1748,19 @@ const ConfigRemuneracao = () => {
 
   useEffect(() => {
     if (configRem && !configLoading) {
-      setMetaUnidade(configRem.metaUnidade?.toString() || '');
+      // Não mais definir metaUnidade do configRem, usar valor calculado
+      // setMetaUnidade(configRem.metaUnidade?.toString() || '');
       setFaixas(configRem.premiacao || []);
       setComissaoPlanos(configRem.comissaoPlanos || []);
       setTaxaSem(((configRem.taxaSem || 0.012) * 100).toString());
       setTaxaCom(((configRem.taxaCom || 0.015) * 100).toString());
     }
   }, [configRem, configLoading]);
+  
+  // Atualizar metaUnidade automaticamente quando as metas dos consultores mudarem
+  useEffect(() => {
+    setMetaUnidade(metaUnidadeCalculada.toString());
+  }, [metaUnidadeCalculada]);
 
   if (!unidade) {
     return (
@@ -1825,7 +1840,7 @@ const ConfigRemuneracao = () => {
       setError('');
 
       const configData = {
-        metaUnidade: parseInt(metaUnidade, 10) || 0,
+        metaUnidade: metaUnidadeCalculada || 0,
         premiacao: faixas.map(f => ({
           percentual: parseFloat(f.percentual) || 0,
           premio: parseFloat(f.premio) || 0
@@ -1953,17 +1968,49 @@ const ConfigRemuneracao = () => {
             <h2>Meta da Unidade</h2>
             <div className="form-section">
               <div className="input-group">
-                <label>Valor da Meta Mensal (R$)</label>
-                <div className="currency-input">
+                <label>Valor da Meta Mensal (R$) - Calculado Automaticamente</label>
+                <div className="currency-input calculated">
                   <span className="currency-symbol">R$</span>
                   <input
                     type="number"
-                    value={metaUnidade}
-                    onChange={(e) => setMetaUnidade(e.target.value)}
-                    placeholder="0"
+                    value={metaUnidadeCalculada}
+                    readOnly
+                    className="calculated-input"
                   />
+                  <div className="auto-badge">
+                    <Calculator size={14} />
+                    AUTO
+                  </div>
                 </div>
-                <small>Meta mensal da unidade. Quando atingida, aplica valores TME nos planos.</small>
+                <small>
+                  <strong>Meta calculada automaticamente</strong> baseada na soma das metas dos consultores do mês selecionado ({selectedMonth}). 
+                  Quando atingida, aplica valores TME nos planos.
+                </small>
+                
+                {/* Mostrar detalhamento das metas dos consultores */}
+                <div className="meta-breakdown">
+                  <h4>Detalhamento das Metas dos Consultores:</h4>
+                  <div className="consultores-metas">
+                    {metas
+                      .filter(m => m.periodo === selectedMonth)
+                      .map((meta, index) => (
+                        <div key={index} className="consultor-meta-item">
+                          <span className="consultor-name">{meta.responsavel}</span>
+                          <span className="consultor-meta">R$ {Number(meta.meta || 0).toLocaleString('pt-BR')}</span>
+                        </div>
+                      ))
+                    }
+                    {metas.filter(m => m.periodo === selectedMonth).length === 0 && (
+                      <div className="no-metas">
+                        <AlertCircle size={16} />
+                        <span>Nenhuma meta de consultor encontrada para {selectedMonth}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="total-calculado">
+                    <strong>Total: R$ {metaUnidadeCalculada.toLocaleString('pt-BR')}</strong>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2094,6 +2141,7 @@ const ConfigRemuneracao = () => {
               vendas={vendas}
               responsaveis={responsaveis}
               metas={metas}
+              metaUnidadeCalculada={metaUnidadeCalculada}
             />
           </div>
         )}

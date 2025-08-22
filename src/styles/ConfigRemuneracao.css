@@ -1286,6 +1286,198 @@
   .consultor-header h4 {
     margin: 0;
     color: var(--gray-900);
+  }
+
+  /* Estilos para Meta da Unidade Calculada Automaticamente */
+  .currency-input.calculated {
+    position: relative;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 2px solid #0ea5e9;
+    border-radius: 12px;
+    padding: 0.5rem;
+  }
+
+  .calculated-input {
+    background: var(--white) !important;
+    border: none !important;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    color: #0ea5e9 !important;
+    text-align: center !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1) !important;
+    padding: 1rem 3.5rem 1rem 3.5rem !important;
+  }
+
+  .calculated-input:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2) !important;
+  }
+
+  .auto-badge {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: var(--white);
+    padding: 0.5rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    z-index: 10;
+  }
+
+  .meta-breakdown {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #fafbff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  .meta-breakdown h4 {
+    margin: 0 0 1.5rem 0;
+    color: var(--gray-800);
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .meta-breakdown h4::before {
+    content: '📊';
+    font-size: 1.2rem;
+  }
+
+  .consultores-metas {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .consultor-meta-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: var(--white);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+
+  .consultor-meta-item:hover {
+    border-color: #0ea5e9;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .consultor-name {
+    font-weight: 600;
+    color: var(--gray-700);
+    font-size: 0.95rem;
+  }
+
+  .consultor-meta {
+    font-weight: 700;
+    color: #0ea5e9;
+    font-size: 1rem;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    border: 1px solid #bae6fd;
+  }
+
+  .no-metas {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    color: #92400e;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .total-calculado {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: var(--white);
+    border-radius: 8px;
+    text-align: center;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    border: 2px solid #065f46;
+  }
+
+  .total-calculado strong {
+    font-weight: 700;
+    font-size: 1.2rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Dark mode para os novos estilos */
+  .dark .currency-input.calculated {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(14, 165, 233, 0.05) 100%);
+    border-color: #0ea5e9;
+  }
+
+  .dark .calculated-input {
+    background: var(--input-bg) !important;
+    color: #60a5fa !important;
+  }
+
+  .dark .meta-breakdown {
+    background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-hover) 100%);
+    border-color: var(--border-color);
+  }
+
+  .dark .meta-breakdown h4 {
+    color: var(--text-color);
+  }
+
+  .dark .consultor-meta-item {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+  }
+
+  .dark .consultor-meta-item:hover {
+    border-color: #60a5fa;
+    box-shadow: 0 4px 12px rgba(96, 165, 250, 0.2);
+  }
+
+  .dark .consultor-name {
+    color: var(--text-secondary);
+  }
+
+  .dark .consultor-meta {
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.1);
+    border-color: rgba(96, 165, 250, 0.3);
+  }
+
+  .dark .no-metas {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: #fbbf24;
+    color: #fbbf24;
+  }
+
+  .dark .total-calculado {
+    background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+    border-color: #065f46;
     font-size: 1.1rem;
   }
   

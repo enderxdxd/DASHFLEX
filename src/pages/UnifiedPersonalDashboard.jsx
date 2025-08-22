@@ -903,7 +903,7 @@ export default function UnifiedPersonalDashboard() {
         <div className="validation-success">
           <CheckCircle size={48} />
           <h3>Nenhum personal em aberto!</h3>
-          <p>Todos os personals têm taxas definidas</p>
+          <p>Todos os personais têm taxas definidas</p>
         </div>
       );
     }
@@ -1111,7 +1111,7 @@ export default function UnifiedPersonalDashboard() {
             <div className="stats-grid">
               <StatCard
                 icon={Users}
-                title="Total de Personals"
+                title="Total de Personais"
                 value={stats.totalPersonals}
                 subtitle="Ativos em todas as unidades"
                 color="blue"
@@ -1127,7 +1127,7 @@ export default function UnifiedPersonalDashboard() {
                 icon={AlertTriangle}
                 title="Taxas Incorretas"
                 value={stats.invalidTaxes}
-                subtitle="Personals com taxa divergente"
+                subtitle="Personais com taxa divergente"
                 color="red"
                 onClick={() => setActiveTab('tax-validation')}
               />
@@ -1135,13 +1135,13 @@ export default function UnifiedPersonalDashboard() {
                 icon={Clock}
                 title="Alunos em Aberto"
                 value={stats.totalPendingCount}
-                subtitle={`Em ${stats.pendingStudents} personals`}
+                subtitle={`Em ${stats.pendingStudents} personais`}
                 color="orange"
                 onClick={() => setActiveTab('pending-students')}
               />
               <StatCard
                 icon={UserX}
-                title="Personals em Aberto"
+                title="Personais em Aberto"
                 value={stats.openTaxPersonals}
                 subtitle="Sem taxa definida"
                 color="purple"
@@ -1212,7 +1212,7 @@ export default function UnifiedPersonalDashboard() {
                 onClick={() => setActiveTab('open-personals')}
               >
                 <UserX size={16} />
-                Personals em Aberto
+                Personais em Aberto
                 {stats.openTaxPersonals > 0 && (
                   <span className="badge">{stats.openTaxPersonals}</span>
                 )}

@@ -141,7 +141,7 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
 
     setLoading(true);
 
-    // Traz TODOS os descontos de TODAS as unidades
+    // Traz TODOS os descontos de TODAS as unidades (igual às vendas)
     const unsub = onSnapshot(
       collectionGroup(db, 'descontos'),
       (snapshot) => {
@@ -158,21 +158,24 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
           return !selectedMonth || !mesDesc ? true : (mesDesc === selectedMonth);
         });
 
-        // 2) filtro por responsáveis OFICIAIS da unidade atual (com matching fuzzy)
+        // 2) MUDANÇA: Agora busca descontos de TODAS as unidades para consultores da unidade atual
+        // Similar ao comportamento das vendas - consultor pode dar desconto em qualquer unidade
         const byResp = byMonth.filter(desc => {
           // se não há metas, libera geral (modo aberto)
           if (responsaveisOficiaisSet.size === 0) return true;
           
-          // Usa matching fuzzy para responsáveis
+          // Usa matching fuzzy para responsáveis - busca em TODAS as unidades
           const isOficial = matchResponsavel(desc.responsavel, responsaveisOficiaisSet);
-          
-          if (!isOficial) {
-          }
           
           return isOficial;
         });
 
-        // Debug logs removed
+        console.log(`🔍 [${unidade}] Descontos carregados:`, {
+          total: all.length,
+          porMes: byMonth.length,
+          porResponsavel: byResp.length,
+          responsaveisOficiais: Array.from(responsaveisOficiaisSet)
+        });
         
         setDescontos(byResp);
         setLoading(false);
@@ -194,13 +197,20 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       return [];
     }
     
+    // Helper para identificar se é plano
+    const isPlano = (produto) => {
+      if (!produto) return false;
+      const produtoNorm = String(produto)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+        .replace(/[^\w\s]/g, '') // remove pontuação
+        .trim()
+        .toUpperCase();
+      
+      return produtoNorm.includes('PLANO');
+    };
     
-    
-    
-    
-    // Filtro IGUAL ao useVendas: por unidade e mês
+    // Filtro IGUAL ao useVendas: por unidade e mês + APENAS PLANOS
     const uni = unidade.toLowerCase();
-    let debugCount = 0;
     const vendasFiltradas = vendas.filter(venda => {
       // 1. Filtro de unidade (IGUAL ao useVendas)
       if ((venda.unidade || "").toLowerCase() !== uni) return false;
@@ -210,10 +220,21 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       if (!vendaMes) return false;
       if (vendaMes !== selectedMonth) return false;
       
+      // 3. NOVO: Filtro apenas produtos que são PLANO
+      if (!isPlano(venda.produto)) return false;
       
       return true;
     });
     
+    console.log(`📊 [${unidade}] Vendas filtradas:`, {
+      total: vendas.length,
+      unidade: vendas.filter(v => (v.unidade || "").toLowerCase() === uni).length,
+      mes: vendas.filter(v => {
+        const mes = parseMes(v.dataFormatada || v.dataLancamento);
+        return mes === selectedMonth;
+      }).length,
+      planos: vendasFiltradas.length
+    });
     
     return vendasFiltradas;
   }, [vendas, metas, unidade, selectedMonth]);

@@ -1,7 +1,7 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
+import * as XLSX from 'xlsx';
 import {
   Upload,
   FileSpreadsheet,
@@ -34,6 +34,8 @@ import Loading3D from "../components/ui/Loading3D";
 // Hooks
 import { useDescontos } from "../hooks/useDescontos";
 import { useVendas } from "../hooks/useVendas";
+import { useConfigRem } from "../hooks/useConfigRem";
+import { useGroupedVendas } from "../hooks/useGroupedVendas";
 
 // Estilos
 import "../styles/DescontosPage.css";
@@ -42,13 +44,16 @@ const DescontosPage = () => {
   const { unidade } = useParams();
   const navigate = useNavigate();
   
-  // Carrega vendas para fazer a reconciliação
-  const { vendas, loading: vendasLoading } = useVendas(unidade);
+  // Carrega vendas para fazer a reconciliação - usa dados brutos (todas as unidades)
+  const { vendas: vendasBrutas, loading: vendasLoading } = useVendas(unidade);
   
-  // Hook principal de descontos
+  // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS (igual ConfigRemuneracao)
+  const vendasAgrupadas = useGroupedVendas(vendasBrutas);
+  
+  // Hook principal de descontos - agora usa vendas agrupadas
   const {
     descontos,
-    vendasComDesconto,
+    vendasComDesconto, // Dados paginados para a tabela
     analiseConsultores,
     estatisticas,
     responsaveis,
@@ -81,12 +86,197 @@ const DescontosPage = () => {
     sortConfig,
     handleSort,
     deleteAllDescontos,
-    clearMessages
-  } = useDescontos(unidade, vendas);
+    clearMessages,
+    // Dados completos para análise detalhada
+    todasVendasProcessadas,
+    dadosOrdenados
+  } = useDescontos(unidade, vendasAgrupadas);
+
+  // Carrega configuração de remuneração para obter as faixas de planos
+  const { configRem } = useConfigRem(unidade, selectedMonth);
 
   // Estados locais
-  const [activeView, setActiveView] = useState("overview"); // overview, consultores, vendas
+  const [activeView, setActiveView] = useState("overview");
   const [showDetails, setShowDetails] = useState(false);
+
+  // Função para exportar dados para Excel
+  const exportarParaExcel = () => {
+    try {
+      // Preparar dados para exportação
+      const dadosExportacao = dadosOrdenados.map(venda => ({
+        'Matrícula': venda.matricula || '',
+        'Nome': venda.nome || '',
+        'Produto': venda.produto || '',
+        'Responsável': venda.responsavel || '',
+        'Unidade': venda.unidade || '',
+        'Valor Pago': `R$ ${(venda.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        'Desconto Plano': venda.descontoPlano > 0 ? `R$ ${venda.descontoPlano.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-',
+        'Desconto Matrícula': venda.descontoMatricula > 0 ? `R$ ${venda.descontoMatricula.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-',
+        'Total Desconto': venda.totalDesconto > 0 ? `R$ ${venda.totalDesconto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-',
+        'Valor Cheio': `R$ ${(venda.valorCheio || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        '% Desconto': venda.percentualDesconto > 0 ? `${venda.percentualDesconto.toFixed(2)}%` : '0%',
+        'Data': venda.dataFormatada || venda.dataLancamento || '',
+        'Tem Desconto': venda.temDesconto ? 'Sim' : 'Não'
+      }));
+
+      // Criar planilha
+      const ws = XLSX.utils.json_to_sheet(dadosExportacao);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Vendas com Desconto");
+
+      // Configurar larguras das colunas
+      const colWidths = [
+        { wch: 12 }, // Matrícula
+        { wch: 25 }, // Nome
+        { wch: 15 }, // Produto
+        { wch: 25 }, // Responsável
+        { wch: 15 }, // Unidade
+        { wch: 15 }, // Valor Pago
+        { wch: 15 }, // Desconto Plano
+        { wch: 18 }, // Desconto Matrícula
+        { wch: 15 }, // Total Desconto
+        { wch: 15 }, // Valor Cheio
+        { wch: 12 }, // % Desconto
+        { wch: 12 }, // Data
+        { wch: 12 }  // Tem Desconto
+      ];
+      ws['!cols'] = colWidths;
+
+      // Gerar nome do arquivo
+      const dataAtual = dayjs().format('YYYY-MM-DD_HH-mm');
+      const nomeArquivo = `vendas_desconto_${unidade}_${selectedMonth}_${dataAtual}.xlsx`;
+
+      // Fazer download
+      XLSX.writeFile(wb, nomeArquivo);
+      
+      console.log(`Exportação concluída: ${dadosExportacao.length} registros exportados`);
+    } catch (error) {
+      console.error('Erro ao exportar para Excel:', error);
+      alert('Erro ao exportar dados para Excel. Verifique o console para mais detalhes.');
+    }
+  };
+
+  // Função para classificar tipo de plano baseada nas faixas de comissão configuradas
+  const classificarTipoPlano = (venda) => {
+    if (!venda) return 'Outros';
+    
+    const valorVenda = Number(venda.valor || 0);
+    
+    // Sempre usar classificação por valor, independente da configuração
+    if (valorVenda <= 800) return 'Mensal';
+    if (valorVenda <= 2000) return 'Trimestral';
+    if (valorVenda <= 4000) return 'Semestral';
+    if (valorVenda <= 6000) return 'Octomestral';
+    if (valorVenda <= 8000) return 'Anual';
+    return 'Bianual';
+  };
+
+  // Análise detalhada por consultor e tipo de plano
+  const analiseDetalhada = useMemo(() => {
+    if (!todasVendasProcessadas?.length) {
+      console.log('Dados insuficientes para análise detalhada:', {
+        vendas: todasVendasProcessadas?.length
+      });
+      
+      // Fallback usando analiseConsultores se não temos dados completos
+      if (analiseConsultores?.length) {
+        return analiseConsultores.map(consultor => ({
+          nome: consultor.responsavel,
+          totalVendas: consultor.totalVendas || 0,
+          vendasComDesconto: consultor.vendasComDesconto || 0,
+          vendasSemDesconto: consultor.vendasSemDesconto || 0,
+          percentualVendasComDesconto: consultor.percentualVendasComDesconto || 0,
+          valorTotal: consultor.valorTotalVendido || 0,
+          valorDescontos: consultor.totalDescontos || 0,
+          planos: {
+            'Total': { 
+              comDesconto: consultor.vendasComDesconto || 0, 
+              semDesconto: consultor.vendasSemDesconto || 0 
+            }
+          }
+        }));
+      }
+      return [];
+    }
+
+    // Agrupar vendas por consultor
+    const consultoresMap = new Map();
+    
+    todasVendasProcessadas.forEach(venda => {
+      const consultor = venda.responsavel;
+      if (!consultoresMap.has(consultor)) {
+        consultoresMap.set(consultor, {
+          nome: consultor,
+          vendas: []
+        });
+      }
+      consultoresMap.get(consultor).vendas.push(venda);
+    });
+
+    // Processar cada consultor
+    const consultoresProcessados = Array.from(consultoresMap.values()).map(({nome, vendas}) => {
+      // Agrupar vendas por tipo de plano
+      const planosTipo = {};
+      let totalVendas = 0;
+      let vendasComDesconto = 0;
+      let vendasSemDesconto = 0;
+      let valorTotal = 0;
+      let valorDescontos = 0;
+
+      vendas.forEach(venda => {
+        const tipoPlano = classificarTipoPlano(venda);
+        
+        console.log('Processando venda:', {
+          matricula: venda.matricula,
+          responsavel: venda.responsavel,
+          produto: venda.produto,
+          valor: venda.valor,
+          tipoPlano,
+          temDesconto: venda.temDesconto,
+          totalDesconto: venda.totalDesconto
+        });
+        
+        if (!planosTipo[tipoPlano]) {
+          planosTipo[tipoPlano] = { comDesconto: 0, semDesconto: 0 };
+        }
+
+        totalVendas++;
+        valorTotal += Number(venda.valor || 0);
+
+        if (venda.temDesconto) {
+          vendasComDesconto++;
+          planosTipo[tipoPlano].comDesconto++;
+          valorDescontos += venda.totalDesconto || 0;
+        } else {
+          vendasSemDesconto++;
+          planosTipo[tipoPlano].semDesconto++;
+        }
+      });
+
+      return {
+        nome,
+        totalVendas,
+        vendasComDesconto,
+        vendasSemDesconto,
+        percentualVendasComDesconto: totalVendas > 0 ? (vendasComDesconto / totalVendas) * 100 : 0,
+        valorTotal,
+        valorDescontos,
+        planos: planosTipo
+      };
+    });
+
+    console.log('Análise detalhada processada:', {
+      consultores: consultoresProcessados.length,
+      exemplo: consultoresProcessados[0],
+      planosDetalhados: consultoresProcessados.map(c => ({
+        nome: c.nome,
+        planos: c.planos,
+        totalVendas: c.totalVendas
+      }))
+    });
+    
+    return consultoresProcessados.sort((a, b) => b.totalVendas - a.totalVendas);
+  }, [todasVendasProcessadas, configRem, classificarTipoPlano]);
 
   useEffect(() => {
     if (!unidade) {
@@ -147,7 +337,7 @@ const DescontosPage = () => {
                 onChange={setSelectedMonth}
               />
               
-              {/* Toggle para desconsiderar matrícula - visível em todas as views */}
+              {/* Toggle para desconsiderar matrícula */}
               <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg">
                 <input
                   type="checkbox"
@@ -252,9 +442,6 @@ const DescontosPage = () => {
                 </div>
               )}
             </div>
-
-            {/* Estrutura Esperada */}
-            
           </div>
 
           {/* Actions */}
@@ -266,7 +453,12 @@ const DescontosPage = () => {
                 </div>
                 <button
                   onClick={handleDeleteAll}
-                  className="flex items-center gap-2 px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+                  className="flex items-center gap-2 px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-all duration-200 hover:border-red-300 hover:shadow-sm active:scale-95"
+                  style={{
+                    background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                    borderColor: '#fecaca',
+                    color: '#dc2626'
+                  }}
                 >
                   <Trash2 className="w-4 h-4" />
                   Limpar Todos
@@ -322,6 +514,15 @@ const DescontosPage = () => {
           >
             <Users className="w-4 h-4 inline mr-2" />
             Por Consultor
+          </button>
+          <button
+            onClick={() => setActiveView("detalhada")}
+            className={`view-button ${
+              activeView === "detalhada" ? "active" : ""
+            }`}
+          >
+            <PieChart className="w-4 h-4 inline mr-2" />
+            Análise Detalhada
           </button>
           <button
             onClick={() => setActiveView("vendas")}
@@ -466,6 +667,349 @@ const DescontosPage = () => {
           </div>
         )}
 
+        {/* Análise Detalhada por Consultor */}
+        {activeView === "detalhada" && (
+          <div 
+            className="analise-detalhada-container"
+            style={{
+              animation: 'slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.4s both'
+            }}
+          >
+            <div className="space-y-6" style={{ marginTop: '1.5rem' }}>
+              <div 
+                className="consultores-grid"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                  gap: '1.5rem',
+                  marginBottom: '2rem'
+                }}
+              >
+                {analiseDetalhada.map((consultor, index) => (
+                  <div 
+                    key={index} 
+                    className="consultor-card"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.95)',
+                      backdropFilter: 'blur(20px)',
+                      borderRadius: '1rem',
+                      border: '1px solid rgba(228, 228, 231, 0.5)',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
+                      overflow: 'hidden',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      position: 'relative'
+                    }}
+                  >
+                    {/* Header do Card */}
+                    <div 
+                      className="consultor-header"
+                      style={{
+                        padding: '1.5rem',
+                        borderBottom: '1px solid #f1f5f9',
+                        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <div className="consultor-info">
+                        <div className="flex items-center space-x-3">
+                          <div 
+                            className="consultor-avatar"
+                            style={{
+                              width: '3rem',
+                              height: '3rem',
+                              borderRadius: '0.75rem',
+                              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                            }}
+                          >
+                            <Users className="w-5 h-5" />
+                          </div>
+                          <div className="consultor-details">
+                            <h3 
+                              title={consultor.nome}
+                              style={{
+                                fontSize: '1.125rem',
+                                fontWeight: '700',
+                                color: '#1e293b',
+                                margin: '0',
+                                lineHeight: '1.2',
+                                maxWidth: '200px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {consultor.nome}
+                            </h3>
+                            <p style={{
+                              fontSize: '0.875rem',
+                              color: '#64748b',
+                              margin: '0.25rem 0 0 0'
+                            }}>Consultor</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div 
+                        className="consultor-summary"
+                        style={{ textAlign: 'right' }}
+                      >
+                        <div 
+                          className="consultor-summary-content"
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'flex-end',
+                            gap: '0.25rem'
+                          }}
+                        >
+                          <span 
+                            className="consultor-summary-label"
+                            style={{
+                              fontSize: '0.75rem',
+                              color: '#64748b',
+                              fontWeight: '500',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em'
+                            }}
+                          >Total Planos Vendidos</span>
+                          <span 
+                            className="consultor-summary-value"
+                            style={{
+                              fontSize: '1.5rem',
+                              fontWeight: '800',
+                              color: '#3b82f6',
+                              lineHeight: '1'
+                            }}
+                          >
+                            {consultor.totalVendas}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tabela de Planos */}
+                    <div 
+                      className="planos-table"
+                      style={{ background: 'white' }}
+                    >
+                      <div 
+                        className="planos-table-header"
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '2fr 1fr 1fr',
+                          gap: '1rem',
+                          padding: '1rem 1.5rem',
+                          background: '#f8fafc',
+                          borderBottom: '1px solid #e2e8f0'
+                        }}
+                      >
+                        <div 
+                          className="planos-table-header-cell"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            color: '#64748b',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}
+                        >
+                          <Package className="w-3 h-3" />
+                          Tipo
+                        </div>
+                        <div 
+                          className="planos-table-header-cell center"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            color: '#64748b',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}
+                        >
+                          <TrendingDown className="w-3 h-3 text-red-500" />
+                          Com Descto
+                        </div>
+                        <div 
+                          className="planos-table-header-cell center"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem',
+                            fontSize: '0.75rem',
+                            fontWeight: '600',
+                            color: '#64748b',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                          }}
+                        >
+                          <TrendingUp className="w-3 h-3 text-green-500" />
+                          Sem Descto
+                        </div>
+                      </div>
+                      
+                      <div 
+                        className="planos-table-body"
+                        style={{
+                          maxHeight: '300px',
+                          overflowY: 'auto'
+                        }}
+                      >
+                        {Object.entries(consultor.planos).map(([tipo, dados]) => {
+                          const total = dados.comDesconto + dados.semDesconto;
+                          if (total === 0) return null;
+                          
+                          return (
+                            <div 
+                              key={tipo} 
+                              className="plano-row"
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: '2fr 1fr 1fr',
+                                gap: '1rem',
+                                padding: '0.75rem 1.5rem',
+                                borderBottom: '1px solid #f1f5f9',
+                                transition: 'background-color 0.2s ease'
+                              }}
+                            >
+                              <div 
+                                className="plano-tipo"
+                                style={{
+                                  fontSize: '0.875rem',
+                                  fontWeight: '600',
+                                  color: '#1e293b',
+                                  display: 'flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                {tipo}
+                              </div>
+                              <div className="text-center">
+                                <span 
+                                  className={`plano-count ${
+                                    dados.comDesconto > 0 ? 'com-desconto' : 'zero'
+                                  }`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '0.25rem 0.75rem',
+                                    borderRadius: '9999px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '600',
+                                    minWidth: '2rem',
+                                    textAlign: 'center',
+                                    ...(dados.comDesconto > 0 ? {
+                                      background: '#fecaca',
+                                      color: '#991b1b'
+                                    } : {
+                                      background: '#f1f5f9',
+                                      color: '#64748b'
+                                    })
+                                  }}
+                                >
+                                  {dados.comDesconto}
+                                </span>
+                              </div>
+                              <div className="text-center">
+                                <span 
+                                  className={`plano-count ${
+                                    dados.semDesconto > 0 ? 'sem-desconto' : 'zero'
+                                  }`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '0.25rem 0.75rem',
+                                    borderRadius: '9999px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '600',
+                                    minWidth: '2rem',
+                                    textAlign: 'center',
+                                    ...(dados.semDesconto > 0 ? {
+                                      background: '#d1fae5',
+                                      color: '#065f46'
+                                    } : {
+                                      background: '#f1f5f9',
+                                      color: '#64748b'
+                                    })
+                                  }}
+                                >
+                                  {dados.semDesconto}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        
+                        {Object.values(consultor.planos).every(p => p.comDesconto + p.semDesconto === 0) && (
+                          <div className="plano-row">
+                            <div className="plano-tipo">
+                              Nenhum plano encontrado
+                            </div>
+                            <div className="text-center">
+                              <span className="plano-count zero">0</span>
+                            </div>
+                            <div className="text-center">
+                              <span className="plano-count zero">0</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Footer com Resumo */}
+                    <div className="consultor-footer">
+                      <div className="footer-stats">
+                        <div className="footer-stat">
+                          <span className="footer-stat-label">
+                            <ArrowDownRight className="w-4 h-4 text-red-500" />
+                            Com Desconto:
+                          </span>
+                          <span className="footer-stat-value com-desconto">
+                            {consultor.vendasComDesconto}
+                          </span>
+                        </div>
+                        <div className="footer-stat">
+                          <span className="footer-stat-label">
+                            <ArrowUpRight className="w-4 h-4 text-green-500" />
+                            Sem Desconto:
+                          </span>
+                          <span className="footer-stat-value sem-desconto">
+                            {consultor.vendasSemDesconto}
+                          </span>
+                        </div>
+                        <div className="footer-stat highlight">
+                          <span className="footer-stat-label">
+                            <Percent className="w-4 h-4 text-orange-500" />
+                            % com Desconto:
+                          </span>
+                          <span className="footer-stat-value percentual">
+                            {(consultor.percentualVendasComDesconto || 0).toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Análise por Consultor */}
         {activeView === "consultores" && (
           <div className="descontos-table-container">
@@ -564,9 +1108,58 @@ const DescontosPage = () => {
           <div className="space-y-6">
             {/* Filtros */}
             <div className="descontos-card">
-              <div className="flex items-center gap-3 mb-4">
-                <Filter className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Filtros</h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Filter className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Filtros</h3>
+                </div>
+                <button
+                  onClick={exportarParaExcel}
+                  className="group relative flex items-center gap-3 px-6 py-3 text-white font-semibold rounded-xl transition-all duration-300 hover:shadow-lg active:scale-95 overflow-hidden"
+                  style={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)',
+                    boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4), 0 4px 12px rgba(5, 150, 105, 0.3)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    position: 'relative'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 12px 35px rgba(16, 185, 129, 0.5), 0 8px 20px rgba(5, 150, 105, 0.4)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = '0 8px 25px rgba(16, 185, 129, 0.4), 0 4px 12px rgba(5, 150, 105, 0.3)';
+                  }}
+                >
+                  {/* Shimmer effect overlay */}
+                  <div 
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                    style={{
+                      background: 'linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%)',
+                      animation: 'shimmer 2s infinite'
+                    }}
+                  />
+                  
+                  {/* Icon with animation */}
+                  <div className="relative flex items-center justify-center w-5 h-5 transition-transform duration-300 group-hover:scale-110">
+                    <Download className="w-5 h-5 drop-shadow-sm" />
+                  </div>
+                  
+                  {/* Text */}
+                  <span className="relative font-medium tracking-wide drop-shadow-sm">
+                    Exportar para Excel
+                  </span>
+                  
+                  {/* Subtle glow effect */}
+                  <div 
+                    className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.2) 100%)',
+                      filter: 'blur(8px)',
+                      zIndex: -1
+                    }}
+                  />
+                </button>
               </div>
 
               {/* Toggle para desconsiderar matrícula */}

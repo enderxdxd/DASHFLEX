@@ -191,7 +191,7 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     return () => unsub();
   }, [unidade, selectedMonth, responsaveisOficiaisSet]);
 
-  // ===== FILTRAR VENDAS POR UNIDADE E MÊS (RIGOROSO) =====
+  // ===== FILTRAR VENDAS PARA ANÁLISE DE DESCONTOS =====
   const vendasDaUnidade = useMemo(() => {
     if (!vendas.length) {
       return [];
@@ -209,31 +209,28 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       return produtoNorm.includes('PLANO');
     };
     
-    // Filtro IGUAL ao useVendas: por unidade e mês + APENAS PLANOS
-    const uni = unidade.toLowerCase();
+    // CORREÇÃO: Não filtrar por unidade - usar TODAS as vendas como na visão geral
+    // Apenas filtrar por mês e tipo de produto (planos)
     const vendasFiltradas = vendas.filter(venda => {
-      // 1. Filtro de unidade (IGUAL ao useVendas)
-      if ((venda.unidade || "").toLowerCase() !== uni) return false;
-      
-      // 2. Filtro por mês
+      // 1. Filtro por mês
       const vendaMes = parseMes(venda.dataFormatada || venda.dataLancamento);
       if (!vendaMes) return false;
       if (vendaMes !== selectedMonth) return false;
       
-      // 3. NOVO: Filtro apenas produtos que são PLANO
+      // 2. Filtro apenas produtos que são PLANO
       if (!isPlano(venda.produto)) return false;
       
       return true;
     });
     
-    console.log(`📊 [${unidade}] Vendas filtradas:`, {
+    console.log(`📊 [${unidade}] Vendas para análise de descontos:`, {
       total: vendas.length,
-      unidade: vendas.filter(v => (v.unidade || "").toLowerCase() === uni).length,
-      mes: vendas.filter(v => {
+      porMes: vendas.filter(v => {
         const mes = parseMes(v.dataFormatada || v.dataLancamento);
         return mes === selectedMonth;
       }).length,
-      planos: vendasFiltradas.length
+      planosNoMes: vendasFiltradas.length,
+      todasUnidades: true // Agora inclui todas as unidades
     });
     
     return vendasFiltradas;
@@ -337,13 +334,17 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     
     // PASSO 2: Aplicar lógica CORRETA de reconciliação
     const vendasProcessadas = vendasDaUnidade.map(venda => {
-      // 🔒 restringe por responsáveis oficiais da unidade
+      // 🔒 NOVA LÓGICA: Filtrar por unidade da venda E responsáveis oficiais da unidade selecionada
+      const vendaUnidade = (venda.unidade || "").toLowerCase();
+      const unidadeAtual = unidade.toLowerCase();
+      
+      // Se a venda não é da unidade atual, verificar se o responsável é da unidade atual
       const isOficial = responsaveisOficiaisSet.size === 0
         ? true
         : responsaveisOficiaisSet.has(normalize(venda.responsavel));
 
+      // Se não é responsável oficial da unidade atual, tratar como sem desconto
       if (!isOficial) {
-        // trata como sem desconto (mesmo que exista desconto na outra unidade)
         const valorPago = Number(venda.valor || 0);
         return {
           ...venda,
@@ -799,6 +800,10 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     clearMessages: () => {
       setError("");
       setSuccessMessage("");
-    }
+    },
+    
+    // Dados completos para análise detalhada
+    todasVendasProcessadas: vendasComDesconto,
+    dadosOrdenados
   };
 };

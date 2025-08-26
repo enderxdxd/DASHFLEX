@@ -202,10 +202,8 @@ export const useVendas = (unidade, metas = []) => {
   // ▼ Vendas já filtradas de acordo com todos os critérios
   const vendasFiltradas = useMemo(() => {
     if (!unidade) return [];
-    const uni = unidade.toLowerCase();
     return vendasAgrupadas.filter((v) => {
-      // filtro de unidade
-      if ((v.unidade || "").toLowerCase() !== uni) return false;
+      // Remover filtro de unidade para somar vendas de todas as unidades
   
       // seu filtro por responsável
       const resp = (v.responsavel || "").trim().toLowerCase();

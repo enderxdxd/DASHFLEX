@@ -209,12 +209,9 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       return produtoNorm.includes('PLANO');
     };
     
-    // FILTRAR POR UNIDADE, MÊS E TIPO DE PRODUTO (PLANOS)
+    // FILTRAR POR MÊS E TIPO DE PRODUTO (PLANOS) - REMOVER FILTRO POR UNIDADE
     const vendasFiltradas = vendas.filter(venda => {
-      // 1. Filtro por unidade
-      const vendaUnidade = (venda.unidade || "").toLowerCase();
-      const unidadeAtual = (unidade || "").toLowerCase();
-      if (vendaUnidade !== unidadeAtual) return false;
+      // 1. Remover filtro por unidade para somar vendas de todas as unidades
       
       // 2. Filtro por mês
       const vendaMes = parseMes(venda.dataFormatada || venda.dataLancamento);

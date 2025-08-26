@@ -186,6 +186,7 @@ const Dashboard = () => {
     pctMedia,
     estatisticasPlanos,
     estatisticasOutros,
+    totalFiltrado,
   } = useFilters(
     vendasFiltradas, // Usa vendas já filtradas por produtos
     responsaveisOficiais,
@@ -360,7 +361,7 @@ const Dashboard = () => {
           responsaveis={responsaveis}
           produtos={produtos}
           totalVendas={filteredVendas.length}
-          totalFaturado={faturamentoConsultores.totalAtual}
+          totalFaturado={totalFiltrado}
           mediaVenda={mediaAtual}
           estatisticasPlanos={estatisticasPlanos}
           estatisticasOutros={estatisticasOutros}

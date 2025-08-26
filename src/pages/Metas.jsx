@@ -89,14 +89,12 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
   // Calcula totais necessários para a nova lógica
   const totalVendasIndividual = vendasArr.reduce((soma, v) => soma + Number(v.valor || 0), 0);
   
-  // Para o total da equipe, usa vendas agrupadas do mês selecionado FILTRADAS POR UNIDADE
+  // Para o total da equipe, usa vendas agrupadas do mês selecionado SEM FILTRAR POR UNIDADE
   const totalVendasTime = vendasAgrupadas
     .filter(venda => {
       const dataVenda = dayjs(venda.dataFormatada, 'YYYY-MM-DD');
       const mesVenda = dataVenda.format('YYYY-MM');
-      const vendaUnidade = (venda.unidade || "").toLowerCase();
-      const unidadeAtual = (unidadeParam || "").toLowerCase();
-      return mesVenda === selectedMonth && vendaUnidade === unidadeAtual;
+      return mesVenda === selectedMonth;
     })
     .reduce((soma, v) => soma + Number(v.valor || 0), 0);
 
@@ -563,16 +561,13 @@ function debugCalculoASMIHS(vendasArr, configRem) {
     if (!produtosLoaded) return [];
     return vendasAgrupadas.filter(v => {
       const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
-      const vendaUnidade = (v.unidade || "").toLowerCase();
-      const unidadeAtual = (unidadeParam || "").toLowerCase();
       return (
         v.produto &&
         produtosSelecionados.includes(v.produto.trim()) &&
-        mes === selectedMonth &&
-        vendaUnidade === unidadeAtual
+        mes === selectedMonth
       );
     });
-  }, [vendasAgrupadas, produtosSelecionados, selectedMonth, produtosLoaded, unidadeParam]);
+  }, [vendasAgrupadas, produtosSelecionados, selectedMonth, produtosLoaded]);
 
   // --- Checa meta da unidade (TODAS as vendas realizadas na unidade) ---
   const totalUnidade = useMemo(() => {

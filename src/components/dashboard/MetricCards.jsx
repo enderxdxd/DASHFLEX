@@ -71,16 +71,11 @@ function MetricCards({
               marginBottom: '12px'
             }}>
               <span style={{
-                fontSize: '11px',
-                color: '#3b82f6',
-                fontWeight: '600',
-                textTransform: 'lowercase',
-                letterSpacing: '0.5px',
-                background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              }}>meta total e percentual</span>
+                fontSize: '14px',
+                color: '#1f2937',
+                fontWeight: '700',
+                letterSpacing: '0.3px'
+              }}>Meta alcançada {((faturamentoUnidade?.totalAtual || 0) / (faturamentoUnidade?.meta || 1) * 100).toFixed(1)}%</span>
             </div>
             <div className="main-value">{formatMoney(faturamentoUnidade?.totalAtual || 0)}</div>
             <div style={{
@@ -149,16 +144,11 @@ function MetricCards({
               marginBottom: '12px'
             }}>
               <span style={{
-                fontSize: '11px',
-                color: '#3b82f6',
-                fontWeight: '600',
-                textTransform: 'lowercase',
-                letterSpacing: '0.5px',
-                background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              }}>meta total e percentual</span>
+                fontSize: '14px',
+                color: '#1f2937',
+                fontWeight: '700',
+                letterSpacing: '0.3px'
+              }}>Meta alcançada {((faturamentoConsultores?.totalAtual || 0) / (faturamentoConsultores?.meta || 1) * 100).toFixed(1)}%</span>
             </div>
             <div className="main-value">{formatMoney(faturamentoConsultores?.totalAtual || 0)}</div>
             <div style={{

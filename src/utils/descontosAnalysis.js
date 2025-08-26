@@ -168,13 +168,7 @@ const analisarDescontosPorConsultor = (vendasComDesconto, unidade) => {
   vendasComDesconto.forEach(venda => {
     const consultor = venda.responsavel || 'Não Informado';
     
-    // Filtrar apenas vendas da unidade atual
-    const vendaUnidade = (venda.unidade || "").toLowerCase();
-    const unidadeAtual = (unidade || "").toLowerCase();
-    
-    if (vendaUnidade !== unidadeAtual) {
-      return; // Pular vendas de outras unidades
-    }
+    // Remover filtro por unidade para incluir vendas de todas as unidades
     
     
     if (!consultores[consultor]) {

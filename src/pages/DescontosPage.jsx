@@ -266,12 +266,8 @@ const DescontosPage = () => {
       return [];
     }
 
-    // Filtrar vendas apenas da unidade atual
-    const vendasDaUnidade = todasVendasProcessadas.filter(venda => {
-      const vendaUnidade = (venda.unidade || "").toLowerCase();
-      const unidadeAtual = (unidade || "").toLowerCase();
-      return vendaUnidade === unidadeAtual;
-    });
+    // Usar todas as vendas sem filtrar por unidade
+    const vendasDaUnidade = todasVendasProcessadas;
 
     console.log('🔍 DEBUG - Filtrando vendas por unidade:', {
       totalVendas: todasVendasProcessadas.length,

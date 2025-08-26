@@ -89,12 +89,14 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
   // Calcula totais necessários para a nova lógica
   const totalVendasIndividual = vendasArr.reduce((soma, v) => soma + Number(v.valor || 0), 0);
   
-  // Para o total da equipe, usa vendas agrupadas do mês selecionado
+  // Para o total da equipe, usa vendas agrupadas do mês selecionado FILTRADAS POR UNIDADE
   const totalVendasTime = vendasAgrupadas
     .filter(venda => {
       const dataVenda = dayjs(venda.dataFormatada, 'YYYY-MM-DD');
       const mesVenda = dataVenda.format('YYYY-MM');
-      return mesVenda === selectedMonth;
+      const vendaUnidade = (venda.unidade || "").toLowerCase();
+      const unidadeAtual = (unidadeParam || "").toLowerCase();
+      return mesVenda === selectedMonth && vendaUnidade === unidadeAtual;
     })
     .reduce((soma, v) => soma + Number(v.valor || 0), 0);
 
@@ -147,7 +149,9 @@ function debugRemuneracao(responsavel) {
     .filter(venda => {
       const dataVenda = dayjs(venda.dataFormatada, 'YYYY-MM-DD');
       const mesVenda = dataVenda.format('YYYY-MM');
-      return mesVenda === selectedMonth;
+      const vendaUnidade = (venda.unidade || "").toLowerCase();
+      const unidadeAtual = (unidadeParam || "").toLowerCase();
+      return mesVenda === selectedMonth && vendaUnidade === unidadeAtual;
     })
     .reduce((soma, v) => soma + Number(v.valor || 0), 0);
   
@@ -554,32 +558,28 @@ function debugCalculoASMIHS(vendasArr, configRem) {
     };
   }, [unidade]);
 
-  // --- Filtra vendas por produto e mês ---
+  // --- Filtra vendas por produto, mês e unidade ---
   const vendasParaMeta = useMemo(() => {
     if (!produtosLoaded) return [];
     return vendasAgrupadas.filter(v => {
       const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
+      const vendaUnidade = (v.unidade || "").toLowerCase();
+      const unidadeAtual = (unidadeParam || "").toLowerCase();
       return (
         v.produto &&
         produtosSelecionados.includes(v.produto.trim()) &&
-        mes === selectedMonth
+        mes === selectedMonth &&
+        vendaUnidade === unidadeAtual
       );
     });
-  }, [vendasAgrupadas, produtosSelecionados, selectedMonth, produtosLoaded]);
+  }, [vendasAgrupadas, produtosSelecionados, selectedMonth, produtosLoaded, unidadeParam]);
 
-  // --- Checa meta da unidade (apenas vendas dos responsáveis da unidade) ---
+  // --- Checa meta da unidade (TODAS as vendas realizadas na unidade) ---
   const totalUnidade = useMemo(() => {
-    // Obter lista de responsáveis que têm metas na unidade atual
-    const responsaveisUnidade = metas.map(m => m.responsavel?.trim().toLowerCase()).filter(Boolean);
-    
-    // Filtrar vendas apenas dos responsáveis da unidade atual
-    const vendasDaUnidade = vendasParaMeta.filter(v => {
-      const responsavel = (v.responsavel || '').trim().toLowerCase();
-      return responsaveisUnidade.includes(responsavel);
-    });
-    
-    return vendasDaUnidade.reduce((s, v) => s + Number(v.valor || 0), 0);
-  }, [vendasParaMeta, metas]);
+    // TODAS as vendas da unidade (não filtra por responsáveis oficiais)
+    // A meta da unidade é baseada no faturamento TOTAL da unidade
+    return vendasParaMeta.reduce((s, v) => s + Number(v.valor || 0), 0);
+  }, [vendasParaMeta]);
   
   // metaUnidade vem do configRem.metaUnidade
   const unidadeBatida = totalUnidade >= Number(configRem?.metaUnidade || 0);

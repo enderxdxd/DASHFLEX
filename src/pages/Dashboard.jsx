@@ -23,8 +23,6 @@ dayjs.locale('pt-br');
 
 const Dashboard = () => {
   const { unidade } = useParams();
-  const configRem = useConfigRem(unidade) || {};
-  const metaUnidade = Number(configRem.metaUnidade) || 0;
   const navigate = useNavigate();
   const { role } = useUserRole();
   
@@ -35,6 +33,9 @@ const Dashboard = () => {
     const saved = localStorage.getItem('selectedMonth');
     return saved || dayjs().format('YYYY-MM');
   });
+
+  const { configRem } = useConfigRem(unidade, selectedMonth);
+  const metaUnidade = Number(configRem?.metaUnidade) || 0;
 
   useEffect(() => {
     localStorage.setItem('selectedMonth', selectedMonth);
@@ -126,8 +127,13 @@ const Dashboard = () => {
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
 
 
-    return { totalAtual, totalAnterior, percentChange };
-  }, [vendasFiltradas, unidade, selectedMonth]);
+    return { 
+      totalAtual, 
+      totalAnterior, 
+      percentChange,
+      meta: metaUnidade 
+    };
+  }, [vendasFiltradas, unidade, selectedMonth, metaUnidade]);
 
   // 2. Faturamento DOS CONSULTORES (todas as vendas dos consultores da unidade, mesmo que de outras unidades)
   const faturamentoConsultores = useMemo(() => {
@@ -153,8 +159,13 @@ const Dashboard = () => {
     const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
 
-    return { totalAtual, totalAnterior, percentChange };
-  }, [vendasFiltradas, selectedMonth, responsaveisOficiais]);
+    return { 
+      totalAtual, 
+      totalAnterior, 
+      percentChange,
+      meta: metaUnidade 
+    };
+  }, [vendasFiltradas, selectedMonth, responsaveisOficiais, metaUnidade]);
 
   // Aplica filtros usando vendas filtradas por produtos
   const {

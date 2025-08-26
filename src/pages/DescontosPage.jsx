@@ -37,12 +37,19 @@ import { useVendas } from "../hooks/useVendas";
 import { useConfigRem } from "../hooks/useConfigRem";
 import { useGroupedVendas } from "../hooks/useGroupedVendas";
 
+// Firebase
+import { db } from "../firebase";
+import { collection, onSnapshot } from "firebase/firestore";
+
 // Estilos
 import "../styles/DescontosPage.css";
 
 const DescontosPage = () => {
   const { unidade } = useParams();
   const navigate = useNavigate();
+  
+  // Estado para metas
+  const [metas, setMetas] = useState([]);
   
   // Carrega vendas para fazer a reconciliação - usa dados brutos (todas as unidades)
   const { vendas: vendasBrutas, loading: vendasLoading } = useVendas(unidade);
@@ -71,13 +78,6 @@ const DescontosPage = () => {
     setFiltroMatricula,
     filtroNome,
     setFiltroNome,
-    selectedMonth,
-    setSelectedMonth,
-    tipoFiltro,
-    setTipoFiltro,
-    desconsiderarMatricula,
-    setDesconsiderarMatricula,
-    resetFiltros,
     currentPage,
     setCurrentPage,
     totalPages,
@@ -92,12 +92,47 @@ const DescontosPage = () => {
     dadosOrdenados
   } = useDescontos(unidade, vendasAgrupadas);
 
+  // Estados locais
+  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
+  const [desconsiderarMatricula, setDesconsiderarMatricula] = useState(true);
+  const [tipoFiltro, setTipoFiltro] = useState("");
+  
+  // Função para resetar filtros
+  const resetFiltros = () => {
+    setFiltroResponsavel("");
+    setFiltroMatricula("");
+    setFiltroNome("");
+    setTipoFiltro("");
+  };
+
   // Carrega configuração de remuneração para obter as faixas de planos
   const { configRem } = useConfigRem(unidade, selectedMonth);
 
   // Estados locais
   const [activeView, setActiveView] = useState("overview");
   const [showDetails, setShowDetails] = useState(false);
+
+  // Carregar metas da unidade
+  useEffect(() => {
+    if (!unidade) return;
+    
+    const metasRef = collection(db, "faturamento", unidade.toLowerCase(), "metas");
+    const unsubMetas = onSnapshot(
+      metasRef,
+      snap => {
+        const metasCarregadas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        console.log('🔍 Metas carregadas:', {
+          unidade,
+          totalMetas: metasCarregadas.length,
+          metas: metasCarregadas.map(m => m.responsavel)
+        });
+        setMetas(metasCarregadas);
+      },
+      error => console.error("Erro ao carregar metas:", error)
+    );
+
+    return () => unsubMetas();
+  }, [unidade]);
 
   // Função para exportar dados para Excel
   const exportarParaExcel = () => {
@@ -173,14 +208,46 @@ const DescontosPage = () => {
 
   // Análise detalhada por consultor e tipo de plano
   const analiseDetalhada = useMemo(() => {
+    console.log('DEBUG - Análise detalhada iniciada:', {
+      todasVendasProcessadas: todasVendasProcessadas?.length,
+      analiseConsultores: analiseConsultores?.length,
+      unidade
+    });
+
     if (!todasVendasProcessadas?.length) {
-      console.log('Dados insuficientes para análise detalhada:', {
-        vendas: todasVendasProcessadas?.length
-      });
+      console.log('Usando fallback - dados insuficientes para análise detalhada');
       
-      // Fallback usando analiseConsultores se não temos dados completos
+      // Fallback usando analiseConsultores (filtrar por unidade aqui também)
       if (analiseConsultores?.length) {
-        return analiseConsultores.map(consultor => ({
+        console.log('Usando analiseConsultores como fallback:', analiseConsultores.length, 'consultores');
+        
+        // Filtrar consultores que têm metas cadastradas na unidade (igual à renderização)
+        const consultoresFiltrados = analiseConsultores.filter(consultor => {
+          // DEBUG: Verificar se metas foram carregadas
+          if (!metas || metas.length === 0) {
+            console.log('⚠️ Análise detalhada: Nenhuma meta carregada ainda');
+            return true; // Temporariamente mostrar todos enquanto carrega
+          }
+          
+          // FILTRO IGUAL À PÁGINA METAS: Apenas consultores com meta cadastrada na unidade
+          const temMetaNaUnidade = metas?.some(meta => 
+            meta.responsavel?.trim().toLowerCase() === consultor.responsavel?.trim().toLowerCase()
+          );
+          
+          console.log(`🔍 Análise detalhada - ${consultor.responsavel}:`, {
+            temMetaNaUnidade,
+            totalMetas: metas?.length || 0,
+            metasNaUnidade: metas?.map(m => m.responsavel) || [],
+            consultorNormalizado: consultor.responsavel?.trim().toLowerCase(),
+            metasNormalizadas: metas?.map(m => m.responsavel?.trim().toLowerCase()) || []
+          });
+          
+          return temMetaNaUnidade;
+        });
+        
+        console.log('Consultores filtrados por unidade:', consultoresFiltrados.length);
+        
+        return consultoresFiltrados.map(consultor => ({
           nome: consultor.responsavel,
           totalVendas: consultor.totalVendas || 0,
           vendasComDesconto: consultor.vendasComDesconto || 0,
@@ -199,10 +266,33 @@ const DescontosPage = () => {
       return [];
     }
 
-    // Agrupar vendas por consultor
+    // Filtrar vendas apenas da unidade atual
+    const vendasDaUnidade = todasVendasProcessadas.filter(venda => {
+      const vendaUnidade = (venda.unidade || "").toLowerCase();
+      const unidadeAtual = (unidade || "").toLowerCase();
+      return vendaUnidade === unidadeAtual;
+    });
+
+    console.log('🔍 DEBUG - Filtrando vendas por unidade:', {
+      totalVendas: todasVendasProcessadas.length,
+      vendasDaUnidade: vendasDaUnidade.length,
+      unidadeAtual: unidade,
+      exemploVendasOriginais: todasVendasProcessadas.slice(0, 3).map(v => ({
+        responsavel: v.responsavel,
+        unidade: v.unidade,
+        produto: v.produto
+      })),
+      exemploVendasFiltradas: vendasDaUnidade.slice(0, 3).map(v => ({
+        responsavel: v.responsavel,
+        unidade: v.unidade,
+        produto: v.produto
+      }))
+    });
+
+    // Agrupar vendas por consultor (apenas da unidade atual)
     const consultoresMap = new Map();
     
-    todasVendasProcessadas.forEach(venda => {
+    vendasDaUnidade.forEach(venda => {
       const consultor = venda.responsavel;
       if (!consultoresMap.has(consultor)) {
         consultoresMap.set(consultor, {
@@ -213,8 +303,29 @@ const DescontosPage = () => {
       consultoresMap.get(consultor).vendas.push(venda);
     });
 
-    // Processar cada consultor
-    const consultoresProcessados = Array.from(consultoresMap.values()).map(({nome, vendas}) => {
+    // Filtrar consultores por metas antes de processar
+    const consultoresComMeta = Array.from(consultoresMap.values()).filter(({nome}) => {
+      // DEBUG: Verificar se metas foram carregadas
+      if (!metas || metas.length === 0) {
+        console.log('⚠️ Processamento detalhado: Nenhuma meta carregada ainda');
+        return true; // Temporariamente mostrar todos enquanto carrega
+      }
+      
+      // FILTRO IGUAL À PÁGINA METAS: Apenas consultores com meta cadastrada na unidade
+      const temMetaNaUnidade = metas?.some(meta => 
+        meta.responsavel?.trim().toLowerCase() === nome?.trim().toLowerCase()
+      );
+      
+      console.log(`🔍 Processamento - ${nome}:`, {
+        temMetaNaUnidade,
+        totalMetas: metas?.length || 0
+      });
+      
+      return temMetaNaUnidade;
+    });
+
+    // Processar cada consultor que tem meta
+    const consultoresProcessados = consultoresComMeta.map(({nome, vendas}) => {
       // Agrupar vendas por tipo de plano
       const planosTipo = {};
       let totalVendas = 0;
@@ -276,7 +387,7 @@ const DescontosPage = () => {
     });
     
     return consultoresProcessados.sort((a, b) => b.totalVendas - a.totalVendas);
-  }, [todasVendasProcessadas, configRem, classificarTipoPlano]);
+  }, [todasVendasProcessadas, configRem, classificarTipoPlano, metas]);
 
   useEffect(() => {
     if (!unidade) {
@@ -1050,7 +1161,29 @@ const DescontosPage = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {analiseConsultores.map((consultor, index) => (
+                  {analiseConsultores.filter(consultor => {
+                    // DEBUG: Verificar se metas foram carregadas
+                    if (!metas || metas.length === 0) {
+                      console.log('⚠️ Nenhuma meta carregada ainda');
+                      return true; // Temporariamente mostrar todos enquanto carrega
+                    }
+                    
+                    // FILTRO IGUAL À PÁGINA METAS: Apenas consultores com meta cadastrada na unidade
+                    const temMetaNaUnidade = metas?.some(meta => 
+                      meta.responsavel?.trim().toLowerCase() === consultor.responsavel?.trim().toLowerCase()
+                    );
+                    
+                    console.log(`🎯 ${consultor.responsavel}:`, {
+                      temMetaNaUnidade,
+                      totalMetas: metas?.length || 0,
+                      metasNaUnidade: metas?.map(m => m.responsavel) || [],
+                      consultorNormalizado: consultor.responsavel?.trim().toLowerCase(),
+                      metasNormalizadas: metas?.map(m => m.responsavel?.trim().toLowerCase()) || [],
+                      unidadeAtual: unidade
+                    });
+                    
+                    return temMetaNaUnidade;
+                  }).map((consultor, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-medium text-gray-900">{consultor.responsavel}</div>

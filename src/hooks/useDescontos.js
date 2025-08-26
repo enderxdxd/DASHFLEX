@@ -39,7 +39,7 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
   const [filtroNome, setFiltroNome] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
   const [tipoFiltro, setTipoFiltro] = useState("todos");
-  const [desconsiderarMatricula, setDesconsiderarMatricula] = useState(false);
+  const [desconsiderarMatricula, setDesconsiderarMatricula] = useState(true);
   
   // Ordenação e paginação
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
@@ -209,15 +209,19 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       return produtoNorm.includes('PLANO');
     };
     
-    // CORREÇÃO: Não filtrar por unidade - usar TODAS as vendas como na visão geral
-    // Apenas filtrar por mês e tipo de produto (planos)
+    // FILTRAR POR UNIDADE, MÊS E TIPO DE PRODUTO (PLANOS)
     const vendasFiltradas = vendas.filter(venda => {
-      // 1. Filtro por mês
+      // 1. Filtro por unidade
+      const vendaUnidade = (venda.unidade || "").toLowerCase();
+      const unidadeAtual = (unidade || "").toLowerCase();
+      if (vendaUnidade !== unidadeAtual) return false;
+      
+      // 2. Filtro por mês
       const vendaMes = parseMes(venda.dataFormatada || venda.dataLancamento);
       if (!vendaMes) return false;
       if (vendaMes !== selectedMonth) return false;
       
-      // 2. Filtro apenas produtos que são PLANO
+      // 3. Filtro apenas produtos que são PLANO
       if (!isPlano(venda.produto)) return false;
       
       return true;
@@ -230,7 +234,13 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
         return mes === selectedMonth;
       }).length,
       planosNoMes: vendasFiltradas.length,
-      todasUnidades: true // Agora inclui todas as unidades
+      unidadeFiltrada: unidade,
+      exemploVendas: vendasFiltradas.slice(0, 3).map(v => ({
+        responsavel: v.responsavel,
+        unidade: v.unidade,
+        produto: v.produto,
+        valor: v.valor
+      }))
     });
     
     return vendasFiltradas;
@@ -334,31 +344,7 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     
     // PASSO 2: Aplicar lógica CORRETA de reconciliação
     const vendasProcessadas = vendasDaUnidade.map(venda => {
-      // 🔒 NOVA LÓGICA: Filtrar por unidade da venda E responsáveis oficiais da unidade selecionada
-      const vendaUnidade = (venda.unidade || "").toLowerCase();
-      const unidadeAtual = unidade.toLowerCase();
-      
-      // Se a venda não é da unidade atual, verificar se o responsável é da unidade atual
-      const isOficial = responsaveisOficiaisSet.size === 0
-        ? true
-        : responsaveisOficiaisSet.has(normalize(venda.responsavel));
-
-      // Se não é responsável oficial da unidade atual, tratar como sem desconto
-      if (!isOficial) {
-        const valorPago = Number(venda.valor || 0);
-        return {
-          ...venda,
-          temDesconto: false,
-          temDescontoPlano: false,
-          temDescontoMatricula: false,
-          descontoPlano: 0,
-          descontoMatricula: 0,
-          totalDesconto: 0,
-          valorCheio: valorPago,
-          percentualDesconto: 0,
-          descontoDetalhes: []
-        };
-      }
+      // Vendas já estão filtradas por unidade no vendasDaUnidade, então não precisa verificar novamente
 
       const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
       const descontoGrupo = descontosPorMatricula[matriculaNorm];
@@ -490,81 +476,25 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
 
   // ===== ANÁLISE POR CONSULTOR =====
   const analiseConsultores = useMemo(() => {
+    if (!vendasComDesconto.length) return [];
     
-    // Agrupar vendas por consultor
-    const consultoresMap = {};
-    
-    vendasComDesconto.forEach(venda => {
-      const responsavel = venda.responsavel || 'Sem Responsável';
-      
-      if (!consultoresMap[responsavel]) {
-        consultoresMap[responsavel] = {
-          responsavel,
-          vendas: [],
-          totalVendas: 0,
-          vendasComDesconto: 0,
-          vendasSemDesconto: 0,
-          valorTotalVendido: 0,
-          valorTotalCheio: 0,
-          totalDescontos: 0,
-          totalDescontoPlano: 0,
-          totalDescontoMatricula: 0
-        };
-      }
-      
-      const consultor = consultoresMap[responsavel];
-      consultor.vendas.push(venda);
-      consultor.totalVendas++;
-      
-      const valorVenda = Number(venda.valor || 0);
-      const valorCheio = Number(venda.valorCheio || 0);
-      const totalDesconto = Number(venda.totalDesconto || 0);
-      
-      consultor.valorTotalVendido += valorVenda;
-      consultor.valorTotalCheio += valorCheio;
-      consultor.totalDescontos += totalDesconto;
-      
-      if (venda.temDesconto) {
-        consultor.vendasComDesconto++;
-        consultor.totalDescontoPlano += Number(venda.descontoPlano || 0);
-        consultor.totalDescontoMatricula += Number(venda.descontoMatricula || 0);
-      } else {
-        consultor.vendasSemDesconto++;
-      }
+    console.log(`🔍 [${unidade}] Iniciando análise por consultor:`, {
+      totalVendas: vendasComDesconto.length,
+      exemploVendas: vendasComDesconto.slice(0, 3).map(v => ({
+        responsavel: v.responsavel,
+        unidade: v.unidade,
+        valor: v.valor
+      }))
     });
     
-    // Calcular métricas derivadas
-    const consultoresArray = Object.values(consultoresMap).map(consultor => {
-      const percentualVendasComDesconto = consultor.totalVendas > 0 
-        ? parseFloat(((consultor.vendasComDesconto / consultor.totalVendas) * 100).toFixed(2))
-        : 0;
-      
-      const percentualDescontoMedio = consultor.valorTotalCheio > 0
-        ? parseFloat(((consultor.totalDescontos / consultor.valorTotalCheio) * 100).toFixed(2))
-        : 0;
-      
-      const ticketMedioVendido = consultor.totalVendas > 0
-        ? consultor.valorTotalVendido / consultor.totalVendas
-        : 0;
-      
-      const ticketMedioCheio = consultor.totalVendas > 0
-        ? consultor.valorTotalCheio / consultor.totalVendas
-        : 0;
-      
-      return {
-        ...consultor,
-        percentualVendasComDesconto,
-        percentualDescontoMedio,
-        ticketMedioVendido,
-        ticketMedioCheio
-      };
+    const resultado = analisarDescontosPorConsultor(vendasComDesconto, unidade);
+    
+    console.log(`📋 [${unidade}] Resultado análise consultores:`, {
+      totalConsultores: resultado.length,
+      consultores: resultado.map(c => c.responsavel)
     });
     
-    // Ordenar por total de vendas (decrescente)
-    consultoresArray.sort((a, b) => b.totalVendas - a.totalVendas);
-    
-    
-    return consultoresArray;
+    return resultado;
   }, [vendasComDesconto, unidade]);
 
   // ===== ESTATÍSTICAS GERAIS =====

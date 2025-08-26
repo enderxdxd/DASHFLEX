@@ -161,12 +161,21 @@ const reconciliarVendasComDescontos = (vendas, descontos) => {
 /**
  * Analisa descontos agrupados por consultor
  */
-const analisarDescontosPorConsultor = (vendasComDesconto) => {
+const analisarDescontosPorConsultor = (vendasComDesconto, unidade) => {
   
   const consultores = {};
   
   vendasComDesconto.forEach(venda => {
     const consultor = venda.responsavel || 'Não Informado';
+    
+    // Filtrar apenas vendas da unidade atual
+    const vendaUnidade = (venda.unidade || "").toLowerCase();
+    const unidadeAtual = (unidade || "").toLowerCase();
+    
+    if (vendaUnidade !== unidadeAtual) {
+      return; // Pular vendas de outras unidades
+    }
+    
     
     if (!consultores[consultor]) {
       consultores[consultor] = {
@@ -276,6 +285,16 @@ const analisarDescontosPorConsultor = (vendasComDesconto) => {
   });
   
   const consultoresArray = Object.values(consultores);
+  
+  console.log(`📊 Análise por consultor finalizada:`, {
+    totalConsultores: consultoresArray.length,
+    unidadeFiltro: unidade,
+    consultores: consultoresArray.map(c => ({
+      nome: c.responsavel,
+      vendas: c.totalVendas,
+      unidadeVendas: c.vendas?.map(v => v.unidade).join(', ')
+    }))
+  });
   
   return consultoresArray;
 };

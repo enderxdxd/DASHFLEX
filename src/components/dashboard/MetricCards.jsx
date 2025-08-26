@@ -1,6 +1,7 @@
+import React from "react";
 import dayjs from "dayjs";
 
-const MetricCards = ({
+function MetricCards({
   // Novos dados de faturamento separados
   faturamentoUnidade,
   faturamentoConsultores,
@@ -18,7 +19,7 @@ const MetricCards = ({
   // Card de produtos excluídos
   metricasExcluidas,
   produtosSelecionados
-}) => {
+}) {
   // Formata o valor monetário com verificação de segurança
   const formatMoney = (value) => {
     const numValue = Number(value) || 0;
@@ -66,7 +67,60 @@ const MetricCards = ({
             </div>
           </div>
           <div className="card-content">
+            <div style={{
+              marginBottom: '12px'
+            }}>
+              <span style={{
+                fontSize: '11px',
+                color: '#3b82f6',
+                fontWeight: '600',
+                textTransform: 'lowercase',
+                letterSpacing: '0.5px',
+                background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}>meta total e percentual</span>
+            </div>
             <div className="main-value">{formatMoney(faturamentoUnidade?.totalAtual || 0)}</div>
+            <div style={{
+              margin: '16px 0 12px 0',
+              padding: '0'
+            }}>
+              <div style={{
+                width: '100%',
+                height: '8px',
+                background: 'linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%)',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                marginBottom: '10px',
+                boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.1)',
+                position: 'relative'
+              }}>
+                <div 
+                  style={{ 
+                    width: `${Math.min((faturamentoUnidade?.totalAtual || 0) / (faturamentoUnidade?.meta || 1) * 100, 100)}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%)',
+                    borderRadius: '12px',
+                    transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                    position: 'relative',
+                    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+                  }}
+                ></div>
+              </div>
+              <div style={{
+                fontSize: '12px',
+                color: '#64748b',
+                fontWeight: '600',
+                margin: '0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                🎯 Meta: {formatMoney(faturamentoUnidade?.meta || 0)}
+              </div>
+            </div>
             <div className={`comparison-badge ${(faturamentoUnidade?.percentChange || 0) >= 0 ? 'positive' : 'negative'}`}>
               <span className="trend-icon">{formatPercent(faturamentoUnidade?.percentChange || 0).icon}</span>
               <span>{formatPercent(faturamentoUnidade?.percentChange || 0).value}% vs mês anterior</span>
@@ -91,7 +145,60 @@ const MetricCards = ({
             </div>
           </div>
           <div className="card-content">
+            <div style={{
+              marginBottom: '12px'
+            }}>
+              <span style={{
+                fontSize: '11px',
+                color: '#3b82f6',
+                fontWeight: '600',
+                textTransform: 'lowercase',
+                letterSpacing: '0.5px',
+                background: 'linear-gradient(135deg, #3b82f6, #6366f1)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}>meta total e percentual</span>
+            </div>
             <div className="main-value">{formatMoney(faturamentoConsultores?.totalAtual || 0)}</div>
+            <div style={{
+              margin: '16px 0 12px 0',
+              padding: '0'
+            }}>
+              <div style={{
+                width: '100%',
+                height: '8px',
+                background: 'linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%)',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                marginBottom: '10px',
+                boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.1)',
+                position: 'relative'
+              }}>
+                <div 
+                  style={{ 
+                    width: `${Math.min((faturamentoConsultores?.totalAtual || 0) / (faturamentoConsultores?.meta || 1) * 100, 100)}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%)',
+                    borderRadius: '12px',
+                    transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                    position: 'relative',
+                    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+                  }}
+                ></div>
+              </div>
+              <div style={{
+                fontSize: '12px',
+                color: '#64748b',
+                fontWeight: '600',
+                margin: '0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                🎯 Meta: {formatMoney(faturamentoConsultores?.meta || 0)}
+              </div>
+            </div>
             <div className={`comparison-badge ${(faturamentoConsultores?.percentChange || 0) >= 0 ? 'positive' : 'negative'}`}>
               <span className="trend-icon">{formatPercent(faturamentoConsultores?.percentChange || 0).icon}</span>
               <span>{formatPercent(faturamentoConsultores?.percentChange || 0).value}% vs mês anterior</span>
@@ -640,6 +747,6 @@ const MetricCards = ({
       `}</style>
     </div>
   );
-};
+}
 
 export default MetricCards;

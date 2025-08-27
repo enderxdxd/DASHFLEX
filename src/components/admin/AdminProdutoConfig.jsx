@@ -37,18 +37,24 @@ export default function AdminProdutoConfig() {
         const produtosSet = new Set();
         
         // Busca produtos de todas as unidades
-        const unidades = ['alphaville', 'buena-vista', 'marista'];
+        const unidades = ['alphaville', 'buenavista', 'marista'];
         
         for (const unidade of unidades) {
-          const vendasRef = collection(db, 'faturamento', unidade, 'vendas');
-          const snapshot = await getDocs(vendasRef);
-          
-          snapshot.docs.forEach(doc => {
-            const produto = doc.data().produto;
-            if (produto && produto.trim()) {
-              produtosSet.add(produto.trim());
-            }
-          });
+          try {
+            const vendasRef = collection(db, 'faturamento', unidade, 'vendas');
+            const snapshot = await getDocs(vendasRef);
+            
+            console.log(`📦 Carregando produtos da unidade ${unidade}: ${snapshot.docs.length} documentos`);
+            
+            snapshot.docs.forEach(doc => {
+              const produto = doc.data().produto;
+              if (produto && produto.trim()) {
+                produtosSet.add(produto.trim());
+              }
+            });
+          } catch (error) {
+            console.error(`Erro ao carregar produtos da unidade ${unidade}:`, error);
+          }
         }
         
         const produtosArray = Array.from(produtosSet).sort();

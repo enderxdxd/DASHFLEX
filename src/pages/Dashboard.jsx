@@ -13,7 +13,7 @@ import FilterControls from "../components/dashboard/FilterControls";
 import AnalyticsSummary from "../components/dashboard/AnalyticsSummary";
 import { useConfigRem } from '../hooks/useConfigRem';
 import { useUserRole } from '../hooks/useUserRole';
-import { usePersistedProdutos } from '../hooks/usePersistedProdutos';
+import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
 import Loading3D from '../components/ui/Loading3D';
 
 import dayjs from "dayjs";
@@ -27,7 +27,7 @@ const Dashboard = () => {
   const { role } = useUserRole();
   
   // Hook para produtos selecionados (filtros da página de metas)
-  const [produtosSelecionados, setProdutosSelecionados, produtosLoaded] = usePersistedProdutos();
+  const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();
   
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const saved = localStorage.getItem('selectedMonth');

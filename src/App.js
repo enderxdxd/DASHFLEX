@@ -15,6 +15,7 @@ import AdminRoute from "./auth/AdminRoute";
 import PersonalRoute from "./auth/PersonalRoute";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import DescontosPage from "./pages/DescontosPage";
+import AdminProdutoConfig from "./components/admin/AdminProdutoConfig";
 
 export default function App() {
   return (
@@ -85,6 +86,18 @@ export default function App() {
           element={
             <PrivateRoute>
               <DescontosPage />
+            </PrivateRoute>
+          }
+        />
+        
+        {/* Configuração Admin de Produtos */}
+        <Route
+          path="/admin/produtos"
+          element={
+            <PrivateRoute>
+              <AdminRoute>
+                <AdminProdutoConfig />
+              </AdminRoute>
             </PrivateRoute>
           }
         />

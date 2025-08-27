@@ -18,7 +18,7 @@ import {
 
 dayjs.extend(customParseFormat);
 
-export const useDescontos = (unidade, vendas = [], metas = []) => {
+export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatricula = true) => {
   // Estados básicos
   const [descontos, setDescontos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,6 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
   const [filtroNome, setFiltroNome] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
   const [tipoFiltro, setTipoFiltro] = useState("todos");
-  const [desconsiderarMatricula, setDesconsiderarMatricula] = useState(true);
   
   // Ordenação e paginação
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
@@ -209,9 +208,12 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
       return produtoNorm.includes('PLANO');
     };
     
-    // FILTRAR POR MÊS E TIPO DE PRODUTO (PLANOS) - REMOVER FILTRO POR UNIDADE
+    // FILTRAR POR UNIDADE, MÊS E TIPO DE PRODUTO (PLANOS)
     const vendasFiltradas = vendas.filter(venda => {
-      // 1. Remover filtro por unidade para somar vendas de todas as unidades
+      // 1. Filtro por unidade - apenas vendas da unidade atual
+      const unidadeVenda = (venda.unidade || "").toLowerCase();
+      const unidadeAtual = (unidade || "").toLowerCase();
+      if (unidadeVenda !== unidadeAtual) return false;
       
       // 2. Filtro por mês
       const vendaMes = parseMes(venda.dataFormatada || venda.dataLancamento);
@@ -581,7 +583,6 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     setFiltroMatricula("");
     setFiltroNome("");
     setTipoFiltro("todos");
-    setDesconsiderarMatricula(false);
     setCurrentPage(1);
   };
 
@@ -700,8 +701,6 @@ export const useDescontos = (unidade, vendas = [], metas = []) => {
     setSelectedMonth,
     tipoFiltro,
     setTipoFiltro,
-    desconsiderarMatricula,
-    setDesconsiderarMatricula,
     resetFiltros,
     
     // Paginação

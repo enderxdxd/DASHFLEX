@@ -57,6 +57,11 @@ const DescontosPage = () => {
   // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS (igual ConfigRemuneracao)
   const vendasAgrupadas = useGroupedVendas(vendasBrutas);
   
+  // Estados locais
+  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
+  const [desconsiderarMatricula, setDesconsiderarMatricula] = useState(true);
+  const [tipoFiltro, setTipoFiltro] = useState("");
+
   // Hook principal de descontos - agora usa vendas agrupadas
   const {
     descontos,
@@ -90,12 +95,7 @@ const DescontosPage = () => {
     // Dados completos para análise detalhada
     todasVendasProcessadas,
     dadosOrdenados
-  } = useDescontos(unidade, vendasAgrupadas);
-
-  // Estados locais
-  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
-  const [desconsiderarMatricula, setDesconsiderarMatricula] = useState(true);
-  const [tipoFiltro, setTipoFiltro] = useState("");
+  } = useDescontos(unidade, vendasAgrupadas, metas, desconsiderarMatricula);
   
   // Função para resetar filtros
   const resetFiltros = () => {
@@ -975,7 +975,13 @@ const DescontosPage = () => {
                           overflowY: 'auto'
                         }}
                       >
-                        {Object.entries(consultor.planos).map(([tipo, dados]) => {
+                        {Object.entries(consultor.planos)
+                          .sort(([, a], [, b]) => {
+                            const totalA = a.comDesconto + a.semDesconto;
+                            const totalB = b.comDesconto + b.semDesconto;
+                            return totalB - totalA; // Ordem decrescente (maior para menor)
+                          })
+                          .map(([tipo, dados]) => {
                           const total = dados.comDesconto + dados.semDesconto;
                           if (total === 0) return null;
                           

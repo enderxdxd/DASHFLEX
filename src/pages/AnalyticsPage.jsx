@@ -34,7 +34,7 @@ import ShareService from "../components/export/ShareService";
 import { useVendas } from "../hooks/useVendas";
 import { useMetas } from "../hooks/useMetas";
 import { useConfigRem } from "../hooks/useConfigRem";
-import { usePersistedProdutos } from "../hooks/usePersistedProdutos";
+import { useGlobalProdutos } from "../hooks/useGlobalProdutos";
 import {
   useMonthlyTrend,
   useDailyProductivity,
@@ -100,7 +100,7 @@ export default function AnalyticsPage() {
   );
 
   // Hook para produtos selecionados (igual ao Dashboard)
-  const [produtosSelecionados, , produtosLoaded] = usePersistedProdutos();
+  const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();
 
   // Filtra vendas pelos produtos selecionados (IGUAL AO DASHBOARD)
   const vendasFiltradas = useMemo(() => {

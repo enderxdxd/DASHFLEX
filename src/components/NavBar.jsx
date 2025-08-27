@@ -187,6 +187,14 @@ export default function NavBar() {
           admin: true,
           matchPath: "/config-remuneracao"
         });
+        vendasItems.push({
+          path: `/admin/produtos`,
+          icon: Settings,
+          label: "Produtos",
+          description: "Configurar filtros globais",
+          admin: true,
+          matchPath: "/admin/produtos"
+        });
       }
 
       return vendasItems;

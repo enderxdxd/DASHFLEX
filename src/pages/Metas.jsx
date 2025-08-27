@@ -15,7 +15,7 @@ import { getAuth } from "firebase/auth";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import NavBar from "../components/NavBar";
-import { usePersistedProdutos } from "../hooks/usePersistedProdutos";
+import { useGlobalProdutos } from "../hooks/useGlobalProdutos";
 import { useGroupedVendas } from "../hooks/useGroupedVendas";
 import { Bar } from "react-chartjs-2";
 import {
@@ -73,8 +73,7 @@ export default function Metas() {
   
 
   // --- Filtros e persistência ---
-  const [produtosSelecionados, setProdutosSelecionados, produtosLoaded] =
-    usePersistedProdutos();
+  const { produtosSelecionados, loaded: produtosLoaded, isAdmin } = useGlobalProdutos();
 
   // Hook para buscar descontos do Firebase
   const { descontos, loading: loadingDescontos } = useDescontosSimples(unidade);
@@ -573,8 +572,10 @@ function debugCalculoASMIHS(vendasArr, configRem) {
   const totalUnidade = useMemo(() => {
     // TODAS as vendas da unidade (não filtra por responsáveis oficiais)
     // A meta da unidade é baseada no faturamento TOTAL da unidade
-    return vendasParaMeta.reduce((s, v) => s + Number(v.valor || 0), 0);
-  }, [vendasParaMeta]);
+    return vendasParaMeta
+      .filter(v => (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase())
+      .reduce((s, v) => s + Number(v.valor || 0), 0);
+  }, [vendasParaMeta, unidade]);
   
   // metaUnidade vem do configRem.metaUnidade
   const unidadeBatida = totalUnidade >= Number(configRem?.metaUnidade || 0);
@@ -1342,18 +1343,7 @@ function debugCalculoASMIHS(vendasArr, configRem) {
           {showProductFilter && (
             <div className="product-filter-grid">
               {produtos.map((produto, index) => (
-                <label key={index} className="product-card">
-                  <input
-                    type="checkbox"
-                    checked={produtosSelecionados.includes(produto)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setProdutosSelecionados(prev => [...prev, produto]);
-                      } else {
-                        setProdutosSelecionados(prev => prev.filter(p => p !== produto));
-                      }
-                    }}
-                  />
+                <div key={index} className={`product-card ${produtosSelecionados.includes(produto) ? 'selected' : ''}`}>
                   <div className="card-content">
                     <span className="checkmark">
                       <svg viewBox="0 0 24 24">
@@ -1362,12 +1352,17 @@ function debugCalculoASMIHS(vendasArr, configRem) {
                     </span>
                     {produto}
                   </div>
-                </label>
+                  {!isAdmin && (
+                    <div className="admin-only-badge">
+                      Configurado pelo Admin
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}
         </section>
-  
+        
         <section className="chart-section">
           <div className="section-header">
             <h2>Desempenho vs Metas</h2>

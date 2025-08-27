@@ -7,7 +7,7 @@ import { useVendas } from '../hooks/useVendas';
 import { useGroupedVendas } from '../hooks/useGroupedVendas';
 import { useConfigRem } from '../hooks/useConfigRem';
 import { useMetas } from '../hooks/useMetas';
-import { usePersistedProdutos } from '../hooks/usePersistedProdutos';
+import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
 import { calcularRemuneracaoPorDuracao, calcularDuracaoPlano, verificarDescontoPlano } from '../utils/calculoRemuneracaoDuracao';
 
 import { useDescontosSimples } from '../utils/useDescontosSimples';
@@ -155,7 +155,7 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
   const [activeView, setActiveView] = useState('overview');
   
   // Hook para produtos selecionados (mesmo filtro do Dashboard/Analytics)
-  const [produtosSelecionados, setProdutosSelecionados, produtosLoaded] = usePersistedProdutos(unidade);
+  const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();
   
   // Hook para buscar descontos do Firebase
   const { descontos } = useDescontosSimples(unidade);

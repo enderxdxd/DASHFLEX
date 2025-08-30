@@ -199,11 +199,20 @@ export const useVendas = (unidade, metas = []) => {
     [metas]
   );
 
-  // ▼ Vendas já filtradas de acordo com todos os critérios
+  // ▼ Vendas da unidade atual (para métricas específicas da unidade)
+  const vendasUnidadeAtual = useMemo(() => {
+    if (!unidade) return [];
+    return vendasAgrupadas.filter((v) => {
+      const unidadeVenda = (v.unidade || "").toLowerCase();
+      return unidadeVenda === unidade.toLowerCase();
+    });
+  }, [vendasAgrupadas, unidade]);
+
+  // ▼ Vendas já filtradas de acordo com todos os critérios (TODAS as unidades para filtro global)
   const vendasFiltradas = useMemo(() => {
     if (!unidade) return [];
     return vendasAgrupadas.filter((v) => {
-      // Remover filtro de unidade para somar vendas de todas as unidades
+      // ✅ CORREÇÃO: Não filtra por unidade - permite vendas de todas as unidades
   
       // seu filtro por responsável
       const resp = (v.responsavel || "").trim().toLowerCase();
@@ -324,7 +333,8 @@ export const useVendas = (unidade, metas = []) => {
 
   // Exposição da API do hook
   return {
-    vendas: vendasAgrupadas, // RETORNAR AS VENDAS JÁ AGRUPADAS
+    vendas: vendasAgrupadas, // RETORNAR AS VENDAS JÁ AGRUPADAS (TODAS as unidades)
+    vendasUnidadeAtual, // ✅ NOVO: Vendas apenas da unidade atual
     vendasOriginais: vendas, // Opcional: manter acesso às vendas originais se necessário
     loading,
     error,

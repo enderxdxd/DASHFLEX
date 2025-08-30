@@ -37,10 +37,20 @@ export default function AnalyticsSummary({
   // Produtividade diária
   const heatmap = useDailyProductivity(vendasUnidade, metas, selectedMonth);
 
+  // Calcular meta da unidade automaticamente
+  const metaUnidadeCalculada = useMemo(() => {
+    if (!metas || !Array.isArray(metas)) return 0;
+    const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
+    const somaMetasConsultores = metasDoMes.reduce((soma, meta) => {
+      return soma + Number(meta.meta || 0);
+    }, 0);
+    return somaMetasConsultores;
+  }, [metas, selectedMonth]);
+
   // Projeção de fechamento
   const proj = useProjectionFromFiltered(
     vendasUnidade,
-    configRem.metaUnidade,
+    metaUnidadeCalculada,
     selectedMonth
   );
 

@@ -15,7 +15,9 @@ import AdminRoute from "./auth/AdminRoute";
 import PersonalRoute from "./auth/PersonalRoute";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import DescontosPage from "./pages/DescontosPage";
+import TesteClassificacao from "./pages/teste-page";
 import AdminProdutoConfig from "./components/admin/AdminProdutoConfig";
+import ComissaoDetalhes from "./pages/ComissaoDetalhes";
 
 export default function App() {
   return (
@@ -102,6 +104,15 @@ export default function App() {
           }
         />
 
+          {/* modulo de comissões */}
+          <Route
+          path="/comissao/:unidade"
+          element={
+            <PrivateRoute>
+              <ComissaoDetalhes />
+            </PrivateRoute>
+          }
+        />
         {/* MÓDULO DE PERSONAL - Nova estrutura unificada */}
         <Route
           path="/personal/dashboard"
@@ -134,6 +145,16 @@ export default function App() {
           }
         />
         */}
+
+        {/* Teste de classificação */}
+        <Route
+          path="/teste-classificacao"
+          element={
+            <PrivateRoute>
+              <TesteClassificacao />
+            </PrivateRoute>
+          }
+        />
         
         {/* Redireciona para a seleção de módulos */}
         <Route path="/" element={<Navigate to="/modules" replace />} />

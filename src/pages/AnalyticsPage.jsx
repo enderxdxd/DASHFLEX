@@ -86,7 +86,14 @@ export default function AnalyticsPage() {
     error: errorConfig
   } = useConfigRem(unidade, selMonth);
 
-  const metaUnidade = configRem.metaUnidade || 0;
+  // Calcular meta da unidade automaticamente baseada na soma das metas dos consultores
+  const metaUnidade = useMemo(() => {
+    const metasDoMes = metas.filter(m => m.periodo === selMonth);
+    const somaMetasConsultores = metasDoMes.reduce((soma, meta) => {
+      return soma + Number(meta.meta || 0);
+    }, 0);
+    return somaMetasConsultores;
+  }, [metas, selMonth]);
   const comissaoPlanos = configRem.comissaoPlanos || [];
   const premiacao = configRem.premiacao || [];
 

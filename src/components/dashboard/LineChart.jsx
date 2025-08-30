@@ -216,8 +216,8 @@ export default function LineChart({
   // Ajustar tamanho dinamicamente se a janela for redimensionada
   useEffect(() => {
     const handleResize = () => {
-      if (chartRef.current && chartRef.current.chartInstance) {
-        chartRef.current.chartInstance.resize();
+      if (chartRef.current) {
+        chartRef.current.resize();
       }
     };
 

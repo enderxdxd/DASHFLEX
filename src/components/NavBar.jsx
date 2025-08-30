@@ -175,6 +175,13 @@ export default function NavBar() {
           description: "Registrar venda",
           highlight: true,
           matchPath: "/add-sale"
+        },
+        {
+          path: `/comissao/${unidade}`,
+          icon: BarChart3,
+          label: "Comissões",
+          description: "Análises detalhadas",
+          matchPath: "/comissao"
         }
       ];
 

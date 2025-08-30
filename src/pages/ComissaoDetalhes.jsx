@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { Calculator, Users, AlertCircle, RefreshCw, Sun, Moon } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import NavBar from '../components/NavBar';
 import ConsultorCard from '../components/comissao/ConsultorCard';
 import ComissaoFilters from '../components/comissao/ComissaoFilters';
@@ -377,34 +378,86 @@ export default function ComissaoDetalhes() {
   const handleExportar = () => {
     if (!resultadosAnalise) return;
     
-    const dadosExport = resultadosFiltrados.map(r => ({
-      Matrícula: r.matricula,
-      Nome: r.nome,
-      Produto: r.produto,
-      Plano: r.plano || '',
-      Valor: r.valor,
-      'Classificação Atual': r.classificacaoAtual,
-      'Classificação Esperada': r.classificacaoEsperada,
-      Status: r.statusCorreto ? 'Correto' : 'Incorreto',
-      'É Plano': r.ehPlano ? 'Sim' : 'Não',
-      'Tem Desconto': r.temDesconto ? 'Sim' : 'Não',
-      Comissão: r.comissao.toFixed(2)
-    }));
-    
-    const csvContent = [
-      Object.keys(dadosExport[0]).join(','),
-      ...dadosExport.map(row => Object.values(row).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `analise_comissoes_${consultorSelecionado}_${mesAtual}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      // Garantir que apenas vendas dos produtos filtrados sejam exportadas
+      const dadosExport = resultadosFiltrados.map(r => {
+        // Formatar datas se existirem
+        const formatarData = (data) => {
+          if (!data) return '';
+          try {
+            const dataObj = new Date(data);
+            return dataObj.toLocaleDateString('pt-BR');
+          } catch {
+            return data;
+          }
+        };
+
+        return {
+          'Matrícula': r.matricula || '',
+          'Nome': r.nome || '',
+          'Produto': r.produto || '',
+          'Plano': r.plano || '',
+          'Data Início': formatarData(r.dataInicio),
+          'Data Término': formatarData(r.dataFim || r.dataTermino),
+          'Valor': parseFloat(r.valor || 0),
+          'Classificação Atual': r.classificacaoAtual || '',
+          'Classificação Esperada': r.classificacaoEsperada || '',
+          'Status': r.statusCorreto ? 'Correto' : 'Incorreto',
+          'É Plano': r.ehPlano ? 'Sim' : 'Não',
+          'Tem Desconto': r.temDesconto ? 'Sim' : 'Não',
+          'Comissão': parseFloat((r.comissao || 0).toFixed(2)),
+          'Duração (Meses)': r.duracaoMeses || '',
+          'Observações': r.vendaCorrigida?.motivoCorrecao || ''
+        };
+      });
+
+      // Verificar se há dados para exportar
+      if (dadosExport.length === 0) {
+        alert('Não há dados para exportar com os filtros aplicados.');
+        return;
+      }
+
+      // Criar planilha Excel
+      const ws = XLSX.utils.json_to_sheet(dadosExport);
+      
+      // Ajustar largura das colunas
+      const colWidths = [
+        { wch: 12 }, // Matrícula
+        { wch: 25 }, // Nome
+        { wch: 20 }, // Produto
+        { wch: 15 }, // Plano
+        { wch: 12 }, // Data Início
+        { wch: 12 }, // Data Término
+        { wch: 12 }, // Valor
+        { wch: 18 }, // Classificação Atual
+        { wch: 20 }, // Classificação Esperada
+        { wch: 10 }, // Status
+        { wch: 10 }, // É Plano
+        { wch: 12 }, // Tem Desconto
+        { wch: 12 }, // Comissão
+        { wch: 12 }, // Duração
+        { wch: 30 }  // Observações
+      ];
+      ws['!cols'] = colWidths;
+
+      // Criar workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Análise Comissões');
+
+      // Gerar nome do arquivo com timestamp
+      const agora = new Date();
+      const timestamp = agora.toISOString().slice(0, 19).replace(/[:.]/g, '-');
+      const nomeArquivo = `analise_comissoes_${consultorSelecionado}_${mesAtual}_${timestamp}.xlsx`;
+
+      // Fazer download
+      XLSX.writeFile(wb, nomeArquivo);
+      
+      console.log(`✅ Exportação concluída: ${dadosExport.length} registros exportados para ${nomeArquivo}`);
+      
+    } catch (error) {
+      console.error('❌ Erro ao exportar para Excel:', error);
+      alert('Erro ao exportar dados. Verifique o console para mais detalhes.');
+    }
   };
 
   return (

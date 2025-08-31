@@ -78,7 +78,7 @@ export default function Metas() {
   // Hook para buscar descontos do Firebase
   const { descontos, loading: loadingDescontos } = useDescontosSimples(unidade);
 
-function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRem) {
+function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRem, metaUnidadeCalculada) {
   // Validações iniciais
   if (!Array.isArray(vendasArr)) {
     console.warn('VendasArr não é um array válido');
@@ -88,12 +88,14 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
   // Calcula totais necessários para a nova lógica
   const totalVendasIndividual = vendasArr.reduce((soma, v) => soma + Number(v.valor || 0), 0);
   
-  // Para o total da equipe, usa vendas agrupadas do mês selecionado SEM FILTRAR POR UNIDADE
+  // Para o total da equipe, usa vendas agrupadas do mês selecionado FILTRANDO POR UNIDADE
   const totalVendasTime = vendasAgrupadas
     .filter(venda => {
       const dataVenda = dayjs(venda.dataFormatada, 'YYYY-MM-DD');
       const mesVenda = dataVenda.format('YYYY-MM');
-      return mesVenda === selectedMonth;
+      const vendaUnidade = (venda.unidade || "").toLowerCase();
+      const unidadeAtual = (unidadeParam || "").toLowerCase();
+      return mesVenda === selectedMonth && vendaUnidade === unidadeAtual;
     })
     .reduce((soma, v) => soma + Number(v.valor || 0), 0);
 
@@ -101,7 +103,7 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
     const resultado = calcularRemuneracaoPorDuracao({
       vendas: vendasArr,
       metaIndividual: metaValor,
-      metaTime: configRem.metaUnidade || 0,
+      metaTime: metaUnidadeCalculada,
       totalVendasIndividual,
       totalVendasTime,
       descontos, // Usa os descontos do hook
@@ -117,11 +119,17 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
     const resultado = calcularRemuneracaoPorDuracao({
       vendas: vendasArr,
       metaIndividual: metaValor,
+      metaTime: metaUnidadeCalculada,
+      totalVendasIndividual,
+      totalVendasTime,
       premiacao: configRem.premiacao || [],
-      tipo: 'premiacao'
+      tipo: 'premiacao',
+      produtosSelecionados,
+      descontos // ✅ ADICIONADO: parâmetro descontos
     });
     
-    return resultado.totalPremiacao;
+    console.log(`🏆 Premiação - ${resultado.totalPremiacao.toFixed(2)} (${resultado.percentualMeta?.toFixed(2)}% meta, ${resultado.faixasAtingidas?.length || 0} faixas)`);
+    return resultado.totalPremiacao; // ✅ CORRIGIDO: usar totalPremiacao
   }
   
   return 0;
@@ -155,7 +163,7 @@ function debugRemuneracao(responsavel) {
   const resultado = calcularRemuneracaoPorDuracao({
     vendas: vendasResp,
     metaIndividual: Number(metaResp.meta),
-    metaTime: configRem.metaUnidade || 0,
+    metaTime: metaUnidade,
     totalVendasIndividual: vendasResp.reduce((s, v) => s + Number(v.valor || 0), 0),
     totalVendasTime,
     descontos,
@@ -337,7 +345,7 @@ function debugConsultor(nomeConsultor, todasVendas, configRem, metas) {
   
   
   // Verificar se a unidade bateu a meta
-  const metaUnidade = configRem.metaUnidade || 0;
+  // metaUnidade já calculada no escopo principal
   const totalVendasUnidade = todasVendas.reduce((s, v) => s + Number(v.valor || 0), 0);
   const unidadeBatida = totalVendasUnidade >= metaUnidade;
   
@@ -577,9 +585,19 @@ function debugCalculoASMIHS(vendasArr, configRem) {
       .reduce((s, v) => s + Number(v.valor || 0), 0);
   }, [vendasParaMeta, unidade]);
   
-  // metaUnidade vem do configRem.metaUnidade
-  const unidadeBatida = totalUnidade >= Number(configRem?.metaUnidade || 0);
+  // Calcular meta da unidade automaticamente baseada na soma das metas dos consultores
+  const metaUnidade = useMemo(() => {
+    const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
+    const somaMetasConsultores = metasDoMes.reduce((soma, meta) => {
+      const metaValue = Number(meta.meta || 0);
+      console.log(`📊 Meta ${meta.responsavel}: ${metaValue} (original: ${meta.meta}, type: ${typeof meta.meta})`);
+      return soma + metaValue;
+    }, 0);
+    console.log(`🎯 Meta da unidade calculada: ${somaMetasConsultores} (${metasDoMes.length} consultores)`);
+    return somaMetasConsultores;
+  }, [metas, selectedMonth]);
   
+  const unidadeBatida = totalUnidade >= metaUnidade;
 
   // --- Responsáveis únicos ---
   const responsaveisUnicos = useMemo(
@@ -677,12 +695,24 @@ function debugCalculoASMIHS(vendasArr, configRem) {
     return metas
       .filter(m => m.periodo === selectedMonth)
       .map(m => {
-        const totalV = vendasParaMeta
-          .filter(v => v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase())
+        // Para o gráfico, aplicar a MESMA lógica de filtro global que outros componentes
+        const vendasConsultor = vendasAgrupadas
+          .filter(v => {
+            const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
+            const matchResponsavel = v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase();
+            const matchMes = mes === selectedMonth;
+            const matchUnidade = (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase();
+            
+            // LÓGICA GLOBAL: Se não há produtos selecionados, inclui todas as vendas
+            const matchProduto = produtosSelecionados.length === 0 || 
+              (v.produto && produtosSelecionados.includes(v.produto.trim()));
+            
+            return matchResponsavel && matchMes && matchUnidade && matchProduto;
+          })
           .reduce((s,v) => s + Number(v.valor||0), 0);
-        return { nome: m.responsavel, vendas: totalV, meta: Number(m.meta) };
+        return { nome: m.responsavel, vendas: vendasConsultor, meta: Number(m.meta) };
       });
-  }, [metas, vendasParaMeta, selectedMonth]);
+  }, [metas, vendasAgrupadas, selectedMonth, unidade, produtosSelecionados]);
 
   const ordenado = useMemo(() =>
     [...dadosGrafico].sort((a,b) => a.nome.localeCompare(b.nome, "pt", { sensitivity: "base" }))
@@ -821,7 +851,7 @@ function debugCalculoASMIHS(vendasArr, configRem) {
                   {totalUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </div>
                 <div className="status-meta">
-                  Meta: {(configRem?.metaUnidade || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  Meta: {metaUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </div>
               </div>
             </div>
@@ -1011,12 +1041,19 @@ function debugCalculoASMIHS(vendasArr, configRem) {
         .localeCompare(b.responsavel.trim(), "pt", { sensitivity: "base" })
     )
     .map((m) => {
-      // 1) filtra vendas por consultor
-      const vendasDoResp = vendasParaMeta.filter(
-        (v) =>
-          v.responsavel.trim().toLowerCase() ===
-          m.responsavel.trim().toLowerCase()
-      );
+      // 1) filtra vendas por consultor - CROSSING: TODAS AS UNIDADES
+      const vendasDoResp = vendasAgrupadas.filter(v => {
+        const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
+        const matchResponsavel = v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase();
+        const matchMes = mes === selectedMonth;
+        // REMOVIDO: filtro por unidade para permitir crossing
+        
+        // LÓGICA GLOBAL: Se não há produtos selecionados, inclui todas as vendas
+        const matchProduto = produtosSelecionados.length === 0 || 
+          (v.produto && produtosSelecionados.includes(v.produto.trim()));
+        
+        return matchResponsavel && matchMes && matchProduto;
+      });
 
       // 1.1) soma total das vendas para exibir e calcular % Meta
       const totalV = vendasDoResp.reduce(
@@ -1030,22 +1067,34 @@ function debugCalculoASMIHS(vendasArr, configRem) {
         vendasDoResp,       // array de vendas do consultor
         m.remuneracaoType,  // "comissao" ou "premiacao"
         unidadeBatida,
-        configRem
+        configRem,
+        metaUnidade         // passa a meta da unidade calculada
       );
 
-      // 3) percentual de meta atingido
-      // 🔧 VALIDAÇÃO ROBUSTA: Previne problemas intermitentes
+      // 3) percentual de meta atingido - USAR DADOS CONSISTENTES
       let pctMeta = 0;
       const metaValor = Number(m.meta || 0);
-      const totalVendas = Number(totalV || 0);
       
-      if (metaValor > 0 && !isNaN(totalVendas) && !isNaN(metaValor)) {
-        pctMeta = (totalVendas / metaValor) * 100;
+      // Debug específico para Agnes
+      if (m.responsavel.toLowerCase().includes('agnes')) {
+        console.log(`🚨 DEBUG AGNES ESPECÍFICO:`, {
+          responsavel: m.responsavel,
+          metaOriginal: m.meta,
+          metaValor,
+          totalVendas: totalV,
+          vendasDoResp: vendasDoResp.length,
+          metaIsValid: metaValor > 0,
+          calculation: metaValor > 0 ? `${totalV} / ${metaValor} = ${(totalV / metaValor * 100).toFixed(2)}%` : 'Meta inválida ou zero'
+        });
+      }
+      
+      if (metaValor > 0 && !isNaN(totalV) && !isNaN(metaValor)) {
+        pctMeta = (totalV / metaValor) * 100;
         
         // Validação adicional para valores extremos
         if (!isFinite(pctMeta) || pctMeta < 0) {
           console.warn(`Percentual inválido para ${m.responsavel}:`, {
-            totalVendas,
+            totalV,
             metaValor,
             pctMeta
           });
@@ -1208,111 +1257,152 @@ function debugCalculoASMIHS(vendasArr, configRem) {
               
               {/* Grid de Cards de Performance */}
               <div className="performance-grid">
-                {responsaveisUnicos.map((consultor) => {
-                  // Calcular vendas do consultor em todas as unidades (USANDO VENDAS AGRUPADAS)
-                  const vendasConsultor = vendasAgrupadas.filter(v => 
-                    v.responsavel?.trim().toLowerCase() === consultor.trim().toLowerCase() &&
-                    dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === crossUnitPeriod &&
-                    (produtosSelecionados.length === 0 || produtosSelecionados.includes(v.produto))
-                  );
-                  
-                  // Agrupar vendas por unidade
-                  const vendasPorUnidade = vendasConsultor.reduce((acc, venda) => {
-                    const unidadeVenda = venda.unidade || 'Não Informado';
-                    if (!acc[unidadeVenda]) {
-                      acc[unidadeVenda] = {
-                        vendas: [],
-                        total: 0,
-                        count: 0
-                      };
-                    }
-                    acc[unidadeVenda].vendas.push(venda);
-                    acc[unidadeVenda].total += Number(venda.valor || 0);
-                    acc[unidadeVenda].count += 1;
-                    return acc;
-                  }, {});
-                  
-                  const totalGeral = Object.values(vendasPorUnidade).reduce((sum, u) => sum + u.total, 0);
-                  const metaConsultor = metas.find(m => 
-                    m.responsavel?.trim().toLowerCase() === consultor.trim().toLowerCase() &&
-                    m.periodo === crossUnitPeriod
-                  );
-                  
-                  if (Object.keys(vendasPorUnidade).length === 0) return null;
-                  
-                  return (
-                    <div key={consultor} className="consultant-performance-card">
-                      <div className="card-header">
-                        <div className="consultant-info">
-                          <div className="consultant-avatar">
-                            {consultor.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="consultant-details">
-                            <h4 className="consultant-name">{consultor}</h4>
-                            <div className="consultant-stats">
-                              <div className="total-sales">
-                                {formatCurrency(totalGeral)}
-                              </div>
-                              {metaConsultor && (
-                                <div className="meta-progress">
-                                  {((totalGeral / metaConsultor.valor) * 100).toFixed(1)}% da meta
+                {responsaveisUnicos && responsaveisUnicos.length > 0 ? 
+                  responsaveisUnicos.map((consultor) => {
+                    // CORREÇÃO: Calcular vendas do consultor em todas as unidades (USANDO VENDAS AGRUPADAS)
+                    const vendasConsultor = vendasAgrupadas.filter(v => {
+                      const responsavelNormalizado = v.responsavel?.trim().toLowerCase() || '';
+                      const consultorNormalizado = consultor?.trim().toLowerCase() || '';
+                      const dataVenda = v.dataFormatada ? dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') : null;
+                      const periodoMatch = dataVenda === crossUnitPeriod;
+                      const responsavelMatch = responsavelNormalizado === consultorNormalizado;
+                      
+                      // Filtro de produtos: se não há produtos selecionados, inclui todos
+                      const produtoMatch = produtosSelecionados.length === 0 || 
+                                         produtosSelecionados.includes(v.produto);
+                      
+                      return responsavelMatch && periodoMatch && produtoMatch;
+                    });
+                    
+                    // Debug log para verificar filtros
+                    console.log('🔍 Performance cruzada debug:', {
+                      consultor,
+                      crossUnitPeriod,
+                      vendasEncontradas: vendasConsultor.length,
+                      produtosSelecionados,
+                      exemploVenda: vendasConsultor[0]
+                    });
+                    
+                    // CORREÇÃO: Agrupar vendas por unidade
+                    const vendasPorUnidade = vendasConsultor.reduce((acc, venda) => {
+                      const unidadeVenda = venda.unidade || 'Não Informado';
+                      if (!acc[unidadeVenda]) {
+                        acc[unidadeVenda] = {
+                          vendas: [],
+                          total: 0,
+                          count: 0
+                        };
+                      }
+                      acc[unidadeVenda].vendas.push(venda);
+                      acc[unidadeVenda].total += Number(venda.valor || 0);
+                      acc[unidadeVenda].count += 1;
+                      return acc;
+                    }, {});
+                    
+                    const totalGeral = Object.values(vendasPorUnidade).reduce((sum, u) => sum + u.total, 0);
+                    const metaConsultor = metas.find(m => 
+                      m.responsavel?.trim().toLowerCase() === consultor?.trim().toLowerCase() &&
+                      m.periodo === crossUnitPeriod
+                    );
+                    
+                    // CORREÇÃO: Só retorna null se não há vendas E não há meta
+                    if (Object.keys(vendasPorUnidade).length === 0 && !metaConsultor) return null;
+                    
+                    return (
+                      <div key={consultor} className="consultant-performance-card">
+                        <div className="card-header">
+                          <div className="consultant-info">
+                            <div className="consultant-avatar">
+                              {consultor?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                            <div className="consultant-details">
+                              <h4 className="consultant-name">{consultor}</h4>
+                              <div className="consultant-stats">
+                                <div className="total-sales">
+                                  {formatCurrency(totalGeral)}
                                 </div>
-                              )}
+                                {metaConsultor && (
+                                  <div className="meta-progress">
+                                    {Number(metaConsultor.meta || 0) > 0 
+                                      ? ((totalGeral / Number(metaConsultor.meta || 0)) * 100).toFixed(1) 
+                                      : '0'}% da meta
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="performance-summary">
+                            <div className="units-count">
+                              <div className="count">{Object.keys(vendasPorUnidade).length}</div>
+                              <div className="label">Unidades</div>
                             </div>
                           </div>
                         </div>
-                        <div className="performance-summary">
-                          <div className="units-count">
-                            <div className="count">{Object.keys(vendasPorUnidade).length}</div>
-                            <div className="label">Unidades</div>
+                        
+                        <div className="card-body">
+                          <div className="units-breakdown">
+                            {Object.keys(vendasPorUnidade).length > 0 ? (
+                              Object.entries(vendasPorUnidade)
+                                .sort(([,a], [,b]) => b.total - a.total)
+                                .map(([unidade, dados]) => {
+                                  const isCurrentUnit = unidade === unidadeParam;
+                                  const percentage = totalGeral > 0 ? ((dados.total || 0) / totalGeral * 100) : 0;
+                                  
+                                  console.log('🔍 Progress bar debug:', { 
+                                    unidade, 
+                                    totalGeral, 
+                                    dadosTotal: dados.total, 
+                                    percentage: percentage.toFixed(1) 
+                                  });
+                                  
+                                  return (
+                                    <div key={unidade} className={`unit-item ${isCurrentUnit ? 'current-unit' : ''}`}>
+                                      <div className="unit-header">
+                                        <div className="unit-info">
+                                          <div className="unit-name">
+                                            {isCurrentUnit && (
+                                              <svg className="current-icon" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                              </svg>
+                                            )}
+                                            {unidade}
+                                          </div>
+                                          <div className="unit-count">
+                                            {dados.count} {dados.count === 1 ? 'venda' : 'vendas'}
+                                          </div>
+                                        </div>
+                                        <div className="unit-value">
+                                          <div className="value">{formatCurrency(dados.total)}</div>
+                                          <div className="percentage">{percentage.toFixed(1)}%</div>
+                                        </div>
+                                      </div>
+                                      <div className="unit-percentage-display">
+                                        <div className={`percentage-badge ${isCurrentUnit ? 'current-unit' : 'other-unit'}`}>
+                                          {percentage.toFixed(1)}%
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                            ) : (
+                              <div className="no-sales-message">
+                                <p>Nenhuma venda encontrada para {consultor} no período {crossUnitPeriod}</p>
+                                {metaConsultor && (
+                                  <p className="meta-info">Meta: {formatCurrency(Number(metaConsultor.meta || 0))}</p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
-                      
-                      <div className="card-body">
-                        <div className="units-breakdown">
-                          {Object.entries(vendasPorUnidade)
-                            .sort(([,a], [,b]) => b.total - a.total)
-                            .map(([unidade, dados]) => {
-                              const isCurrentUnit = unidade === unidadeParam;
-                              const percentage = totalGeral > 0 ? (dados.total / totalGeral * 100) : 0;
-                              
-                              return (
-                                <div key={unidade} className={`unit-item ${isCurrentUnit ? 'current-unit' : ''}`}>
-                                  <div className="unit-header">
-                                    <div className="unit-info">
-                                      <div className="unit-name">
-                                        {isCurrentUnit && (
-                                          <svg className="current-icon" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                          </svg>
-                                        )}
-                                        {unidade}
-                                      </div>
-                                      <div className="unit-count">
-                                        {dados.count} {dados.count === 1 ? 'venda' : 'vendas'}
-                                      </div>
-                                    </div>
-                                    <div className="unit-value">
-                                      <div className="value">{formatCurrency(dados.total)}</div>
-                                      <div className="percentage">{percentage.toFixed(1)}%</div>
-                                    </div>
-                                  </div>
-                                  <div className="unit-progress">
-                                    <div 
-                                      className={`progress-bar ${isCurrentUnit ? 'current' : 'other'}`}
-                                      style={{ width: `${percentage}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  }).filter(Boolean) // Remove elementos null
+                : (
+                  <div className="no-consultants-message">
+                    <p>Nenhum consultor encontrado com vendas ou metas no período selecionado.</p>
+                    <p>Verifique se há dados de vendas e metas cadastradas para o período {crossUnitPeriod}.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2518,25 +2608,32 @@ function debugCalculoASMIHS(vendasArr, configRem) {
     color: var(--text-light);
   }
   
-  .unit-progress {
-    height: 6px;
-    background: var(--bg-color);
-    border-radius: 3px;
-    overflow: hidden;
+  .unit-percentage-display {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.5rem;
   }
   
-  .unit-progress .progress-bar {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 0.3s ease;
+  .percentage-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    min-width: 50px;
+    text-align: center;
   }
   
-  .unit-progress .progress-bar.current {
-    background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  .percentage-badge.current-unit {
+    background: var(--primary-color);
+    color: white;
   }
   
-  .unit-progress .progress-bar.other {
-    background: linear-gradient(90deg, var(--accent-color) 0%, #34d399 100%);
+  .percentage-badge.other-unit {
+    background: var(--accent-color);
+    color: white;
   }
 
   /* Chart Section */

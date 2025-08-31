@@ -290,7 +290,12 @@ export function calcularRemuneracaoPorDuracao(params) {
     qtdPlanosSemDesconto: Object.values(qtdPlanos.semDesconto).reduce((a, b) => a + b, 0),
     qtdPlanosComDesconto: Object.values(qtdPlanos.comDesconto).reduce((a, b) => a + b, 0),
     vendasDetalhadas,
-    detalhePlanos: qtdPlanos
+    detalhePlanos: qtdPlanos,
+    resumo: {
+      totalPlanosProcessados: Object.values(qtdPlanos.semDesconto).reduce((a, b) => a + b, 0) + 
+                             Object.values(qtdPlanos.comDesconto).reduce((a, b) => a + b, 0),
+      totalProdutosProcessados: vendasDetalhadas.filter(v => v.tipo === 'produto').length
+    }
   };
 
   console.log('📊 RESULTADO FINAL:', {
@@ -304,17 +309,96 @@ export function calcularRemuneracaoPorDuracao(params) {
   return resultado;
 }
 
-// Função auxiliar para calcular premiação (mantém lógica original)
+// Função auxiliar para calcular premiação
 function calcularPremiacao(params) {
-  // Implementação da premiação (código original mantido)
-  return {
-    totalComissao: 0,
-    comissaoProdutos: 0, 
-    comissaoPlanos: 0,
-    bateuMetaIndividual: false,
-    bateuMetaTime: false,
+  const {
+    vendas = [],
+    metaIndividual = 0,
+    metaTime = 0,
+    totalVendasIndividual = 0,
+    totalVendasTime = 0,
+    premiacao = [],
+    produtosSelecionados = []
+  } = params;
+
+  console.log('🏆 INICIANDO CÁLCULO DE PREMIAÇÃO:', {
+    totalVendas: vendas.length,
+    metaIndividual,
+    totalVendasIndividual,
+    faixasPremiacao: premiacao.length
+  });
+
+  // Calcula o percentual de meta atingido
+  const percentualMeta = metaIndividual > 0 ? (totalVendasIndividual / metaIndividual) * 100 : 0;
+  
+  console.log('🎯 PERCENTUAL DE META:', {
+    percentual: percentualMeta.toFixed(2) + '%',
+    totalVendas: totalVendasIndividual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    meta: metaIndividual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  });
+
+  // Ordena as faixas por percentual crescente e filtra as atingidas
+  const faixasAtingidas = premiacao
+    .filter(faixa => {
+      const percentualFaixa = Number(faixa.percentual || 0);
+      return percentualFaixa <= percentualMeta;
+    })
+    .sort((a, b) => Number(a.percentual || 0) - Number(b.percentual || 0));
+
+  console.log('🎯 FAIXAS ATINGIDAS:', {
+    total: faixasAtingidas.length,
+    detalhes: faixasAtingidas.map(f => `${f.percentual}% → R$ ${f.premio}`)
+  });
+
+  // NOVA LÓGICA: Soma TODAS as faixas atingidas
+  const premioTotal = faixasAtingidas.reduce((soma, faixa) => {
+    return soma + Number(faixa.premio || 0);
+  }, 0);
+
+  // Determina se bateu as metas
+  const bateuMetaIndividual = totalVendasIndividual >= metaIndividual;
+  const bateuMetaTime = totalVendasTime >= metaTime;
+
+  // Cria detalhamento das vendas (para compatibilidade)
+  const vendasDetalhadas = vendas.map((venda, index) => ({
+    id: index,
+    valor: Number(venda.valor || 0),
+    produto: venda.produto || 'N/A',
+    responsavel: venda.responsavel || 'N/A',
+    tipo: 'premiacao',
+    comissao: 0, // Premiação não usa comissão por venda individual
+    observacao: `Premiação por faixas: ${faixasAtingidas.length} faixas atingidas`
+  }));
+
+  const resultado = {
+    totalComissao: premioTotal, // Para compatibilidade com código existente
+    totalPremiacao: premioTotal, // ✅ PROPRIEDADE CORRETA
+    comissaoProdutos: 0, // Premiação não separa por tipo de produto
+    comissaoPlanos: premioTotal, // Todo o prêmio vem das faixas
+    bateuMetaIndividual,
+    bateuMetaTime,
+    percentualMeta,
+    faixasAtingidas,
+    premioTotal,
     qtdPlanosSemDesconto: 0,
     qtdPlanosComDesconto: 0,
-    vendasDetalhadas: []
+    vendasDetalhadas,
+    detalhePlanos: {},
+    // Informações adicionais para debug
+    resumo: {
+      totalPlanosProcessados: 0,
+      totalProdutosProcessados: vendas.length,
+      metodo: 'Premiação por faixas de percentual'
+    }
   };
+
+  console.log('🏆 RESULTADO FINAL PREMIAÇÃO:', {
+    percentualMeta: percentualMeta.toFixed(2) + '%',
+    faixasAtingidas: faixasAtingidas.length,
+    premioTotal: premioTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    bateuMetaIndividual,
+    bateuMetaTime
+  });
+
+  return resultado;
 }

@@ -14,7 +14,7 @@ import { useDescontos } from '../hooks/useDescontos';
 import useDarkMode from '../hooks/useDarkMode';
 import '../styles/ComissaoComponents.css';
 
-// Função para aplicar correção de diárias (baseada no sistema real - COPIADA DO ORIGINAL)
+// Função para aplicar correção de diárias (baseada no sistema real)
 const corrigirClassificacaoDiarias = (venda) => {
   if (!venda) return venda;
   
@@ -42,7 +42,7 @@ const corrigirClassificacaoDiarias = (venda) => {
   return vendaCorrigida;
 };
 
-// Função para verificar se é plano após correção (baseada no sistema real - COPIADA DO ORIGINAL)
+// Função para verificar se é plano após correção
 const ehPlanoAposCorrecao = (venda) => {
   if (!venda) return false;
   
@@ -76,7 +76,7 @@ const ehPlanoAposCorrecao = (venda) => {
   return false;
 };
 
-// Função para calcular comissão (baseada no sistema real - COPIADA DO ORIGINAL)
+// Função para calcular comissão 
 const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida) => {
   const valor = Number(venda.valor || 0);
   
@@ -108,7 +108,6 @@ export default function ComissaoDetalhes() {
   const { unidade: unidadeParam } = useParams();
   const [unidadeSelecionada, setUnidadeSelecionada] = useState(unidadeParam || 'alphaville');
   const [consultorSelecionado, setConsultorSelecionado] = useState('');
-  const [mesAtual, setMesAtual] = useState('2025-08');
   const [showDetails, setShowDetails] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [searchTerm, setSearchTerm] = useState('');
@@ -120,7 +119,6 @@ export default function ComissaoDetalhes() {
   const { 
     vendas, 
     loading: loadingVendas, 
-    responsaveis,
     selectedMonth,
     setSelectedMonth 
   } = useVendas(unidadeSelecionada);
@@ -130,41 +128,51 @@ export default function ComissaoDetalhes() {
     loading: loadingMetas 
   } = useMetas(unidadeSelecionada);
   
+  // CORREÇÃO: Passar selectedMonth para useDescontos
   const { 
     todasVendasProcessadas: vendasComDesconto,
     loading: loadingDescontos
-  } = useDescontos(unidadeSelecionada, vendas, metas);
+  } = useDescontos(unidadeSelecionada, vendas, metas, true, selectedMonth);
 
   // Loading combinado
   const loading = loadingVendas || loadingMetas || loadingDescontos;
 
-  // Sincronização do mês - usar apenas selectedMonth do hook
-  useEffect(() => {
-    if (selectedMonth && selectedMonth !== mesAtual) {
-      setMesAtual(selectedMonth);
-    }
-  }, [selectedMonth]);
+  // CORREÇÃO: Usar selectedMonth diretamente do hook useVendas
+  const mesAtual = selectedMonth;
 
-  // FILTRAR APENAS CONSULTORES QUE TÊM META (ÚNICA MUDANÇA DO ORIGINAL)
+  // FILTRAR APENAS CONSULTORES QUE TÊM META
   const consultores = useMemo(() => {
+    if (!metas?.length || !mesAtual) return [];
+    
     const metasDoMes = metas.filter(m => m.periodo === mesAtual);
-    const consultoresComMeta = metasDoMes.map(m => m.responsavel);
+    const consultoresComMeta = metasDoMes.map(m => m.responsavel).filter(Boolean);
     return [...new Set(consultoresComMeta)].sort();
   }, [metas, mesAtual]);
 
-  // Executar análise do consultor (COPIADO DO ORIGINAL - SEM ALTERAÇÕES)
+  // Executar análise do consultor
   const analisarConsultor = (consultor) => {
-    if (!consultor) return;
+    if (!consultor || !mesAtual) {
+      console.warn('Consultor ou mês não informados para análise');
+      return;
+    }
     
+    // Filtrar vendas do consultor no mês
     const vendasDoConsultor = vendas.filter(v => 
       v.responsavel === consultor && 
       v.dataFormatada && v.dataFormatada.startsWith(mesAtual)
     );
     
+    // Encontrar meta do consultor
     const metaConsultor = metas.find(m => 
       m.responsavel === consultor && m.periodo === mesAtual
     );
     
+    if (!metaConsultor) {
+      console.warn(`Meta não encontrada para consultor ${consultor} no período ${mesAtual}`);
+      return;
+    }
+    
+    // Calcular totais
     const totalVendasConsultor = vendasDoConsultor.reduce((sum, v) => sum + Number(v.valor || 0), 0);
     
     const vendasUnidadeNoMes = vendas.filter(v => 
@@ -180,28 +188,36 @@ export default function ComissaoDetalhes() {
     const bateuMetaIndividual = totalVendasConsultor >= metaIndividual;
     const unidadeBatida = totalVendasUnidade >= metaUnidadeCalculada;
     
+    // Processar cada venda
     const resultados = vendasDoConsultor.map(venda => {
       const vendaCorrigida = corrigirClassificacaoDiarias(venda);
       const ehPlano = ehPlanoAposCorrecao(vendaCorrigida);
       
-      const vendaComDesconto = vendasComDesconto?.find(v => v.matricula === venda.matricula);
+      // CORREÇÃO: Buscar desconto por matrícula normalizada
+      const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
+      const vendaComDesconto = vendasComDesconto?.find(v => {
+        const vMatriculaNorm = String(v.matricula || '').replace(/\D/g, '').padStart(6, '0');
+        return vMatriculaNorm === matriculaNorm;
+      });
+      
       const desconto = vendaComDesconto ? {
-        descontoPlano: vendaComDesconto.descontoPlano || 0,
-        descontoMatricula: vendaComDesconto.descontoMatricula || 0
-      } : null;
-      const temDescontoPlano = Number(desconto?.descontoPlano || 0) > 0;
-      const temDescontoMatricula = Number(desconto?.descontoMatricula || 0) > 0;
+        descontoPlano: Number(vendaComDesconto.descontoPlano || 0),
+        descontoMatricula: Number(vendaComDesconto.descontoMatricula || 0)
+      } : { descontoPlano: 0, descontoMatricula: 0 };
+      
+      const temDescontoPlano = desconto.descontoPlano > 0;
+      const temDescontoMatricula = desconto.descontoMatricula > 0;
       const temDesconto = ehPlano ? temDescontoPlano : temDescontoMatricula;
       
       const comissao = calcularComissaoReal(vendaCorrigida, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida);
       
+      // Determinar classificação esperada
       let classificacaoEsperada = 'PRODUTO';
       
-      // Planos verdadeiros (não-diárias) com duração definida devem ser PLANO (LÓGICA DO ORIGINAL)
       if (venda.produto === 'Plano' && 
+          venda.plano &&
           !venda.plano.toLowerCase().includes('diária') && 
           !venda.plano.toLowerCase().includes('diarias')) {
-        // Se tem duração em meses definida OU período de datas que indica plano longo
         if (venda.duracaoMeses >= 1 || 
             (venda.dataInicio && venda.dataFim && 
              Math.ceil((new Date(venda.dataFim) - new Date(venda.dataInicio)) / (1000 * 60 * 60 * 24)) >= 25)) {
@@ -229,10 +245,12 @@ export default function ComissaoDetalhes() {
       };
     });
     
+    // Categorizar resultados
     const planos = resultados.filter(r => r.ehPlano);
     const produtos = resultados.filter(r => !r.ehPlano && r.comissao > 0);
     const naoComissionaveis = resultados.filter(r => r.comissao <= 0);
     
+    // Calcular estatísticas
     const estatisticas = {
       totalVendas: resultados.length,
       planos: planos.length,
@@ -256,13 +274,28 @@ export default function ComissaoDetalhes() {
       estatisticas,
       consultor
     });
+    
+    console.log(`✅ Análise concluída para ${consultor}:`, {
+      vendas: resultados.length,
+      comissaoTotal: estatisticas.totalComissao.toFixed(2),
+      planos: planos.length,
+      produtos: produtos.length
+    });
   };
 
-  // Dados simples dos consultores para os cards
+  // Dados dos consultores para os cards
   const dadosConsultores = useMemo(() => {
-    if (!metas || !vendas) return [];
+    if (!metas?.length || !vendas?.length || !mesAtual) return [];
     
     const metasDoMes = metas.filter(m => m.periodo === mesAtual);
+    
+    // Calcular totais da unidade uma vez
+    const vendasUnidadeNoMes = vendas.filter(v => 
+      v.dataFormatada && v.dataFormatada.startsWith(mesAtual)
+    );
+    const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);
+    const metaUnidadeCalculada = metasDoMes.reduce((sum, m) => sum + Number(m.meta || 0), 0);
+    const unidadeBatida = totalVendasUnidade >= metaUnidadeCalculada;
     
     return metasDoMes.map(meta => {
       const consultor = meta.responsavel;
@@ -274,13 +307,12 @@ export default function ComissaoDetalhes() {
       const totalVendas = vendasConsultor.reduce((sum, v) => sum + Number(v.valor || 0), 0);
       const metaIndividual = Number(meta.meta || 0);
       const percentualMeta = metaIndividual > 0 ? (totalVendas / metaIndividual * 100) : 0;
+      const bateuMetaIndividual = totalVendas >= metaIndividual;
       
-      // Usar a mesma lógica de classificação do sistema original
-      const planos = vendasConsultor.filter(v => {
-        // Aplicar correção de classificação primeiro
-        const vendaCorrigida = corrigirClassificacaoDiarias(v);
-        return ehPlanoAposCorrecao(vendaCorrigida);
-      });
+      // Classificar vendas e calcular comissão real
+      let totalComissaoReal = 0;
+      let planosCount = 0;
+      let produtosCount = 0;
       
       const categorizarPlanos = () => {
         const categorias = {
@@ -292,27 +324,58 @@ export default function ComissaoDetalhes() {
           'Bianual': { comDesconto: 0, semDesconto: 0 }
         };
         
-        planos.forEach(plano => {
-          const duracao = Number(plano.duracaoMeses || 0);
-          let categoria = 'Mensal';
+        vendasConsultor.forEach(venda => {
+          const vendaCorrigida = corrigirClassificacaoDiarias(venda);
+          const ehPlano = ehPlanoAposCorrecao(vendaCorrigida);
           
-          if (duracao >= 24) categoria = 'Bianual';
-          else if (duracao >= 12) categoria = 'Anual';
-          else if (duracao >= 8) categoria = 'Octomestral';
-          else if (duracao >= 6) categoria = 'Semestral';
-          else if (duracao >= 3) categoria = 'Trimestral';
-          else categoria = 'Mensal';
-          
-          // Verificar se tem desconto baseado nos dados reais
-          const vendaComDesconto = vendasComDesconto?.find(v => v.matricula === plano.matricula);
-          const temDesconto = vendaComDesconto && 
-            (Number(vendaComDesconto.descontoPlano || 0) > 0 || 
-             Number(vendaComDesconto.descontoMatricula || 0) > 0);
-          
-          if (temDesconto) {
-            categorias[categoria].comDesconto++;
+          if (ehPlano) {
+            planosCount++;
+            
+            const duracao = Number(venda.duracaoMeses || 0);
+            let categoria = 'Mensal';
+            
+            if (duracao >= 24) categoria = 'Bianual';
+            else if (duracao >= 12) categoria = 'Anual';
+            else if (duracao >= 8) categoria = 'Octomestral';
+            else if (duracao >= 6) categoria = 'Semestral';
+            else if (duracao >= 3) categoria = 'Trimestral';
+            
+            // Verificar desconto
+            const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
+            const vendaComDesconto = vendasComDesconto?.find(v => {
+              const vMatriculaNorm = String(v.matricula || '').replace(/\D/g, '').padStart(6, '0');
+              return vMatriculaNorm === matriculaNorm;
+            });
+            
+            const temDesconto = vendaComDesconto && 
+              (Number(vendaComDesconto.descontoPlano || 0) > 0 || 
+               Number(vendaComDesconto.descontoMatricula || 0) > 0);
+            
+            if (temDesconto) {
+              categorias[categoria].comDesconto++;
+            } else {
+              categorias[categoria].semDesconto++;
+            }
+            
+            // Calcular comissão para plano
+            const temDescontoPlano = vendaComDesconto && Number(vendaComDesconto.descontoPlano || 0) > 0;
+            const comissao = calcularComissaoReal(vendaCorrigida, true, temDescontoPlano, bateuMetaIndividual, unidadeBatida);
+            totalComissaoReal += comissao;
           } else {
-            categorias[categoria].semDesconto++;
+            // Produto
+            const vendaComDesconto = vendasComDesconto?.find(v => {
+              const vMatriculaNorm = String(v.matricula || '').replace(/\D/g, '').padStart(6, '0');
+              const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
+              return vMatriculaNorm === matriculaNorm;
+            });
+            
+            const temDescontoMatricula = vendaComDesconto && Number(vendaComDesconto.descontoMatricula || 0) > 0;
+            const comissao = calcularComissaoReal(vendaCorrigida, false, temDescontoMatricula, bateuMetaIndividual, unidadeBatida);
+            
+            if (comissao > 0) {
+              produtosCount++;
+              totalComissaoReal += comissao;
+            }
           }
         });
         
@@ -320,26 +383,22 @@ export default function ComissaoDetalhes() {
       };
       
       const planosDetalhados = categorizarPlanos();
-      const totalPlanos = planos.length;
       const totalComDesconto = Object.values(planosDetalhados).reduce((sum, cat) => sum + cat.comDesconto, 0);
       const totalSemDesconto = Object.values(planosDetalhados).reduce((sum, cat) => sum + cat.semDesconto, 0);
-      const percentualDesconto = totalPlanos > 0 ? ((totalComDesconto / totalPlanos) * 100).toFixed(1) : 0;
+      const percentualDesconto = planosCount > 0 ? ((totalComDesconto / planosCount) * 100).toFixed(1) : 0;
       
       return {
         consultor,
         remuneracaoType: meta.remuneracaoType || 'comissao',
         dados: {
           totalVendas,
-          totalComissao: totalVendas * 0.05,
+          totalComissao: totalComissaoReal,
           metaIndividual,
-          bateuMetaIndividual: totalVendas >= metaIndividual,
+          bateuMetaIndividual,
           percentualMeta,
           vendasCount: vendasConsultor.length,
-          planosCount: totalPlanos,
-          produtosCount: vendasConsultor.filter(v => {
-            const vendaCorrigida = corrigirClassificacaoDiarias(v);
-            return !ehPlanoAposCorrecao(vendaCorrigida);
-          }).length,
+          planosCount,
+          produtosCount,
           planosDetalhados,
           totalComDesconto,
           totalSemDesconto,
@@ -347,32 +406,34 @@ export default function ComissaoDetalhes() {
         }
       };
     });
-  }, [vendas, metas, mesAtual]);
+  }, [vendas, metas, mesAtual, vendasComDesconto]);
 
-  // Filtrar resultados da análise (COPIADO DO ORIGINAL)
+  // Filtrar resultados da análise
   const resultadosFiltrados = useMemo(() => {
-    if (!resultadosAnalise) return [];
+    if (!resultadosAnalise?.resultados) return [];
     
     let resultados = resultadosAnalise.resultados;
     
     if (filtroTipo !== 'todos') {
       resultados = resultados.filter(resultado => {
-        if (filtroTipo === 'corretos') return resultado.statusCorreto;
-        if (filtroTipo === 'incorretos') return !resultado.statusCorreto;
-        if (filtroTipo === 'planos') return resultado.ehPlano;
-        if (filtroTipo === 'produtos') return !resultado.ehPlano && resultado.comissao > 0;
-        if (filtroTipo === 'nao_comissionaveis') return resultado.comissao <= 0;
-        return true;
+        switch(filtroTipo) {
+          case 'corretos': return resultado.statusCorreto;
+          case 'incorretos': return !resultado.statusCorreto;
+          case 'planos': return resultado.ehPlano;
+          case 'produtos': return !resultado.ehPlano && resultado.comissao > 0;
+          case 'nao_comissionaveis': return resultado.comissao <= 0;
+          default: return true;
+        }
       });
     }
     
     if (searchTerm) {
       const termo = searchTerm.toLowerCase();
       resultados = resultados.filter(r => 
-        r.matricula.toLowerCase().includes(termo) ||
-        r.nome.toLowerCase().includes(termo) ||
-        r.produto.toLowerCase().includes(termo) ||
-        (r.plano && r.plano.toLowerCase().includes(termo))
+        String(r.matricula || '').toLowerCase().includes(termo) ||
+        String(r.nome || '').toLowerCase().includes(termo) ||
+        String(r.produto || '').toLowerCase().includes(termo) ||
+        String(r.plano || '').toLowerCase().includes(termo)
       );
     }
     
@@ -392,12 +453,13 @@ export default function ComissaoDetalhes() {
   };
 
   const handleExportar = () => {
-    if (!resultadosAnalise) return;
+    if (!resultadosAnalise || resultadosFiltrados.length === 0) {
+      alert('Não há dados para exportar com os filtros aplicados.');
+      return;
+    }
     
     try {
-      // Garantir que apenas vendas dos produtos filtrados sejam exportadas
       const dadosExport = resultadosFiltrados.map(r => {
-        // Formatar datas se existirem
         const formatarData = (data) => {
           if (!data) return '';
           try {
@@ -427,45 +489,22 @@ export default function ComissaoDetalhes() {
         };
       });
 
-      // Verificar se há dados para exportar
-      if (dadosExport.length === 0) {
-        alert('Não há dados para exportar com os filtros aplicados.');
-        return;
-      }
-
-      // Criar planilha Excel
       const ws = XLSX.utils.json_to_sheet(dadosExport);
       
-      // Ajustar largura das colunas
       const colWidths = [
-        { wch: 12 }, // Matrícula
-        { wch: 25 }, // Nome
-        { wch: 20 }, // Produto
-        { wch: 15 }, // Plano
-        { wch: 12 }, // Data Início
-        { wch: 12 }, // Data Término
-        { wch: 12 }, // Valor
-        { wch: 18 }, // Classificação Atual
-        { wch: 20 }, // Classificação Esperada
-        { wch: 10 }, // Status
-        { wch: 10 }, // É Plano
-        { wch: 12 }, // Tem Desconto
-        { wch: 12 }, // Comissão
-        { wch: 12 }, // Duração
-        { wch: 30 }  // Observações
+        { wch: 12 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 12 },
+        { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 20 }, { wch: 10 },
+        { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 30 }
       ];
       ws['!cols'] = colWidths;
 
-      // Criar workbook
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Análise Comissões');
 
-      // Gerar nome do arquivo com timestamp
       const agora = new Date();
       const timestamp = agora.toISOString().slice(0, 19).replace(/[:.]/g, '-');
       const nomeArquivo = `analise_comissoes_${consultorSelecionado}_${mesAtual}_${timestamp}.xlsx`;
 
-      // Fazer download
       XLSX.writeFile(wb, nomeArquivo);
       
       console.log(`✅ Exportação concluída: ${dadosExport.length} registros exportados para ${nomeArquivo}`);
@@ -515,7 +554,7 @@ export default function ComissaoDetalhes() {
           unidadeSelecionada={unidadeSelecionada}
           setUnidadeSelecionada={setUnidadeSelecionada}
           mesAtual={mesAtual}
-          setMesAtual={setMesAtual}
+          setMesAtual={setSelectedMonth}
           filtroTipo={filtroTipo}
           setFiltroTipo={setFiltroTipo}
           searchTerm={searchTerm}
@@ -565,7 +604,6 @@ export default function ComissaoDetalhes() {
             </div>
           </section>
         )}
-
 
         {/* Estatísticas */}
         {!loading && mostrarEstatisticas && resultadosAnalise && (
@@ -867,4 +905,4 @@ export default function ComissaoDetalhes() {
       `}</style>
     </div>
   );
-} 
+}

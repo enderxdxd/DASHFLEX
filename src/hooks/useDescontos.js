@@ -4,26 +4,36 @@ import {
   collectionGroup,
   onSnapshot, 
   getDocs, 
-  writeBatch, 
-  doc 
+  writeBatch 
 } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { 
-  reconciliarVendasComDescontos, 
   analisarDescontosPorConsultor, 
   calcularEstatisticasGeraisDesconto 
 } from "../utils/descontosAnalysis";
 
 dayjs.extend(customParseFormat);
 
-export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatricula = true, selectedMonth = dayjs().format("YYYY-MM")) => {
+export const useDescontos = (
+  unidade, 
+  vendas = [], 
+  metas = [], 
+  desconsiderarMatricula = true, 
+  externalSelectedMonth = null
+) => {
   // Estados básicos
   const [descontos, setDescontos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  
+  // Estado interno para mês selecionado
+  const [internalSelectedMonth, setInternalSelectedMonth] = useState(dayjs().format("YYYY-MM"));
+  
+  // Usar mês externo se fornecido, senão usar interno
+  const selectedMonth = externalSelectedMonth || internalSelectedMonth;
   
   // Metas internas para responsáveis oficiais
   const [metasInternas, setMetasInternas] = useState([]);
@@ -82,8 +92,9 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
 
   const parseMes = (raw) => {
     if (!raw) return null;
+    
     // Firestore Timestamp
-    if (typeof raw === 'object') {
+    if (typeof raw === 'object' && raw !== null) {
       if (typeof raw.toDate === 'function') {
         const d = dayjs(raw.toDate());
         return d.isValid() ? d.format('YYYY-MM') : null;
@@ -93,11 +104,13 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
         return d.isValid() ? d.format('YYYY-MM') : null;
       }
     }
+    
     // String (com trim) ou ISO
     const s = String(raw).trim();
     const d1 = dayjs(s, ['DD/MM/YY','DD/MM/YYYY','YYYY-MM-DD','YYYY-MM'], true);
     if (d1.isValid()) return d1.format('YYYY-MM');
-    const d2 = dayjs(s); // fallback "não estrito" p/ ISO/Timestamp toString
+    
+    const d2 = dayjs(s); // fallback "não estrito" para ISO/Timestamp toString
     return d2.isValid() ? d2.format('YYYY-MM') : null;
   };
 
@@ -114,7 +127,10 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
         }));
         setMetasInternas(metasData);
       },
-      () => setMetasInternas([])
+      (err) => {
+        console.error('Erro ao carregar metas internas:', err);
+        setMetasInternas([]);
+      }
     );
     
     return () => unsubscribe();
@@ -122,7 +138,7 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
 
   // ===== FONTE ÚNICA PARA RESPONSÁVEIS OFICIAIS =====
   const metasFonte = useMemo(() => {
-    return (Array.isArray(metas) && metas.length) ? metas : metasInternas;
+    return (Array.isArray(metas) && metas.length > 0) ? metas : metasInternas;
   }, [metas, metasInternas]);
 
   const responsaveisOficiaisSet = useMemo(() => {
@@ -135,9 +151,13 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
 
   // ===== CARREGAR DESCONTOS VIA COLLECTIONGROUP =====
   useEffect(() => {
-    if (!unidade) return;
+    if (!unidade) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
+    setError('');
 
     // Traz TODOS os descontos de TODAS as unidades (igual às vendas)
     const unsub = onSnapshot(
@@ -145,7 +165,7 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
       (snapshot) => {
         const all = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-        // 1) filtro por mês (se o desconto tiver 'lancamento'/'data'/'dataFormatada')
+        // 1) filtro por mês (se o desconto tiver 'mes'/'lancamento'/'data'/'dataFormatada')
         const byMonth = all.filter(desc => {
           const mesDesc =
             parseMes(desc.mes) ||
@@ -156,28 +176,26 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
           return !selectedMonth || !mesDesc ? true : (mesDesc === selectedMonth);
         });
 
-        // 2) MUDANÇA: Agora busca descontos de TODAS as unidades para consultores da unidade atual
+        // 2) Busca descontos de TODAS as unidades para consultores da unidade atual
         // Similar ao comportamento das vendas - consultor pode dar desconto em qualquer unidade
         const byResp = byMonth.filter(desc => {
           // se não há metas, libera geral (modo aberto)
           if (responsaveisOficiaisSet.size === 0) return true;
           
           // Usa matching fuzzy para responsáveis - busca em TODAS as unidades
-          const isOficial = matchResponsavel(desc.responsavel, responsaveisOficiaisSet);
-          
-          return isOficial;
+          return matchResponsavel(desc.responsavel, responsaveisOficiaisSet);
         });
 
         console.log(`🔍 [${unidade}] Descontos carregados:`, {
           total: all.length,
           porMes: byMonth.length,
           porResponsavel: byResp.length,
-          responsaveisOficiais: Array.from(responsaveisOficiaisSet)
+          responsaveisOficiais: Array.from(responsaveisOficiaisSet),
+          mesAtual: selectedMonth
         });
         
         setDescontos(byResp);
         setLoading(false);
-        setError('');
       },
       (err) => {
         console.error('Erro ao buscar descontos (collectionGroup):', err);
@@ -191,7 +209,8 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
 
   // ===== FILTRAR VENDAS PARA ANÁLISE DE DESCONTOS =====
   const vendasDaUnidade = useMemo(() => {
-    if (!vendas.length) {
+    if (!vendas?.length) {
+      console.log(`⚠️ [${unidade}] Nenhuma venda disponível`);
       return [];
     }
     
@@ -209,15 +228,14 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
     
     // FILTRAR POR UNIDADE, MÊS E TIPO DE PRODUTO (PLANOS)
     const vendasFiltradas = vendas.filter(venda => {
-      // 1. Filtro por unidade - apenas vendas da unidade atual
-      const unidadeVenda = (venda.unidade || "").toLowerCase();
-      const unidadeAtual = (unidade || "").toLowerCase();
+      // 1. Filtro por unidade - apenas vendas da unidade atual (com normalização)
+      const unidadeVenda = (venda.unidade || '').replace(/\s/g, '').toLowerCase();
+      const unidadeAtual = (unidade || '').replace(/\s/g, '').toLowerCase();
       if (unidadeVenda !== unidadeAtual) return false;
       
       // 2. Filtro por mês
       const vendaMes = parseMes(venda.dataFormatada || venda.dataLancamento);
-      if (!vendaMes) return false;
-      if (vendaMes !== selectedMonth) return false;
+      if (!vendaMes || vendaMes !== selectedMonth) return false;
       
       // 3. Filtro apenas produtos que são PLANO
       if (!isPlano(venda.produto)) return false;
@@ -225,33 +243,38 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
       return true;
     });
     
-    console.log(`📊 [${unidade}] Vendas para análise de descontos:`, {
-      total: vendas.length,
-      porMes: vendas.filter(v => {
-        const mes = parseMes(v.dataFormatada || v.dataLancamento);
-        return mes === selectedMonth;
+    console.log(`📊 [${unidade}] Vendas filtradas para análise:`, {
+      totalVendas: vendas.length,
+      vendasUnidade: vendas.filter(v => {
+        const unidadeVenda = (v.unidade || '').replace(/\s/g, '').toLowerCase();
+        const unidadeAtual = (unidade || '').replace(/\s/g, '').toLowerCase();
+        return unidadeVenda === unidadeAtual;
       }).length,
-      planosNoMes: vendasFiltradas.length,
-      unidadeFiltrada: unidade,
+      vendasMes: vendas.filter(v => {
+        const vendaMes = parseMes(v.dataFormatada || v.dataLancamento);
+        return vendaMes === selectedMonth;
+      }).length,
+      planosFiltrados: vendasFiltradas.length,
       exemploVendas: vendasFiltradas.slice(0, 3).map(v => ({
         responsavel: v.responsavel,
         unidade: v.unidade,
         produto: v.produto,
-        valor: v.valor
+        valor: v.valor,
+        matricula: v.matricula
       }))
     });
     
     return vendasFiltradas;
-  }, [vendas, metas, unidade, selectedMonth]);
+  }, [vendas, unidade, selectedMonth]);
 
-  // ===== RECONCILIAÇÃO CORRETA: VENDAS x DESCONTOS =====
+  // ===== RECONCILIAÇÃO: VENDAS x DESCONTOS =====
   const vendasComDesconto = useMemo(() => {
-    
-    if (!vendasDaUnidade.length) {
+    if (!vendasDaUnidade?.length) {
+      console.log(`❌ [${unidade}] vendasDaUnidade está vazio! Retornando array vazio.`);
       return [];
     }
     
-    if (!descontos.length) {
+    if (!descontos?.length) {
       return vendasDaUnidade.map(venda => ({
         ...venda,
         temDesconto: false,
@@ -261,11 +284,12 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
         descontoMatricula: 0,
         totalDesconto: 0,
         valorCheio: Number(venda.valor || 0), // Valor cheio = valor pago quando não há desconto
-        percentualDesconto: 0
+        percentualDesconto: 0,
+        descontoDetalhes: []
       }));
     }
     
-    // helpers
+    // Helpers para normalização de tipos
     const normalizeTipo = (t) => {
       if (!t) return '';
       return String(t)
@@ -273,6 +297,7 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
         .replace(/[^\w]/g, '')                            // tira pontuação/espaços
         .toUpperCase();
     };
+    
     const bucketFromTipo = (t) => {
       const n = normalizeTipo(t);
       // tudo que mencionar MATRÍCULA / TAXA vai para o bucket MATRÍCULA
@@ -282,8 +307,10 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
 
     // ====== AGRUPAMENTO POR MATRÍCULA ======
     const descontosPorMatricula = {};
+    
     descontos.forEach(desc => {
       const matriculaNorm = String(desc.matricula || '').replace(/\D/g, '').padStart(6, '0');
+      
       if (!descontosPorMatricula[matriculaNorm]) {
         descontosPorMatricula[matriculaNorm] = {
           descontoPlano: 0,
@@ -292,8 +319,8 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
           itens: []
         };
       }
+      
       const grupo = descontosPorMatricula[matriculaNorm];
-
       const itens = Array.isArray(desc.itensDesconto) ? desc.itensDesconto : [];
       const temConsolidado =
         typeof desc.totalDesconto === 'number' ||
@@ -302,29 +329,42 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
 
       let dp = 0, dm = 0, tt = 0;
 
-      if (itens.length) {
-        // ✅ SEMPRE prioriza itensDesconto
+      if (itens.length > 0) {
+        // ✅ SEMPRE prioriza itensDesconto quando disponível
         itens.forEach(it => {
           const valor = Number(it?.valor || 0);
           if (!valor) return;
+          
           const bucket = bucketFromTipo(it?.tipo);
-          if (bucket === 'MATRICULA') dm += valor; else dp += valor;
-          grupo.itens.push(it);
+          if (bucket === 'MATRICULA') {
+            dm += valor;
+          } else {
+            dp += valor;
+          }
+          grupo.itens.push({...it, valor});
         });
         tt = dp + dm;
       } else if (temConsolidado) {
-        // fallback: usa consolidados
+        // fallback: usa valores consolidados
         dp = Number(desc.descontoPlano || 0);
         dm = Number(desc.descontoMatricula || 0);
         tt = Number(desc.totalDesconto || (dp + dm));
-        if (!itens.length) grupo.itens.push({ tipo: 'CONSOLIDADO', valor: tt });
+        if (tt > 0) {
+          grupo.itens.push({ tipo: 'CONSOLIDADO', valor: tt });
+        }
       } else {
         // legado (valor/tipo no topo)
         const valor = Number(desc.valor || 0);
-        const bucket = bucketFromTipo(desc.tipo);
-        if (bucket === 'MATRICULA') dm += valor; else dp += valor;
-        tt = dp + dm;
-        grupo.itens.push({ tipo: desc.tipo || 'PLANO', valor });
+        if (valor > 0) {
+          const bucket = bucketFromTipo(desc.tipo);
+          if (bucket === 'MATRICULA') {
+            dm += valor;
+          } else {
+            dp += valor;
+          }
+          tt = dp + dm;
+          grupo.itens.push({ tipo: desc.tipo || 'PLANO', valor });
+        }
       }
 
       grupo.descontoPlano += dp;
@@ -332,29 +372,27 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
       grupo.totalDesconto += tt;
     });
     
-    
-    // Debug detalhado para matricula específica
-    const targetMatricula = "011338";
-    const descontosTarget = descontos.filter(d => {
-      const norm = String(d.matricula || '').replace(/\D/g, '').padStart(6, '0');
-      return norm === targetMatricula;
+    console.log(`🔍 [${unidade}] Descontos processados:`, {
+      totalDescontos: descontos.length,
+      matriculasComDesconto: Object.keys(descontosPorMatricula).length,
+      exemploAgrupamento: Object.entries(descontosPorMatricula).slice(0, 3).map(([mat, dados]) => ({
+        matricula: mat,
+        totalDesconto: dados.totalDesconto,
+        itens: dados.itens.length
+      }))
     });
     
-    // PASSO 2: Aplicar lógica CORRETA de reconciliação
+    // PASSO 2: Aplicar lógica de reconciliação
     const vendasProcessadas = vendasDaUnidade.map(venda => {
-      // Vendas já estão filtradas por unidade no vendasDaUnidade, então não precisa verificar novamente
-
       const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
       const descontoGrupo = descontosPorMatricula[matriculaNorm];
-      
       
       const valorPago = Number(venda.valor || 0); // Valor que o cliente efetivamente pagou
       
       if (descontoGrupo && descontoGrupo.totalDesconto > 0) {
         // TEM DESCONTO: Valor Cheio = Valor Pago + Total Descontos
-        // Se desconsiderar matrícula, usar apenas desconto de plano
-        const descontoPlanoFinal = descontoGrupo.descontoPlano;
-        const descontoMatriculaFinal = desconsiderarMatricula ? 0 : descontoGrupo.descontoMatricula;
+        const descontoPlanoFinal = Number(descontoGrupo.descontoPlano || 0);
+        const descontoMatriculaFinal = desconsiderarMatricula ? 0 : Number(descontoGrupo.descontoMatricula || 0);
         const totalDesconto = descontoPlanoFinal + descontoMatriculaFinal;
         
         const valorCheio = valorPago + totalDesconto;
@@ -370,7 +408,7 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
           totalDesconto,
           valorCheio,
           percentualDesconto: parseFloat(percentualDesconto.toFixed(2)),
-          descontoDetalhes: descontoGrupo.itens
+          descontoDetalhes: descontoGrupo.itens || []
         };
       } else {
         // SEM DESCONTO: Valor Cheio = Valor Pago
@@ -391,16 +429,22 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
     
     // PASSO 3: Logs de diagnóstico
     const comDesconto = vendasProcessadas.filter(v => v.temDesconto);
-    const semDesconto = vendasProcessadas.filter(v => !v.temDesconto);
-    const totalDescontos = comDesconto.reduce((sum, v) => sum + v.totalDesconto, 0);
-    const totalValorCheio = vendasProcessadas.reduce((sum, v) => sum + v.valorCheio, 0);
+    const totalDescontos = comDesconto.reduce((sum, v) => sum + (v.totalDesconto || 0), 0);
+    const totalValorCheio = vendasProcessadas.reduce((sum, v) => sum + (v.valorCheio || 0), 0);
     
-    
+    console.log(`✅ [${unidade}] Reconciliação finalizada:`, {
+      totalVendas: vendasProcessadas.length,
+      comDesconto: comDesconto.length,
+      semDesconto: vendasProcessadas.length - comDesconto.length,
+      totalDescontos: totalDescontos.toFixed(2),
+      totalValorCheio: totalValorCheio.toFixed(2),
+      percentualComDesconto: ((comDesconto.length / vendasProcessadas.length) * 100).toFixed(1) + '%'
+    });
     
     return vendasProcessadas;
-  }, [vendasDaUnidade, descontos, unidade, responsaveisOficiaisSet, desconsiderarMatricula] );
+  }, [vendasDaUnidade, descontos, unidade, desconsiderarMatricula]);
 
-  // ===== FILTROS APLICADOS (sem filtro por mês, já aplicado em vendasDaUnidade) =====
+  // ===== FILTROS APLICADOS =====
   const dadosFiltrados = useMemo(() => {
     let resultado = vendasComDesconto;
 
@@ -474,7 +518,7 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
 
   // ===== ANÁLISE POR CONSULTOR =====
   const analiseConsultores = useMemo(() => {
-    if (!vendasComDesconto.length) return [];
+    if (!vendasComDesconto?.length) return [];
     
     console.log(`🔍 [${unidade}] Iniciando análise por consultor:`, {
       totalVendas: vendasComDesconto.length,
@@ -497,7 +541,6 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
 
   // ===== ESTATÍSTICAS GERAIS =====
   const estatisticas = useMemo(() => {
-    
     const stats = {
       totalVendas: vendasComDesconto.length,
       vendasComDesconto: 0,
@@ -515,6 +558,8 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
       ticketMedioCheio: 0,
       descontoMedioPorVenda: 0
     };
+    
+    if (!vendasComDesconto?.length) return stats;
     
     vendasComDesconto.forEach(venda => {
       const valorVenda = Number(venda.valor || 0);
@@ -553,11 +598,11 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
     
     console.log(`✅ [${unidade}] Estatísticas calculadas:`, stats);
     
-    // Verificar NaN
+    // Verificar e corrigir NaN
     Object.entries(stats).forEach(([key, value]) => {
       if (typeof value === 'number' && isNaN(value)) {
-        console.error(`❌ Estatística '${key}' é NaN`);
-        stats[key] = 0; // Corrigir para 0
+        console.warn(`⚠️ Estatística '${key}' é NaN - corrigindo para 0`);
+        stats[key] = 0;
       }
     });
     
@@ -618,6 +663,10 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
         body: formData,
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (result.success) {
@@ -625,7 +674,7 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
         setProcessedData(result.statistics);
         setFile(null);
         
-        // Importante: Aguardar um pouco para garantir que o Firestore atualizou
+        // Aguardar um pouco para garantir que o Firestore atualizou
         setTimeout(() => {
           console.log('🔄 Recarregando dados após upload...');
         }, 1000);
@@ -634,7 +683,7 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
       }
     } catch (err) {
       console.error("Erro no upload:", err);
-      setError("Erro na conexão com o servidor");
+      setError("Erro na conexão com o servidor: " + err.message);
     } finally {
       setUploading(false);
     }
@@ -647,37 +696,52 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
       return;
     }
 
+    if (!window.confirm(`Tem certeza que deseja deletar TODOS os descontos da unidade ${unidade}? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
     try {
+      setLoading(true);
       const descontosRef = collection(db, "faturamento", unidade.toLowerCase(), "descontos");
       const snapshot = await getDocs(descontosRef);
       
       if (snapshot.empty) {
         setSuccessMessage("Nenhum desconto para deletar");
+        setLoading(false);
         return;
       }
 
       const batch = writeBatch(db);
-      snapshot.forEach((doc) => {
-        batch.delete(doc.ref);
+      snapshot.forEach((docSnap) => {
+        batch.delete(docSnap.ref);
       });
 
       await batch.commit();
       setSuccessMessage(`${snapshot.size} desconto(s) deletado(s) com sucesso!`);
     } catch (err) {
       console.error("Erro ao deletar descontos:", err);
-      setError("Erro ao deletar descontos");
+      setError("Erro ao deletar descontos: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ===== LIMPEZA DE MENSAGENS =====
+  const clearMessages = () => {
+    setError("");
+    setSuccessMessage("");
+  };
+
+  // ===== RETORNO DO HOOK =====
   return {
-    // Dados
+    // Dados principais
     descontos,
     vendasComDesconto: dadosPaginados,
     analiseConsultores,
     estatisticas,
     responsaveis,
     
-    // Estados
+    // Estados de loading e mensagens
     loading,
     error,
     successMessage,
@@ -702,6 +766,7 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
     
     // Paginação
     currentPage,
+    setCurrentPage,
     totalPages,
     itemsPerPage,
     totalItens: dadosOrdenados.length,
@@ -712,20 +777,19 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
     
     // Ações
     deleteAllDescontos,
+    clearMessages,
     
-    // Info
+    // Informações da unidade
     unidade,
     totalVendasUnidade: vendasDaUnidade.length,
     totalDescontosUnidade: descontos.length,
     
-    // Limpeza
-    clearMessages: () => {
-      setError("");
-      setSuccessMessage("");
-    },
-    
-    // Dados completos para análise detalhada
+    // Dados completos para análise detalhada (não paginados)
     todasVendasProcessadas: vendasComDesconto,
-    dadosOrdenados
+    dadosOrdenados,
+    
+    // Controle de mês
+    selectedMonth,
+    setSelectedMonth: setInternalSelectedMonth
   };
 };

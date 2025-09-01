@@ -57,12 +57,7 @@ const DescontosPage = () => {
   const [metas, setMetas] = useState([]);
   
   // Carrega vendas para fazer a reconciliação - usa dados brutos (todas as unidades)
-  const { 
-    vendas: vendasBrutas, 
-    loading: vendasLoading,
-    selectedMonth,
-    setSelectedMonth 
-  } = useVendas(unidade);
+  const { vendas: vendasBrutas, loading: vendasLoading } = useVendas(unidade);
   
   // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS (igual ConfigRemuneracao)
   const vendasAgrupadas = useGroupedVendas(vendasBrutas);
@@ -75,6 +70,7 @@ const DescontosPage = () => {
   }, [vendasAgrupadas]);
   
   // Estados locais
+  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
   const [desconsiderarMatricula, setDesconsiderarMatricula] = useState(true);
   const [tipoFiltro, setTipoFiltro] = useState("");
 

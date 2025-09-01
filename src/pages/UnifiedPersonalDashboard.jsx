@@ -22,9 +22,13 @@ export default function UnifiedPersonalDashboard() {
   const [selectedSituacao, setSelectedSituacao] = useState('');
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'tax-validation' | 'pending-students'
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [successMessages, setSuccessMessages] = useState([]);
   const [errors, setErrors] = useState([]);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [deletedCount, setDeletedCount] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [showDeleteError, setShowDeleteError] = useState(false);
   const [showStudents, setShowStudents] = useState(false);
   const [selectedPersonalForStudents, setSelectedPersonalForStudents] = useState('');
   const [expandedPersonals, setExpandedPersonals] = useState(new Set());
@@ -413,45 +417,75 @@ export default function UnifiedPersonalDashboard() {
 
   const cancelDelete = useCallback(() => {
     setShowDeleteModal(false);
-    setDeleteConfirmText('');
   }, []);
 
   const confirmDeleteAllData = useCallback(async () => {
-    if (deleteConfirmText !== "CONFIRMAR EXCLUSÃO") return;
+    console.log('Iniciando exclusão de dados...');
+    
+    setIsDeleting(true);
+    setDeleteError('');
     
     try {
-      showDeleteModal(false);
-      setDeleteConfirmText('');
-      setSuccessMessages([]);
-      setErrors([]);
+      setShowDeleteModal(false);
       
-      // Deletar dados de personals de todas as unidades
-      const unidades = ['alphaville', 'buenavista', 'marista'];
       const batch = writeBatch(db);
       let totalDeleted = 0;
+      const BATCH_SIZE = 500;
+      let operationCount = 0;
+      let currentBatch = writeBatch(db);
+      
+      const unidades = ['alphaville', 'buenavista', 'marista'];
       
       for (const unidade of unidades) {
+        console.log(`Processando ${unidade}...`);
+        
         const personalsRef = collection(db, 'faturamento', unidade, 'personals');
         const snapshot = await getDocs(personalsRef);
         
-        snapshot.forEach((doc) => {
-          batch.delete(doc.ref);
+        console.log(`${unidade}: ${snapshot.size} documentos encontrados`);
+        
+        for (const doc of snapshot.docs) {
+          currentBatch.delete(doc.ref);
+          operationCount++;
           totalDeleted++;
-        });
+          
+          // Executar batch quando atingir o limite
+          if (operationCount === BATCH_SIZE) {
+            await currentBatch.commit();
+            console.log(`Batch de ${BATCH_SIZE} operações executado`);
+            currentBatch = writeBatch(db);
+            operationCount = 0;
+          }
+        }
       }
       
-      // Executar a exclusão
-      await batch.commit();
+      // Executar batch restante
+      if (operationCount > 0) {
+        await currentBatch.commit();
+        console.log(`Batch final de ${operationCount} operações executado`);
+      }
       
-      setSuccessMessages([`Todos os dados de personal foram excluídos! (${totalDeleted} registros)`]);
-      setShowDeleteModal(false);
-      setDeleteConfirmText('');
+      console.log(`Total deletado: ${totalDeleted} documentos`);
+      
+      setDeletedCount(totalDeleted);
+      setShowDeleteSuccess(true);
+      
+      setTimeout(() => {
+        setShowDeleteSuccess(false);
+      }, 3000);
       
     } catch (error) {
-      setErrors(['Erro ao excluir dados: ' + error.message]);
-      setSuccessMessages([]);
+      console.error('Erro ao deletar dados:', error);
+      setDeleteError(`Erro ao deletar dados: ${error.message}`);
+      setShowDeleteError(true);
+      
+      setTimeout(() => {
+        setShowDeleteError(false);
+      }, 5000);
+    } finally {
+      setIsDeleting(false);
     }
-  }, [deleteConfirmText]);
+  }, []);
 
   // MELHORAR a função getStudentsForPersonal com classificação visual - OTIMIZADA
   const getStudentsForPersonal = useCallback((personalName) => {
@@ -654,10 +688,6 @@ export default function UnifiedPersonalDashboard() {
             <div className="info-item">
               <span className="info-label">Taxas Especiais (com prazo):</span>
               <span className="info-value">{stats.specialTaxPersonals}</span>
-            </div>
-            <div className="info-item">
-              <span className="info-label">Personals em Aberto:</span>
-              <span className="info-value">{stats.openTaxPersonals}</span>
             </div>
           </div>
           
@@ -1540,17 +1570,8 @@ export default function UnifiedPersonalDashboard() {
                 </ul>
               </div>
               
-              <div className="confirmation-input">
-                <label>
-                  Para confirmar, digite <strong>"CONFIRMAR EXCLUSÃO"</strong> no campo abaixo:
-                </label>
-                <input
-                  type="text"
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="Digite: CONFIRMAR EXCLUSÃO"
-                  className="confirm-input"
-                />
+              <div className="warning-text">
+                <p><strong>ATENÇÃO:</strong> Esta ação não pode ser desfeita!</p>
               </div>
             </div>
             
@@ -1564,12 +1585,38 @@ export default function UnifiedPersonalDashboard() {
               <button 
                 className="confirm-btn"
                 onClick={confirmDeleteAllData}
-                disabled={deleteConfirmText !== "CONFIRMAR EXCLUSÃO"}
               >
                 <Trash2 size={16} />
-                Excluir Permanentemente
+                SIM, EXCLUIR TUDO
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast de Confirmação de Exclusão */}
+      {showDeleteSuccess && (
+        <div className="delete-success-toast">
+          <div className="toast-content">
+            <div className="toast-icon">
+              <CheckCircle size={32} />
+            </div>
+            <div className="toast-text">
+              <h3>Exclusão Concluída!</h3>
+              <p>{deletedCount} registros foram excluídos com sucesso</p>
+            </div>
+            <div className="toast-animation">
+              <div className="success-particles">
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+                <div className="particle"></div>
+              </div>
+            </div>
+          </div>
+          <div className="toast-progress-bar">
+            <div className="progress-fill"></div>
           </div>
         </div>
       )}
@@ -4676,6 +4723,199 @@ export default function UnifiedPersonalDashboard() {
           .stat-item-horizontal {
             padding: 8px;
             min-width: 60px;
+          }
+        }
+
+        /* Toast de Confirmação de Exclusão */
+        .delete-success-toast {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          border-radius: 20px;
+          padding: 0;
+          box-shadow: 0 20px 60px rgba(16, 185, 129, 0.4);
+          z-index: 10000;
+          min-width: 400px;
+          overflow: hidden;
+          animation: toastSlideIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes toastSlideIn {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.8) rotate(-5deg);
+          }
+          100% {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1) rotate(0deg);
+          }
+        }
+
+        .toast-content {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+          padding: 24px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .toast-icon {
+          width: 60px;
+          height: 60px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          animation: iconPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes iconPulse {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+          }
+          50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 10px rgba(255, 255, 255, 0);
+          }
+        }
+
+        .toast-text {
+          flex: 1;
+        }
+
+        .toast-text h3 {
+          margin: 0 0 8px;
+          font-size: 20px;
+          font-weight: 700;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .toast-text p {
+          margin: 0;
+          font-size: 14px;
+          opacity: 0.9;
+          font-weight: 500;
+        }
+
+        .toast-animation {
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 100px;
+          height: 100%;
+          pointer-events: none;
+        }
+
+        .success-particles {
+          position: relative;
+          width: 100%;
+          height: 100%;
+        }
+
+        .particle {
+          position: absolute;
+          width: 6px;
+          height: 6px;
+          background: rgba(255, 255, 255, 0.8);
+          border-radius: 50%;
+          animation: particleFloat 3s ease-in-out infinite;
+        }
+
+        .particle:nth-child(1) {
+          top: 20%;
+          right: 20%;
+          animation-delay: 0s;
+        }
+
+        .particle:nth-child(2) {
+          top: 40%;
+          right: 40%;
+          animation-delay: 0.5s;
+        }
+
+        .particle:nth-child(3) {
+          top: 60%;
+          right: 60%;
+          animation-delay: 1s;
+        }
+
+        .particle:nth-child(4) {
+          top: 30%;
+          right: 70%;
+          animation-delay: 1.5s;
+        }
+
+        .particle:nth-child(5) {
+          top: 70%;
+          right: 30%;
+          animation-delay: 2s;
+        }
+
+        @keyframes particleFloat {
+          0%, 100% {
+            transform: translateY(0) scale(1);
+            opacity: 0.8;
+          }
+          50% {
+            transform: translateY(-20px) scale(1.2);
+            opacity: 1;
+          }
+        }
+
+        .toast-progress-bar {
+          height: 4px;
+          background: rgba(255, 255, 255, 0.2);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .progress-fill {
+          height: 100%;
+          background: rgba(255, 255, 255, 0.8);
+          width: 100%;
+          transform: translateX(-100%);
+          animation: progressFill 4s linear forwards;
+        }
+
+        @keyframes progressFill {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(0%);
+          }
+        }
+
+        /* Responsividade do Toast */
+        @media (max-width: 640px) {
+          .delete-success-toast {
+            min-width: 320px;
+            max-width: calc(100vw - 40px);
+          }
+          
+          .toast-content {
+            padding: 20px;
+            gap: 16px;
+          }
+          
+          .toast-icon {
+            width: 50px;
+            height: 50px;
+          }
+          
+          .toast-text h3 {
+            font-size: 18px;
+          }
+          
+          .toast-text p {
+            font-size: 13px;
           }
         }
       `}</style>

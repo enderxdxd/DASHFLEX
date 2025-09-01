@@ -23,19 +23,24 @@ import {
   Calendar,
   ArrowUpRight,
   ArrowDownRight,
-  Package
+  Package,
+  Calculator
 } from "lucide-react";
 
 // Componentes
 import NavBar from "../components/NavBar";
 import MonthSelector from "../components/dashboard/MonthSelector";
 import Loading3D from "../components/ui/Loading3D";
+import MonitorCorrecaoDiarias from "../components/MonitorCorrecaoDiarias";
 
 // Hooks
 import { useDescontos } from "../hooks/useDescontos";
 import { useVendas } from "../hooks/useVendas";
 import { useConfigRem } from "../hooks/useConfigRem";
 import { useGroupedVendas } from "../hooks/useGroupedVendas";
+
+// Utilities
+import { processarCorrecaoDiarias } from "../utils/correcaoDiarias";
 
 // Firebase
 import { db } from "../firebase";
@@ -52,13 +57,24 @@ const DescontosPage = () => {
   const [metas, setMetas] = useState([]);
   
   // Carrega vendas para fazer a reconciliação - usa dados brutos (todas as unidades)
-  const { vendas: vendasBrutas, loading: vendasLoading } = useVendas(unidade);
+  const { 
+    vendas: vendasBrutas, 
+    loading: vendasLoading,
+    selectedMonth,
+    setSelectedMonth 
+  } = useVendas(unidade);
   
   // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS (igual ConfigRemuneracao)
   const vendasAgrupadas = useGroupedVendas(vendasBrutas);
   
+  // APLICAR CORREÇÃO DE DIÁRIAS
+  const vendasCorrigidas = useMemo(() => {
+    if (!vendasAgrupadas?.length) return [];
+    const { vendasCorrigidas } = processarCorrecaoDiarias(vendasAgrupadas);
+    return vendasCorrigidas;
+  }, [vendasAgrupadas]);
+  
   // Estados locais
-  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
   const [desconsiderarMatricula, setDesconsiderarMatricula] = useState(true);
   const [tipoFiltro, setTipoFiltro] = useState("");
 
@@ -95,7 +111,7 @@ const DescontosPage = () => {
     // Dados completos para análise detalhada
     todasVendasProcessadas,
     dadosOrdenados
-  } = useDescontos(unidade, vendasAgrupadas, metas, desconsiderarMatricula);
+  } = useDescontos(unidade, vendasCorrigidas, metas, desconsiderarMatricula, selectedMonth);
   
   // Função para resetar filtros
   const resetFiltros = () => {
@@ -426,6 +442,8 @@ const DescontosPage = () => {
       <NavBar currentUnidade={unidade} />
       
       <div className="descontos-container">
+        {/* Monitor de Correção de Diárias */}
+        
         {/* Header */}
         <div className="descontos-header">
           <div className="descontos-header-controls">
@@ -622,15 +640,7 @@ const DescontosPage = () => {
             <Users className="w-4 h-4 inline mr-2" />
             Por Consultor
           </button>
-          <button
-            onClick={() => setActiveView("detalhada")}
-            className={`view-button ${
-              activeView === "detalhada" ? "active" : ""
-            }`}
-          >
-            <PieChart className="w-4 h-4 inline mr-2" />
-            Análise Detalhada
-          </button>
+          
           <button
             onClick={() => setActiveView("vendas")}
             className={`view-button ${
@@ -774,354 +784,6 @@ const DescontosPage = () => {
           </div>
         )}
 
-        {/* Análise Detalhada por Consultor */}
-        {activeView === "detalhada" && (
-          <div 
-            className="analise-detalhada-container"
-            style={{
-              animation: 'slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.4s both'
-            }}
-          >
-            <div className="space-y-6" style={{ marginTop: '1.5rem' }}>
-              <div 
-                className="consultores-grid"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-                  gap: '1.5rem',
-                  marginBottom: '2rem'
-                }}
-              >
-                {analiseDetalhada.map((consultor, index) => (
-                  <div 
-                    key={index} 
-                    className="consultor-card"
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.95)',
-                      backdropFilter: 'blur(20px)',
-                      borderRadius: '1rem',
-                      border: '1px solid rgba(228, 228, 231, 0.5)',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
-                      overflow: 'hidden',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                      position: 'relative'
-                    }}
-                  >
-                    {/* Header do Card */}
-                    <div 
-                      className="consultor-header"
-                      style={{
-                        padding: '1.5rem',
-                        borderBottom: '1px solid #f1f5f9',
-                        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between'
-                      }}
-                    >
-                      <div className="consultor-info">
-                        <div className="flex items-center space-x-3">
-                          <div 
-                            className="consultor-avatar"
-                            style={{
-                              width: '3rem',
-                              height: '3rem',
-                              borderRadius: '0.75rem',
-                              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: 'white',
-                              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-                            }}
-                          >
-                            <Users className="w-5 h-5" />
-                          </div>
-                          <div className="consultor-details">
-                            <h3 
-                              title={consultor.nome}
-                              style={{
-                                fontSize: '1.125rem',
-                                fontWeight: '700',
-                                color: '#1e293b',
-                                margin: '0',
-                                lineHeight: '1.2',
-                                maxWidth: '200px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {consultor.nome}
-                            </h3>
-                            <p style={{
-                              fontSize: '0.875rem',
-                              color: '#64748b',
-                              margin: '0.25rem 0 0 0'
-                            }}>Consultor</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div 
-                        className="consultor-summary"
-                        style={{ textAlign: 'right' }}
-                      >
-                        <div 
-                          className="consultor-summary-content"
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'flex-end',
-                            gap: '0.25rem'
-                          }}
-                        >
-                          <span 
-                            className="consultor-summary-label"
-                            style={{
-                              fontSize: '0.75rem',
-                              color: '#64748b',
-                              fontWeight: '500',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.05em'
-                            }}
-                          >Total Planos Vendidos</span>
-                          <span 
-                            className="consultor-summary-value"
-                            style={{
-                              fontSize: '1.5rem',
-                              fontWeight: '800',
-                              color: '#3b82f6',
-                              lineHeight: '1'
-                            }}
-                          >
-                            {consultor.totalVendas}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Tabela de Planos */}
-                    <div 
-                      className="planos-table"
-                      style={{ background: 'white' }}
-                    >
-                      <div 
-                        className="planos-table-header"
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: '2fr 1fr 1fr',
-                          gap: '1rem',
-                          padding: '1rem 1.5rem',
-                          background: '#f8fafc',
-                          borderBottom: '1px solid #e2e8f0'
-                        }}
-                      >
-                        <div 
-                          className="planos-table-header-cell"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                            color: '#64748b',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em'
-                          }}
-                        >
-                          <Package className="w-3 h-3" />
-                          Tipo
-                        </div>
-                        <div 
-                          className="planos-table-header-cell center"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.5rem',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                            color: '#64748b',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em'
-                          }}
-                        >
-                          <TrendingDown className="w-3 h-3 text-red-500" />
-                          Com Descto
-                        </div>
-                        <div 
-                          className="planos-table-header-cell center"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.5rem',
-                            fontSize: '0.75rem',
-                            fontWeight: '600',
-                            color: '#64748b',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em'
-                          }}
-                        >
-                          <TrendingUp className="w-3 h-3 text-green-500" />
-                          Sem Descto
-                        </div>
-                      </div>
-                      
-                      <div 
-                        className="planos-table-body"
-                        style={{
-                          maxHeight: '300px',
-                          overflowY: 'auto'
-                        }}
-                      >
-                        {Object.entries(consultor.planos)
-                          .sort(([, a], [, b]) => {
-                            const totalA = a.comDesconto + a.semDesconto;
-                            const totalB = b.comDesconto + b.semDesconto;
-                            return totalB - totalA; // Ordem decrescente (maior para menor)
-                          })
-                          .map(([tipo, dados]) => {
-                          const total = dados.comDesconto + dados.semDesconto;
-                          if (total === 0) return null;
-                          
-                          return (
-                            <div 
-                              key={tipo} 
-                              className="plano-row"
-                              style={{
-                                display: 'grid',
-                                gridTemplateColumns: '2fr 1fr 1fr',
-                                gap: '1rem',
-                                padding: '0.75rem 1.5rem',
-                                borderBottom: '1px solid #f1f5f9',
-                                transition: 'background-color 0.2s ease'
-                              }}
-                            >
-                              <div 
-                                className="plano-tipo"
-                                style={{
-                                  fontSize: '0.875rem',
-                                  fontWeight: '600',
-                                  color: '#1e293b',
-                                  display: 'flex',
-                                  alignItems: 'center'
-                                }}
-                              >
-                                {tipo}
-                              </div>
-                              <div className="text-center">
-                                <span 
-                                  className={`plano-count ${
-                                    dados.comDesconto > 0 ? 'com-desconto' : 'zero'
-                                  }`}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: '0.25rem 0.75rem',
-                                    borderRadius: '9999px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: '600',
-                                    minWidth: '2rem',
-                                    textAlign: 'center',
-                                    ...(dados.comDesconto > 0 ? {
-                                      background: '#fecaca',
-                                      color: '#991b1b'
-                                    } : {
-                                      background: '#f1f5f9',
-                                      color: '#64748b'
-                                    })
-                                  }}
-                                >
-                                  {dados.comDesconto}
-                                </span>
-                              </div>
-                              <div className="text-center">
-                                <span 
-                                  className={`plano-count ${
-                                    dados.semDesconto > 0 ? 'sem-desconto' : 'zero'
-                                  }`}
-                                  style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: '0.25rem 0.75rem',
-                                    borderRadius: '9999px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: '600',
-                                    minWidth: '2rem',
-                                    textAlign: 'center',
-                                    ...(dados.semDesconto > 0 ? {
-                                      background: '#d1fae5',
-                                      color: '#065f46'
-                                    } : {
-                                      background: '#f1f5f9',
-                                      color: '#64748b'
-                                    })
-                                  }}
-                                >
-                                  {dados.semDesconto}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        
-                        {Object.values(consultor.planos).every(p => p.comDesconto + p.semDesconto === 0) && (
-                          <div className="plano-row">
-                            <div className="plano-tipo">
-                              Nenhum plano encontrado
-                            </div>
-                            <div className="text-center">
-                              <span className="plano-count zero">0</span>
-                            </div>
-                            <div className="text-center">
-                              <span className="plano-count zero">0</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Footer com Resumo */}
-                    <div className="consultor-footer">
-                      <div className="footer-stats">
-                        <div className="footer-stat">
-                          <span className="footer-stat-label">
-                            <ArrowDownRight className="w-4 h-4 text-red-500" />
-                            Com Desconto:
-                          </span>
-                          <span className="footer-stat-value com-desconto">
-                            {consultor.vendasComDesconto}
-                          </span>
-                        </div>
-                        <div className="footer-stat">
-                          <span className="footer-stat-label">
-                            <ArrowUpRight className="w-4 h-4 text-green-500" />
-                            Sem Desconto:
-                          </span>
-                          <span className="footer-stat-value sem-desconto">
-                            {consultor.vendasSemDesconto}
-                          </span>
-                        </div>
-                        <div className="footer-stat highlight">
-                          <span className="footer-stat-label">
-                            <Percent className="w-4 h-4 text-orange-500" />
-                            % com Desconto:
-                          </span>
-                          <span className="footer-stat-value percentual">
-                            {(consultor.percentualVendasComDesconto || 0).toFixed(1)}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Análise por Consultor */}
         {activeView === "consultores" && (
@@ -1441,23 +1103,23 @@ const DescontosPage = () => {
                   </thead>
                   <tbody>
                     {vendasComDesconto.map((venda, index) => (
-                      <tr key={index} className="table-row">
-                        <td className="table-cell">
+                      <tr key={index}>
+                        <td>
                           {venda.matricula}
                         </td>
-                        <td className="table-cell">
+                        <td>
                           <div className="cell-primary">{venda.nome}</div>
                           <div className="cell-secondary">{venda.produto}</div>
                         </td>
-                        <td className="table-cell">
+                        <td>
                           {venda.responsavel}
                         </td>
-                        <td className="table-cell text-center">
+                        <td className="text-center">
                           <div className="cell-primary">
                             R$ {Number(venda.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </div>
                         </td>
-                        <td className="table-cell text-center">
+                        <td className="text-center">
                           {venda.temDesconto ? (
                             <div>
                               <div className="discount-value">
@@ -1473,12 +1135,12 @@ const DescontosPage = () => {
                             <span className="no-discount">-</span>
                           )}
                         </td>
-                        <td className="table-cell text-center">
+                        <td className="text-center">
                           <div className="full-value">
                             R$ {venda.valorCheio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </div>
                         </td>
-                        <td className="table-cell text-center">
+                        <td className="text-center">
                           {venda.temDesconto ? (
                             <div className="percentage-container">
                               <span className={`percentage-badge ${
@@ -1495,7 +1157,7 @@ const DescontosPage = () => {
                             <span className="no-discount">0%</span>
                           )}
                         </td>
-                        <td className="table-cell text-center">
+                        <td className="text-center">
                           <span className="date-cell">{dayjs(venda.dataFormatada).format('DD/MM/YY')}</span>
                         </td>
                       </tr>

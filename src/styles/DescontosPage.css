@@ -2276,76 +2276,11 @@
   }
   
   .stat-card.green {
-    --stat-color: #10b981;
+    --stat-color: #34c759;
     --stat-bg: #d1fae5;
   }
   
-  /* Tabelas */
-  .descontos-table-container {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    border-radius: 1rem;
-    border: 1px solid rgba(228, 228, 231, 0.5);
-    overflow: hidden;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  }
-  
-  .table-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #f1f5f9;
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  }
-  
-  .table-title {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: #1e293b;
-  }
-  
-  .table-wrapper {
-    overflow-x: auto;
-    max-height: 600px;
-    overflow-y: auto;
-  }
-  
-  .descontos-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-  
-  .descontos-table th {
-    background: #f8fafc;
-    padding: 0.75rem 1.5rem;
-    text-align: left;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-bottom: 1px solid #e2e8f0;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    white-space: nowrap;
-  }
-  
-  .descontos-table th:hover {
-    background: #f1f5f9;
-  }
-  
-  .descontos-table td {
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 0.875rem;
-    vertical-align: top;
-  }
-  
-  .descontos-table tr {
-    transition: background-color 0.2s ease;
-  }
-  
-  .descontos-table tr:hover {
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  }
+  /* Tabelas - duplicate rules removed, using earlier definitions */
   
   /* Badges e tags */
   .percentage-badge {
@@ -2375,6 +2310,72 @@
     color: #065f46;
   }
   
+  /* Células da tabela */
+  .cell-primary {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.25rem;
+  }
+  
+  .cell-secondary {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 400;
+  }
+  
+  .discount-value {
+    font-weight: 600;
+    color: #dc2626;
+    margin-bottom: 0.25rem;
+  }
+  
+  .discount-details {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 400;
+  }
+  
+  .full-value {
+    font-weight: 600;
+    color: #059669;
+  }
+  
+  .no-discount {
+    color: #9ca3af;
+    font-style: italic;
+  }
+  
+  .percentage-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .percentage-badge.high-discount {
+    background: #fecaca;
+    color: #991b1b;
+  }
+  
+  .percentage-badge.medium-discount {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  
+  .percentage-badge.low-discount {
+    background: #d1fae5;
+    color: #065f46;
+  }
+  
+  .date-cell {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+  
+  .text-center {
+    text-align: center;
+  }
+
   /* Filtros */
   .filters-section {
     animation: slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.3s both;

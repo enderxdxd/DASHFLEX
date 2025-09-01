@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
 import { getAuth, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { 
-  LineChart, 
   Moon, 
   Sun, 
   Home,
@@ -18,12 +17,11 @@ import {
   ChevronRight,
   User,
   LogOut,
-  Bell,
   Users,
-  Activity,
   FileText,
   ArrowLeft,
-  Percent
+  Percent,
+  Zap
 } from "lucide-react";
 import useDarkMode from "../hooks/useDarkMode";
 
@@ -36,79 +34,110 @@ export default function NavBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, toggleTheme] = useDarkMode();
   const [userInfo, setUserInfo] = useState(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('navbar-collapsed') === 'true';
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Detecta qual módulo está ativo baseado na URL
-  const currentModule = location.pathname.includes('/personal/') ? 'personal' : 'vendas';
+  // Memoized values for better performance
+  const currentModule = useMemo(() => {
+    return location.pathname.includes('/personal/') ? 'personal' : 'vendas';
+  }, [location.pathname]);
   
-  // Verifica se a unidade é válida
-  const isValidUnidade = ['alphaville', 'buenavista', 'marista'].includes(unidade?.toLowerCase());
+  const isValidUnidade = useMemo(() => {
+    return ['alphaville', 'buenavista', 'marista'].includes(unidade?.toLowerCase());
+  }, [unidade]);
+  
   const currentUnidade = isValidUnidade ? unidade : null;
 
+  // Load user data with better error handling
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
+    const loadUserData = async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
 
-    // Busca o documento em /users/{uid}
-    const ref = doc(db, "users", user.uid);
-    getDoc(ref).then(snap => {
-      if (snap.exists()) {
-        const userData = snap.data();
-        setRole(userData.role);
-        setUserInfo({
-          name: userData.name || user.displayName || user.email?.split('@')[0] || 'Usuário',
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        
+        const fallbackUserInfo = {
+          name: user.displayName || user.email?.split('@')[0] || 'Usuário',
           email: user.email,
           avatar: user.photoURL
-        });
-      } else {
-        // Fallback caso não tenha documento no Firestore
+        };
+
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          setRole(userData.role || 'user');
+          setUserInfo({
+            ...fallbackUserInfo,
+            name: userData.name || fallbackUserInfo.name
+          });
+        } else {
+          setRole('user');
+          setUserInfo(fallbackUserInfo);
+        }
+      } catch (error) {
+        console.warn('Error loading user data:', error);
+        setRole('user');
         setUserInfo({
           name: user.displayName || user.email?.split('@')[0] || 'Usuário',
           email: user.email,
           avatar: user.photoURL
         });
+      } finally {
+        setIsLoading(false);
       }
-    }).catch(() => {
-      // Fallback em caso de erro
-      setUserInfo({
-        name: user.displayName || user.email?.split('@')[0] || 'Usuário',
-        email: user.email,
-        avatar: user.photoURL
-      });
-    });
+    };
+
+    loadUserData();
   }, [auth]);
 
-  const isActive = (path) => location.pathname.includes(path);
+  // Persist collapsed state
+  useEffect(() => {
+    localStorage.setItem('navbar-collapsed', isCollapsed.toString());
+  }, [isCollapsed]);
 
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen);
-  };
+  // Memoized callbacks for better performance
+  const isActive = useCallback((path) => {
+    return location.pathname.includes(path);
+  }, [location.pathname]);
 
-  const handleLogout = async () => {
+  const toggleMenu = useCallback(() => {
+    setMenuOpen(prev => !prev);
+  }, []);
+
+  const toggleCollapse = useCallback(() => {
+    setIsCollapsed(prev => !prev);
+  }, []);
+
+  const handleLogout = useCallback(async () => {
     try {
       await signOut(auth);
       navigate('/login');
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
     }
-  };
+  }, [auth, navigate]);
 
-  const handleBackToModules = () => {
+  const handleBackToModules = useCallback(() => {
     navigate("/modules");
-  };
+  }, [navigate]);
 
-  const handleBackToUnits = () => {
+  const handleBackToUnits = useCallback(() => {
     if (currentModule === 'personal') {
       navigate("/personal/unidade");
     } else {
       navigate("/unidade");
     }
-  };
+  }, [currentModule, navigate]);
 
-  // Configuração dos itens de navegação baseado no módulo
-  const getNavItems = () => {
+  // Memoized navigation items for better performance
+  const navItems = useMemo(() => {
     if (currentModule === 'personal') {
-      // Items para módulo Personal
       const personalItems = [
         {
           path: `/personal/dashboard/${unidade}`,
@@ -123,7 +152,7 @@ export default function NavBar() {
           label: "Relatórios",
           description: "Relatórios de performance",
           matchPath: "/personal/relatorios",
-          disabled: true // Funcionalidade futura
+          disabled: true
         },
         {
           path: `/personal/configuracoes/${unidade}`,
@@ -132,13 +161,12 @@ export default function NavBar() {
           description: "Configurações do módulo",
           matchPath: "/personal/configuracoes",
           admin: true,
-          disabled: true // Funcionalidade futura
+          disabled: true
         }
       ];
 
       return personalItems.filter(item => !item.admin || role === 'admin');
     } else {
-      // Items para módulo Vendas (existente)
       const vendasItems = [
         {
           path: `/dashboard/${unidade}`,
@@ -169,59 +197,61 @@ export default function NavBar() {
           matchPath: "/descontos"
         },
         {
-          path: `/add-sale/${unidade}`,
-          icon: Plus,
-          label: "Nova Venda",
-          description: "Registrar venda",
-          highlight: true,
-          matchPath: "/add-sale"
-        },
-        {
           path: `/comissao/${unidade}`,
-          icon: BarChart3,
+          icon: Zap,
           label: "Comissões",
-          description: "Análises detalhadas",
+          description: "Análises de comissão",
           matchPath: "/comissao"
         }
       ];
 
       if (role === "admin") {
-        vendasItems.push({
-          path: `/config-remuneracao/${unidade}`,
-          icon: Settings,
-          label: "Remuneração",
-          description: "Configurar comissões",
-          admin: true,
-          matchPath: "/config-remuneracao"
-        });
-        vendasItems.push({
-          path: `/admin/produtos`,
-          icon: Settings,
-          label: "Produtos",
-          description: "Configurar filtros globais",
-          admin: true,
-          matchPath: "/admin/produtos"
-        });
+        vendasItems.push(
+          {
+            path: `/config-remuneracao/${unidade}`,
+            icon: Settings,
+            label: "Remuneração",
+            description: "Configurar comissões",
+            admin: true,
+            matchPath: "/config-remuneracao"
+          },
+          {
+            path: `/admin/produtos`,
+            icon: Settings,
+            label: "Produtos",
+            description: "Configurar filtros globais",
+            admin: true,
+            matchPath: "/admin/produtos"
+          }
+        );
       }
 
       return vendasItems;
     }
-  };
+  }, [currentModule, unidade, role]);
 
-  const navItems = getNavItems();
+  // Memoized module info
+  const moduleInfo = useMemo(() => {
+    return currentModule === 'personal' 
+      ? { title: 'Personal Manager', icon: Users }
+      : { title: 'Sales Dashboard', icon: BarChart3 };
+  }, [currentModule]);
 
-  // Não renderizar se não houver unidade válida (exceto em páginas especiais)
+  // Don't render if invalid route
   if (!currentUnidade && !location.pathname.includes('/unidade') && !location.pathname.includes('/modules') && !location.pathname.includes('/personal/dashboard')) {
     return null;
   }
 
-  const getModuleTitle = () => {
-    return currentModule === 'personal' ? 'Personal Manager' : 'Sales Dashboard';
-  };
-
-  const getModuleIcon = () => {
-    return currentModule === 'personal' ? Users : BarChart3;
-  };
+  // Show loading state
+  if (isLoading) {
+    return (
+      <nav className={`navbar loading ${theme} ${currentModule}`}>
+        <div className="loading-content">
+          <div className="loading-spinner"></div>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <>
@@ -242,12 +272,12 @@ export default function NavBar() {
         <div className="navbar-header">
           <div className="navbar-brand">
             <div className="brand-icon">
-              {React.createElement(getModuleIcon(), { size: 24 })}
+              {React.createElement(moduleInfo.icon, { size: 24 })}
             </div>
             {!isCollapsed && (
               <div className="brand-text">
                 <span className="company-name">FlexApp</span>
-                <span className="company-subtitle">{getModuleTitle()}</span>
+                <span className="company-subtitle">{moduleInfo.title}</span>
               </div>
             )}
           </div>
@@ -255,10 +285,10 @@ export default function NavBar() {
           {!isCollapsed && (
             <button 
               className="collapse-btn desktop-only"
-              onClick={() => setIsCollapsed(true)}
-              title="Recolher menu"
+              onClick={toggleCollapse}
+              title={isCollapsed ? "Expandir menu" : "Recolher menu"}
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={16} className={isCollapsed ? "rotate-180" : ""} />
             </button>
           )}
         </div>
@@ -376,10 +406,10 @@ export default function NavBar() {
           {isCollapsed && (
             <button 
               className="expand-btn"
-              onClick={() => setIsCollapsed(false)}
+              onClick={toggleCollapse}
               title="Expandir menu"
             >
-              <ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} />
+              <ChevronRight size={16} className="rotate-180" />
             </button>
           )}
         </div>
@@ -399,29 +429,66 @@ export default function NavBar() {
           z-index: 100;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           overflow: hidden;
+          backdrop-filter: blur(20px);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        }
+        
+        .navbar.loading {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .loading-content {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          gap: 1rem;
+        }
+        
+        .loading-spinner {
+          width: 2rem;
+          height: 2rem;
+          border: 3px solid #e2e8f0;
+          border-top: 3px solid #6366f1;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        .rotate-180 {
+          transform: rotate(180deg);
         }
         
         /* Tema específico para Personal */
         .navbar.personal {
           background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
           border-right-color: #bbf7d0;
+          box-shadow: 0 8px 32px rgba(16, 185, 129, 0.12);
         }
 
         .navbar.personal .brand-icon {
           background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
         }
 
         .navbar.personal .nav-link.highlight {
           background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
           color: #065f46;
           border: 1px solid #10b981;
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
         }
 
         .navbar.personal .nav-link.highlight:hover {
           background: linear-gradient(135deg, #10b981 0%, #059669 100%);
           color: white;
+          transform: translateX(4px) translateY(-2px);
+          box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
         }
         
         .navbar.collapsed {
@@ -431,11 +498,18 @@ export default function NavBar() {
         .navbar.dark {
           background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
           border-right-color: #334155;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
 
         .navbar.dark.personal {
           background: linear-gradient(180deg, #1e293b 0%, #0f1f13 100%);
           border-right-color: #22543d;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        
+        .navbar.dark .loading-spinner {
+          border-color: #475569;
+          border-top-color: #818cf8;
         }
         
         .navbar-header {
@@ -468,7 +542,13 @@ export default function NavBar() {
           border-radius: 0.75rem;
           color: white;
           flex-shrink: 0;
-          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+          box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+          transition: all 0.3s ease;
+        }
+        
+        .brand-icon:hover {
+          transform: scale(1.05) rotate(5deg);
+          box-shadow: 0 12px 32px rgba(99, 102, 241, 0.5);
         }
         
         .brand-text {
@@ -582,7 +662,13 @@ export default function NavBar() {
           border: 1px solid #bae6fd;
           border-radius: 0.75rem;
           position: relative;
-          box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
+          box-shadow: 0 4px 16px rgba(14, 165, 233, 0.15);
+          transition: all 0.3s ease;
+        }
+        
+        .user-section:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 24px rgba(14, 165, 233, 0.2);
         }
 
         .navbar.personal .user-section {
@@ -732,10 +818,11 @@ export default function NavBar() {
           text-decoration: none;
           padding: 0.875rem 1rem;
           border-radius: 0.75rem;
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           font-weight: 500;
           position: relative;
           overflow: hidden;
+          border: 1px solid transparent;
         }
 
         .nav-link.disabled {
@@ -767,8 +854,9 @@ export default function NavBar() {
         .nav-link:hover:not(.disabled) {
           background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
           color: #0369a1;
-          transform: translateX(4px);
-          box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+          transform: translateX(4px) translateY(-1px);
+          box-shadow: 0 8px 24px rgba(14, 165, 233, 0.2);
+          border-color: rgba(14, 165, 233, 0.2);
         }
 
         .navbar.personal .nav-link:hover:not(.disabled) {
@@ -792,7 +880,8 @@ export default function NavBar() {
           color: #1d4ed8;
           font-weight: 600;
           border: 1px solid #93c5fd;
-          box-shadow: 0 4px 12px rgba(29, 78, 216, 0.2);
+          box-shadow: 0 8px 24px rgba(29, 78, 216, 0.25);
+          transform: translateX(2px);
         }
 
         .navbar.personal .nav-link.active {
@@ -818,13 +907,21 @@ export default function NavBar() {
           background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
           color: #92400e;
           border: 1px solid #f59e0b;
-          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+          box-shadow: 0 8px 24px rgba(245, 158, 11, 0.25);
+          animation: pulse-highlight 2s infinite;
+        }
+        
+        @keyframes pulse-highlight {
+          0%, 100% { box-shadow: 0 8px 24px rgba(245, 158, 11, 0.25); }
+          50% { box-shadow: 0 8px 32px rgba(245, 158, 11, 0.4); }
         }
         
         .nav-link.highlight:hover:not(.disabled) {
           background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
           color: #78350f;
-          transform: translateX(4px) scale(1.02);
+          transform: translateX(4px) translateY(-2px) scale(1.02);
+          animation: none;
+          box-shadow: 0 12px 32px rgba(245, 158, 11, 0.4);
         }
         
         .nav-link.admin {
@@ -957,7 +1054,8 @@ export default function NavBar() {
         .footer-btn:hover {
           background-color: #f8fafc;
           color: #374151;
-          transform: translateX(2px);
+          transform: translateX(2px) translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
         
         .navbar.dark .footer-btn:hover {
@@ -968,11 +1066,13 @@ export default function NavBar() {
         .darkmode-toggle:hover {
           background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
           color: #92400e;
+          box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
         }
         
         .logout-btn:hover {
           background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
           color: #991b1b;
+          box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
         }
         
         .notification-badge {
@@ -1031,20 +1131,22 @@ export default function NavBar() {
           top: 1rem;
           right: 1rem;
           z-index: 101;
-          background: white;
-          border: 1px solid #e2e8f0;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(226, 232, 240, 0.8);
           padding: 0.75rem;
-          border-radius: 0.5rem;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          border-radius: 0.75rem;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
           color: #64748b;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.3s ease;
         }
         
         .mobile-menu-button:hover {
-          background-color: #f8fafc;
+          background: rgba(248, 250, 252, 0.95);
           color: #374151;
-          transform: scale(1.05);
+          transform: scale(1.05) rotate(90deg);
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
         }
         
         .mobile-overlay {

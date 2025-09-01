@@ -43,7 +43,8 @@ const Dashboard = () => {
 
   // Carrega vendas e metas
   const {
-    vendas,
+    vendas, // ← Vendas de TODAS as unidades para filtro global
+    vendasUnidadeAtual, // ← Vendas apenas da unidade atual
     loading: vendasLoading,
     error: vendasError,
     handleUpload,

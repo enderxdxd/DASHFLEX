@@ -18,7 +18,7 @@ import {
 
 dayjs.extend(customParseFormat);
 
-export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatricula = true) => {
+export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatricula = true, selectedMonth = dayjs().format("YYYY-MM")) => {
   // Estados básicos
   const [descontos, setDescontos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,6 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
   const [filtroResponsavel, setFiltroResponsavel] = useState("");
   const [filtroMatricula, setFiltroMatricula] = useState("");
   const [filtroNome, setFiltroNome] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
   const [tipoFiltro, setTipoFiltro] = useState("todos");
   
   // Ordenação e paginação
@@ -697,15 +696,12 @@ export const useDescontos = (unidade, vendas = [], metas = [], desconsiderarMatr
     setFiltroMatricula,
     filtroNome,
     setFiltroNome,
-    selectedMonth,
-    setSelectedMonth,
     tipoFiltro,
     setTipoFiltro,
     resetFiltros,
     
     // Paginação
     currentPage,
-    setCurrentPage,
     totalPages,
     itemsPerPage,
     totalItens: dadosOrdenados.length,

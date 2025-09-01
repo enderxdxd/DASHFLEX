@@ -16,7 +16,8 @@ const ConsultorCard = ({
   dados, 
   onClick, 
   isSelected = false,
-  isExpanded = false 
+  isExpanded = false,
+  remuneracaoType = 'comissao' // Novo prop para tipo de remuneração
 }) => {
   const [theme] = useDarkMode();
   const {
@@ -27,7 +28,11 @@ const ConsultorCard = ({
     percentualMeta,
     vendasCount,
     planosCount,
-    produtosCount
+    produtosCount,
+    planosDetalhados,
+    totalComDesconto,
+    totalSemDesconto,
+    percentualDesconto
   } = dados;
 
   const getStatusColor = () => {
@@ -53,6 +58,9 @@ const ConsultorCard = ({
           <h3 className="consultor-nome">{consultor}</h3>
           <div className="consultor-stats">
             <span className="vendas-count">{vendasCount} vendas</span>
+            <span className="remuneracao-type">
+              {remuneracaoType === 'premiacao' ? '🏆 Premiação' : '💰 Comissão'}
+            </span>
           </div>
         </div>
         <div className="status-indicator">
@@ -121,26 +129,44 @@ const ConsultorCard = ({
         </div>
       </div>
 
-      {/* Breakdown de Tipos (quando expandido) */}
-      {isExpanded && (
+      {/* Detalhamento de Planos (quando expandido) */}
+      {isExpanded && planosDetalhados && (
         <div className="breakdown-section">
-          <div className="breakdown-title">
-            <span>Breakdown por Tipo</span>
+          <div className="breakdown-header">
+            <div className="total-planos">
+              <span className="total-label">TOTAL PLANOS VENDIDOS</span>
+              <span className="total-number">{planosCount}</span>
+            </div>
           </div>
-          <div className="breakdown-grid">
-            <div className="breakdown-item">
-              <span className="breakdown-type">Planos</span>
-              <span className="breakdown-count">{planosCount}</span>
+          
+          <div className="planos-table">
+            <div className="table-header">
+              <span className="col-tipo">TIPO</span>
+              <span className="col-com">COM DESCTO</span>
+              <span className="col-sem">SEM DESCTO</span>
             </div>
-            <div className="breakdown-item">
-              <span className="breakdown-type">Produtos</span>
-              <span className="breakdown-count">{produtosCount}</span>
+            
+            {Object.entries(planosDetalhados).map(([tipo, dados]) => (
+              <div key={tipo} className="table-row">
+                <span className="col-tipo">{tipo}</span>
+                <span className="col-com desconto-badge">{dados.comDesconto}</span>
+                <span className="col-sem sem-desconto-badge">{dados.semDesconto}</span>
+              </div>
+            ))}
+          </div>
+          
+          <div className="resumo-desconto">
+            <div className="resumo-item">
+              <span className="resumo-icon">↓</span>
+              <span>Com Desconto: {totalComDesconto}</span>
             </div>
-            <div className="breakdown-item">
-              <span className="breakdown-type">% Comissão</span>
-              <span className="breakdown-count">
-                {totalVendas > 0 ? ((totalComissao / totalVendas) * 100).toFixed(2) : 0}%
-              </span>
+            <div className="resumo-item">
+              <span className="resumo-icon">↗</span>
+              <span>Sem Desconto: {totalSemDesconto}</span>
+            </div>
+            <div className="resumo-item">
+              <span className="resumo-icon">%</span>
+              <span>% com Desconto: {percentualDesconto}%</span>
             </div>
           </div>
         </div>

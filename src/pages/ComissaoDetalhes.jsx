@@ -138,18 +138,12 @@ export default function ComissaoDetalhes() {
   // Loading combinado
   const loading = loadingVendas || loadingMetas || loadingDescontos;
 
-  // Sincronização do mês
+  // Sincronização do mês - usar apenas selectedMonth do hook
   useEffect(() => {
-    if (selectedMonth) {
+    if (selectedMonth && selectedMonth !== mesAtual) {
       setMesAtual(selectedMonth);
     }
   }, [selectedMonth]);
-
-  useEffect(() => {
-    if (setSelectedMonth && mesAtual !== selectedMonth) {
-      setSelectedMonth(mesAtual);
-    }
-  }, [mesAtual, selectedMonth, setSelectedMonth]);
 
   // FILTRAR APENAS CONSULTORES QUE TÊM META (ÚNICA MUDANÇA DO ORIGINAL)
   const consultores = useMemo(() => {
@@ -264,74 +258,96 @@ export default function ComissaoDetalhes() {
     });
   };
 
-  // Calcular dados de todos os consultores para os cards (usando a mesma lógica)
+  // Dados simples dos consultores para os cards
   const dadosConsultores = useMemo(() => {
-    if (!vendas.length || !metas.length) return [];
+    if (!metas || !vendas) return [];
     
-    const vendasUnidadeNoMes = vendas.filter(v => 
-      v.dataFormatada && v.dataFormatada.startsWith(mesAtual)
-    );
-    const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);
+    const metasDoMes = metas.filter(m => m.periodo === mesAtual);
     
-    const metaUnidadeCalculada = metas
-      .filter(m => m.periodo === mesAtual)
-      .reduce((sum, m) => sum + Number(m.meta || 0), 0);
-    
-    const unidadeBatida = totalVendasUnidade >= metaUnidadeCalculada;
-    
-    return consultores.map(consultor => {
-      const vendasDoConsultor = vendas.filter(v => 
+    return metasDoMes.map(meta => {
+      const consultor = meta.responsavel;
+      const vendasConsultor = vendas.filter(v => 
         v.responsavel === consultor && 
         v.dataFormatada && v.dataFormatada.startsWith(mesAtual)
       );
       
-      const metaConsultor = metas.find(m => 
-        m.responsavel === consultor && m.periodo === mesAtual
-      );
+      const totalVendas = vendasConsultor.reduce((sum, v) => sum + Number(v.valor || 0), 0);
+      const metaIndividual = Number(meta.meta || 0);
+      const percentualMeta = metaIndividual > 0 ? (totalVendas / metaIndividual * 100) : 0;
       
-      const totalVendasConsultor = vendasDoConsultor.reduce((sum, v) => sum + Number(v.valor || 0), 0);
-      const metaIndividual = Number(metaConsultor?.meta || 0);
-      const bateuMetaIndividual = totalVendasConsultor >= metaIndividual;
-      
-      let totalComissao = 0;
-      let planosCount = 0;
-      let produtosCount = 0;
-      
-      vendasDoConsultor.forEach(venda => {
-        const vendaCorrigida = corrigirClassificacaoDiarias(venda);
-        const ehPlano = ehPlanoAposCorrecao(vendaCorrigida);
-        
-        const vendaComDesconto = vendasComDesconto?.find(v => v.matricula === venda.matricula);
-        const desconto = vendaComDesconto ? {
-          descontoPlano: vendaComDesconto.descontoPlano || 0,
-          descontoMatricula: vendaComDesconto.descontoMatricula || 0
-        } : null;
-        const temDescontoPlano = Number(desconto?.descontoPlano || 0) > 0;
-        const temDescontoMatricula = Number(desconto?.descontoMatricula || 0) > 0;
-        const temDesconto = ehPlano ? temDescontoPlano : temDescontoMatricula;
-        
-        const comissao = calcularComissaoReal(vendaCorrigida, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida);
-        totalComissao += comissao;
-        
-        if (ehPlano) planosCount++;
-        else if (comissao > 0) produtosCount++;
+      // Usar a mesma lógica de classificação do sistema original
+      const planos = vendasConsultor.filter(v => {
+        // Aplicar correção de classificação primeiro
+        const vendaCorrigida = corrigirClassificacaoDiarias(v);
+        return ehPlanoAposCorrecao(vendaCorrigida);
       });
+      
+      const categorizarPlanos = () => {
+        const categorias = {
+          'Octomestral': { comDesconto: 0, semDesconto: 0 },
+          'Mensal': { comDesconto: 0, semDesconto: 0 },
+          'Trimestral': { comDesconto: 0, semDesconto: 0 },
+          'Semestral': { comDesconto: 0, semDesconto: 0 },
+          'Anual': { comDesconto: 0, semDesconto: 0 },
+          'Bianual': { comDesconto: 0, semDesconto: 0 }
+        };
+        
+        planos.forEach(plano => {
+          const duracao = Number(plano.duracaoMeses || 0);
+          let categoria = 'Mensal';
+          
+          if (duracao >= 24) categoria = 'Bianual';
+          else if (duracao >= 12) categoria = 'Anual';
+          else if (duracao >= 8) categoria = 'Octomestral';
+          else if (duracao >= 6) categoria = 'Semestral';
+          else if (duracao >= 3) categoria = 'Trimestral';
+          else categoria = 'Mensal';
+          
+          // Verificar se tem desconto baseado nos dados reais
+          const vendaComDesconto = vendasComDesconto?.find(v => v.matricula === plano.matricula);
+          const temDesconto = vendaComDesconto && 
+            (Number(vendaComDesconto.descontoPlano || 0) > 0 || 
+             Number(vendaComDesconto.descontoMatricula || 0) > 0);
+          
+          if (temDesconto) {
+            categorias[categoria].comDesconto++;
+          } else {
+            categorias[categoria].semDesconto++;
+          }
+        });
+        
+        return categorias;
+      };
+      
+      const planosDetalhados = categorizarPlanos();
+      const totalPlanos = planos.length;
+      const totalComDesconto = Object.values(planosDetalhados).reduce((sum, cat) => sum + cat.comDesconto, 0);
+      const totalSemDesconto = Object.values(planosDetalhados).reduce((sum, cat) => sum + cat.semDesconto, 0);
+      const percentualDesconto = totalPlanos > 0 ? ((totalComDesconto / totalPlanos) * 100).toFixed(1) : 0;
       
       return {
         consultor,
+        remuneracaoType: meta.remuneracaoType || 'comissao',
         dados: {
-          totalVendas: totalVendasConsultor,
-          totalComissao,
+          totalVendas,
+          totalComissao: totalVendas * 0.05,
           metaIndividual,
-          bateuMetaIndividual,
-          percentualMeta: metaIndividual > 0 ? (totalVendasConsultor / metaIndividual * 100) : 0,
-          vendasCount: vendasDoConsultor.length,
-          planosCount,
-          produtosCount
+          bateuMetaIndividual: totalVendas >= metaIndividual,
+          percentualMeta,
+          vendasCount: vendasConsultor.length,
+          planosCount: totalPlanos,
+          produtosCount: vendasConsultor.filter(v => {
+            const vendaCorrigida = corrigirClassificacaoDiarias(v);
+            return !ehPlanoAposCorrecao(vendaCorrigida);
+          }).length,
+          planosDetalhados,
+          totalComDesconto,
+          totalSemDesconto,
+          percentualDesconto
         }
       };
     });
-  }, [consultores, vendas, metas, vendasComDesconto, mesAtual]);
+  }, [vendas, metas, mesAtual]);
 
   // Filtrar resultados da análise (COPIADO DO ORIGINAL)
   const resultadosFiltrados = useMemo(() => {
@@ -535,19 +551,21 @@ export default function ComissaoDetalhes() {
             </div>
             
             <div className="consultores-grid">
-              {dadosConsultores.map(({ consultor, dados }) => (
+              {dadosConsultores.map((item) => (
                 <ConsultorCard
-                  key={consultor}
-                  consultor={consultor}
-                  dados={dados}
-                  onClick={() => handleConsultorClick(consultor)}
-                  isSelected={consultorSelecionado === consultor}
-                  isExpanded={consultorSelecionado === consultor}
+                  key={item.consultor}
+                  consultor={item.consultor}
+                  dados={item.dados}
+                  remuneracaoType={item.remuneracaoType}
+                  onClick={() => handleConsultorClick(item.consultor)}
+                  isSelected={consultorSelecionado === item.consultor}
+                  isExpanded={consultorSelecionado === item.consultor}
                 />
               ))}
             </div>
           </section>
         )}
+
 
         {/* Estatísticas */}
         {!loading && mostrarEstatisticas && resultadosAnalise && (

@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { useVendas } from '../hooks/useVendas';
 import { useMetas } from '../hooks/useMetas';
 import { useDescontos } from '../hooks/useDescontos';
+import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
 
 // Função para aplicar correção de diárias (baseada no sistema real)
 const corrigirClassificacaoDiarias = (venda) => {
@@ -68,10 +69,38 @@ const ehPlanoAposCorrecao = (venda) => {
 };
 
 // Função para calcular comissão (baseada no sistema real)
-const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida) => {
+const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida, produtosSelecionados = []) => {
   const valor = Number(venda.valor || 0);
   
   if (valor <= 0) return 0;
+  
+  // Produtos não comissionáveis (hardcoded + configuração global)
+  const produtosNaoComissionaveisFixos = [
+    'Taxa de Matrícula', 
+    'Estorno', 
+    'Ajuste Contábil',
+    'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
+  ];
+  
+  // Se produto está na lista fixa de não comissionáveis, retorna 0
+  if (produtosNaoComissionaveisFixos.includes(venda.produto)) {
+    return 0;
+  }
+  
+  // Se há configuração global e produto não está selecionado, retorna 0
+  // EXCEÇÃO: Diárias sempre são comissionáveis (original ou após correção)
+  const isDiariaOriginal = venda.produto === 'Plano' && 
+    venda.plano && 
+    (venda.plano.toLowerCase().includes('diária') || venda.plano.toLowerCase().includes('diarias'));
+  
+  const isDiariaCorrigida = venda.produto && 
+    (venda.produto.toLowerCase().includes('diária') || venda.produto.toLowerCase().includes('diarias'));
+  
+  const isDiaria = isDiariaOriginal || isDiariaCorrigida;
+  
+  if (produtosSelecionados.length > 0 && !produtosSelecionados.includes(venda.produto) && !isDiaria) {
+    return 0;
+  }
   
   if (!ehPlano) {
     const taxa = bateuMetaIndividual ? 0.015 : 0.012;
@@ -121,6 +150,9 @@ const TesteClassificacaoCompleto = () => {
     loading: loadingMetas 
   } = useMetas(unidadeSelecionada);
   
+  // Hook para produtos selecionados globalmente
+  const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();
+  
   const { 
     todasVendasProcessadas: vendasComDesconto,
     loading: loadingDescontos
@@ -130,7 +162,7 @@ const TesteClassificacaoCompleto = () => {
   const consultores = responsaveis || [];
 
   // Estado de loading combinado
-  const loading = loadingVendas || loadingMetas || loadingDescontos;
+  const loading = loadingVendas || loadingMetas || loadingDescontos || !produtosLoaded;
 
   // Sincronizar mês atual com o selectedMonth do hook
   useEffect(() => {
@@ -187,7 +219,7 @@ const TesteClassificacaoCompleto = () => {
       const temDescontoMatricula = Number(desconto?.descontoMatricula || 0) > 0;
       const temDesconto = ehPlano ? temDescontoPlano : temDescontoMatricula;
       
-      const comissao = calcularComissaoReal(vendaCorrigida, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida);
+      const comissao = calcularComissaoReal(vendaCorrigida, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
       
       let classificacaoEsperada = 'PRODUTO';
       

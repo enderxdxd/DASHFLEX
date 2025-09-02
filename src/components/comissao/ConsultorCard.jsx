@@ -83,13 +83,15 @@ const ConsultorCard = ({
           </div>
         </div>
 
-        {/* Comissão Total */}
+        {/* Comissão/Premiação Total */}
         <div className="metric highlight">
           <div className="metric-icon">
             <Calculator size={16} />
           </div>
           <div className="metric-content">
-            <span className="metric-label">Comissão</span>
+            <span className="metric-label">
+              {remuneracaoType === 'premiacao' ? 'Premiação' : 'Comissão'}
+            </span>
             <span className="metric-value">
               R$ {totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>

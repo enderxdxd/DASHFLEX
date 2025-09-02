@@ -30,6 +30,9 @@ const ComissaoStats = ({ estatisticas, consultor }) => {
     planos,
     produtos,
     naoComissionaveis,
+    valorTotalPlanos,
+    valorTotalProdutos,
+    valorTotalNaoComissionaveis,
     comissaoPlanos,
     comissaoProdutos,
     percentualMeta,
@@ -159,6 +162,12 @@ const ComissaoStats = ({ estatisticas, consultor }) => {
                 <span className="value">{planos}</span>
               </div>
               <div className="breakdown-stat">
+                <span className="label">Valor Total:</span>
+                <span className="value success">
+                  R$ {(valorTotalPlanos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="breakdown-stat">
                 <span className="label">Comissão:</span>
                 <span className="value">
                   R$ {comissaoPlanos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -185,6 +194,12 @@ const ComissaoStats = ({ estatisticas, consultor }) => {
                 <span className="value">{produtos}</span>
               </div>
               <div className="breakdown-stat">
+                <span className="label">Valor Total:</span>
+                <span className="value success">
+                  R$ {(valorTotalProdutos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="breakdown-stat">
                 <span className="label">Comissão:</span>
                 <span className="value">
                   R$ {comissaoProdutos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -209,6 +224,12 @@ const ComissaoStats = ({ estatisticas, consultor }) => {
               <div className="breakdown-stat">
                 <span className="label">Quantidade:</span>
                 <span className="value">{naoComissionaveis}</span>
+              </div>
+              <div className="breakdown-stat">
+                <span className="label">Valor Total:</span>
+                <span className="value warning">
+                  R$ {(valorTotalNaoComissionaveis || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
               </div>
               <div className="breakdown-stat">
                 <span className="label">% do Total:</span>

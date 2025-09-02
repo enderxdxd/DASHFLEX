@@ -38,6 +38,7 @@ import { useDescontos } from "../hooks/useDescontos";
 import { useVendas } from "../hooks/useVendas";
 import { useConfigRem } from "../hooks/useConfigRem";
 import { useGroupedVendas } from "../hooks/useGroupedVendas";
+import { useGlobalProdutos } from "../hooks/useGlobalProdutos";
 
 // Utilities
 import { processarCorrecaoDiarias } from "../utils/correcaoDiarias";
@@ -56,25 +57,18 @@ const DescontosPage = () => {
   // Estado para metas
   const [metas, setMetas] = useState([]);
   
-  // Carrega vendas para fazer a reconciliação - usa dados brutos (todas as unidades)
+  // USAR DADOS BRUTOS COMO COMISSAODETALHES (sem agrupamento/correção)
   const { vendas: vendasBrutas, loading: vendasLoading } = useVendas(unidade);
   
-  // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS (igual ConfigRemuneracao)
-  const vendasAgrupadas = useGroupedVendas(vendasBrutas);
-  
-  // APLICAR CORREÇÃO DE DIÁRIAS
-  const vendasCorrigidas = useMemo(() => {
-    if (!vendasAgrupadas?.length) return [];
-    const { vendasCorrigidas } = processarCorrecaoDiarias(vendasAgrupadas);
-    return vendasCorrigidas;
-  }, [vendasAgrupadas]);
+  // Hook para produtos globalmente selecionados (com fallback)
+  const { produtosSelecionados = [], produtosLoaded = true } = useGlobalProdutos() || {};
   
   // Estados locais
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
   const [desconsiderarMatricula, setDesconsiderarMatricula] = useState(true);
   const [tipoFiltro, setTipoFiltro] = useState("");
 
-  // Hook principal de descontos - agora usa vendas agrupadas
+  // Hook principal de descontos - agora usa vendas brutas
   const {
     descontos,
     vendasComDesconto, // Dados paginados para a tabela
@@ -107,7 +101,7 @@ const DescontosPage = () => {
     // Dados completos para análise detalhada
     todasVendasProcessadas,
     dadosOrdenados
-  } = useDescontos(unidade, vendasCorrigidas, metas, desconsiderarMatricula, selectedMonth);
+  } = useDescontos(unidade, vendasBrutas, metas, desconsiderarMatricula, selectedMonth, produtosSelecionados);
   
   // Função para resetar filtros
   const resetFiltros = () => {
@@ -402,6 +396,15 @@ const DescontosPage = () => {
       navigate("/unidade");
     }
   }, [unidade, navigate]);
+
+  // Debug loading states
+  console.log('🔍 DescontosPage Loading States:', {
+    loading,
+    vendasLoading,
+    produtosLoaded,
+    produtosSelecionados: produtosSelecionados?.length,
+    vendasBrutas: vendasBrutas?.length
+  });
 
   if (loading || vendasLoading) {
     return <Loading3D />;

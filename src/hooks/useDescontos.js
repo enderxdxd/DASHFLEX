@@ -16,12 +16,77 @@ import {
 
 dayjs.extend(customParseFormat);
 
+// ===== FUNÇÕES COPIADAS EXATAMENTE DO COMISSAODETALHES.JSX =====
+
+// Função para aplicar correção de diárias (baseada no sistema real)
+const corrigirClassificacaoDiarias = (venda) => {
+  if (!venda) return venda;
+  
+  const vendaCorrigida = { ...venda };
+  const planoValue = String(venda.plano || '').toLowerCase().trim();
+  
+  const padroesDiarias = [
+    'diária', 'diárias', 'diaria', 'diarias',
+    'plano.*diária', 'plano.*diárias',
+    '\\d+\\s*diária', '\\d+\\s*diárias'
+  ];
+  
+  const temDiariaNoPlano = padroesDiarias.some(padrao => {
+    const regex = new RegExp(padrao, 'i');
+    return regex.test(planoValue);
+  });
+  
+  if (temDiariaNoPlano) {
+    vendaCorrigida.produto = venda.plano;
+    vendaCorrigida.plano = '';
+    vendaCorrigida.correcaoAplicada = 'diaria_reclassificada';
+    vendaCorrigida.motivoCorrecao = `Diária movida de "plano" para "produto": ${venda.plano}`;
+  }
+  
+  return vendaCorrigida;
+};
+
+// Função para verificar se é plano após correção
+const ehPlanoAposCorrecao = (venda) => {
+  if (!venda) return false;
+  
+  const vendaCorrigida = corrigirClassificacaoDiarias(venda);
+  
+  if (vendaCorrigida.correcaoAplicada === 'diaria_reclassificada') {
+    return false;
+  }
+  
+  const produto = String(vendaCorrigida.produto || '').toLowerCase().trim();
+  
+  if (produto.includes('diária') || produto.includes('diaria')) {
+    return false;
+  }
+  
+  if (produto !== 'plano') {
+    return false;
+  }
+  
+  if (vendaCorrigida.duracaoMeses && typeof vendaCorrigida.duracaoMeses === 'number') {
+    return vendaCorrigida.duracaoMeses >= 1;
+  }
+  
+  if (vendaCorrigida.dataInicio && vendaCorrigida.dataFim) {
+    const inicio = new Date(vendaCorrigida.dataInicio);
+    const fim = new Date(vendaCorrigida.dataFim);
+    const diasReais = Math.ceil((fim - inicio) / (1000 * 60 * 60 * 24));
+    return diasReais >= 25;
+  }
+  
+  return false;
+};
+
 export const useDescontos = (
   unidade, 
   vendas = [], 
   metas = [], 
   desconsiderarMatricula = true, 
-  externalSelectedMonth = null
+  externalSelectedMonth = null,
+  produtosSelecionados = [] // NOVO PARÂMETRO: produtos globalmente selecionados
 ) => {
   // Estados básicos
   const [descontos, setDescontos] = useState([]);
@@ -210,7 +275,7 @@ export const useDescontos = (
   // ===== FILTRAR VENDAS PARA ANÁLISE DE DESCONTOS =====
   const vendasDaUnidade = useMemo(() => {
     if (!vendas?.length) {
-      console.log(`⚠️ [${unidade}] Nenhuma venda disponível`);
+      console.log(`❌ [${unidade}] Vendas não carregadas ainda!`);
       return [];
     }
     
@@ -226,9 +291,9 @@ export const useDescontos = (
       return produtoNorm.includes('PLANO');
     };
     
-    // FILTRAR POR UNIDADE, MÊS E TIPO DE PRODUTO (PLANOS)
+    // APLICAR MESMA LÓGICA DA COMISSAODETALHES
     const vendasFiltradas = vendas.filter(venda => {
-      // 1. Filtro por unidade - apenas vendas da unidade atual (com normalização)
+      // 1. Filtro por unidade
       const unidadeVenda = (venda.unidade || '').replace(/\s/g, '').toLowerCase();
       const unidadeAtual = (unidade || '').replace(/\s/g, '').toLowerCase();
       if (unidadeVenda !== unidadeAtual) return false;
@@ -237,40 +302,45 @@ export const useDescontos = (
       const vendaMes = parseMes(venda.dataFormatada || venda.dataLancamento);
       if (!vendaMes || vendaMes !== selectedMonth) return false;
       
-      // 3. Filtro apenas produtos que são PLANO
-      if (!isPlano(venda.produto)) return false;
+      // 3. Filtro produtos não comissionáveis
+      const produtosNaoComissionaveisFixos = [
+        'Taxa de Matrícula', 
+        'Estorno', 
+        'Ajuste Contábil',
+        'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
+      ];
+      
+      if (produtosNaoComissionaveisFixos.includes(venda.produto)) return false;
+      
+      // 4. Filtro apenas produtos que são PLANO (incluindo diárias)
+      const isDiariaOriginal = venda.produto === 'Plano' && 
+        venda.plano && 
+        (venda.plano.toLowerCase().includes('diária') || venda.plano.toLowerCase().includes('diarias'));
+      
+      const isDiariaCorrigida = venda.produto && 
+        (venda.produto.toLowerCase().includes('diária') || venda.produto.toLowerCase().includes('diarias'));
+      
+      const isDiaria = isDiariaOriginal || isDiariaCorrigida;
+      
+      if (!isPlano(venda.produto) && !isDiaria) return false;
       
       return true;
     });
     
     console.log(`📊 [${unidade}] Vendas filtradas para análise:`, {
       totalVendas: vendas.length,
-      vendasUnidade: vendas.filter(v => {
-        const unidadeVenda = (v.unidade || '').replace(/\s/g, '').toLowerCase();
-        const unidadeAtual = (unidade || '').replace(/\s/g, '').toLowerCase();
-        return unidadeVenda === unidadeAtual;
-      }).length,
-      vendasMes: vendas.filter(v => {
-        const vendaMes = parseMes(v.dataFormatada || v.dataLancamento);
-        return vendaMes === selectedMonth;
-      }).length,
       planosFiltrados: vendasFiltradas.length,
-      exemploVendas: vendasFiltradas.slice(0, 3).map(v => ({
-        responsavel: v.responsavel,
-        unidade: v.unidade,
-        produto: v.produto,
-        valor: v.valor,
-        matricula: v.matricula
-      }))
+      caiqueVendas: vendasFiltradas.filter(v => v.responsavel === 'CAIQUE ROBERTO VIANA QUINTINO').length,
+      caiqueValor: vendasFiltradas.filter(v => v.responsavel === 'CAIQUE ROBERTO VIANA QUINTINO').reduce((sum, v) => sum + Number(v.valor || 0), 0)
     });
     
     return vendasFiltradas;
   }, [vendas, unidade, selectedMonth]);
 
-  // ===== RECONCILIAÇÃO: VENDAS x DESCONTOS =====
+  // ===== RECONCILIAÇÃO: VENDAS x DESCONTOS (MESMO CÓDIGO) =====
   const vendasComDesconto = useMemo(() => {
     if (!vendasDaUnidade?.length) {
-      console.log(`❌ [${unidade}] vendasDaUnidade está vazio! Retornando array vazio.`);
+      console.log(`❌ [${unidade}] vendasDaUnidade está vazio!`);
       return [];
     }
     
@@ -283,7 +353,7 @@ export const useDescontos = (
         descontoPlano: 0,
         descontoMatricula: 0,
         totalDesconto: 0,
-        valorCheio: Number(venda.valor || 0), // Valor cheio = valor pago quando não há desconto
+        valorCheio: Number(venda.valor || 0),
         percentualDesconto: 0,
         descontoDetalhes: []
       }));
@@ -293,19 +363,18 @@ export const useDescontos = (
     const normalizeTipo = (t) => {
       if (!t) return '';
       return String(t)
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // tira acentos
-        .replace(/[^\w]/g, '')                            // tira pontuação/espaços
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^\w]/g, '')
         .toUpperCase();
     };
     
     const bucketFromTipo = (t) => {
       const n = normalizeTipo(t);
-      // tudo que mencionar MATRÍCULA / TAXA vai para o bucket MATRÍCULA
       if (n.includes('MATRICUL') || n.includes('TAXA')) return 'MATRICULA';
       return 'PLANO';
     };
 
-    // ====== AGRUPAMENTO POR MATRÍCULA ======
+    // Agrupamento por matrícula
     const descontosPorMatricula = {};
     
     descontos.forEach(desc => {
@@ -330,7 +399,6 @@ export const useDescontos = (
       let dp = 0, dm = 0, tt = 0;
 
       if (itens.length > 0) {
-        // ✅ SEMPRE prioriza itensDesconto quando disponível
         itens.forEach(it => {
           const valor = Number(it?.valor || 0);
           if (!valor) return;
@@ -345,7 +413,6 @@ export const useDescontos = (
         });
         tt = dp + dm;
       } else if (temConsolidado) {
-        // fallback: usa valores consolidados
         dp = Number(desc.descontoPlano || 0);
         dm = Number(desc.descontoMatricula || 0);
         tt = Number(desc.totalDesconto || (dp + dm));
@@ -353,7 +420,6 @@ export const useDescontos = (
           grupo.itens.push({ tipo: 'CONSOLIDADO', valor: tt });
         }
       } else {
-        // legado (valor/tipo no topo)
         const valor = Number(desc.valor || 0);
         if (valor > 0) {
           const bucket = bucketFromTipo(desc.tipo);
@@ -372,25 +438,14 @@ export const useDescontos = (
       grupo.totalDesconto += tt;
     });
     
-    console.log(`🔍 [${unidade}] Descontos processados:`, {
-      totalDescontos: descontos.length,
-      matriculasComDesconto: Object.keys(descontosPorMatricula).length,
-      exemploAgrupamento: Object.entries(descontosPorMatricula).slice(0, 3).map(([mat, dados]) => ({
-        matricula: mat,
-        totalDesconto: dados.totalDesconto,
-        itens: dados.itens.length
-      }))
-    });
-    
-    // PASSO 2: Aplicar lógica de reconciliação
+    // Aplicar lógica de reconciliação
     const vendasProcessadas = vendasDaUnidade.map(venda => {
       const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
       const descontoGrupo = descontosPorMatricula[matriculaNorm];
       
-      const valorPago = Number(venda.valor || 0); // Valor que o cliente efetivamente pagou
+      const valorPago = Number(venda.valor || 0);
       
       if (descontoGrupo && descontoGrupo.totalDesconto > 0) {
-        // TEM DESCONTO: Valor Cheio = Valor Pago + Total Descontos
         const descontoPlanoFinal = Number(descontoGrupo.descontoPlano || 0);
         const descontoMatriculaFinal = desconsiderarMatricula ? 0 : Number(descontoGrupo.descontoMatricula || 0);
         const totalDesconto = descontoPlanoFinal + descontoMatriculaFinal;
@@ -411,7 +466,6 @@ export const useDescontos = (
           descontoDetalhes: descontoGrupo.itens || []
         };
       } else {
-        // SEM DESCONTO: Valor Cheio = Valor Pago
         return {
           ...venda,
           temDesconto: false,
@@ -427,28 +481,22 @@ export const useDescontos = (
       }
     });
     
-    // PASSO 3: Logs de diagnóstico
     const comDesconto = vendasProcessadas.filter(v => v.temDesconto);
-    const totalDescontos = comDesconto.reduce((sum, v) => sum + (v.totalDesconto || 0), 0);
-    const totalValorCheio = vendasProcessadas.reduce((sum, v) => sum + (v.valorCheio || 0), 0);
     
-    console.log(`✅ [${unidade}] Reconciliação finalizada:`, {
+    console.log(`✅ [DESCONTOS-${unidade}] Reconciliação finalizada:`, {
       totalVendas: vendasProcessadas.length,
       comDesconto: comDesconto.length,
       semDesconto: vendasProcessadas.length - comDesconto.length,
-      totalDescontos: totalDescontos.toFixed(2),
-      totalValorCheio: totalValorCheio.toFixed(2),
       percentualComDesconto: ((comDesconto.length / vendasProcessadas.length) * 100).toFixed(1) + '%'
     });
     
     return vendasProcessadas;
   }, [vendasDaUnidade, descontos, unidade, desconsiderarMatricula]);
 
-  // ===== FILTROS APLICADOS =====
+  // ===== RESTO DA LÓGICA PERMANECE IGUAL =====
   const dadosFiltrados = useMemo(() => {
     let resultado = vendasComDesconto;
 
-    // Filtro por responsável
     if (filtroResponsavel) {
       const filtro = normalize(filtroResponsavel);
       resultado = resultado.filter(venda =>
@@ -456,7 +504,6 @@ export const useDescontos = (
       );
     }
 
-    // Filtro por matrícula
     if (filtroMatricula) {
       const filtro = normalize(filtroMatricula);
       resultado = resultado.filter(venda =>
@@ -464,7 +511,6 @@ export const useDescontos = (
       );
     }
 
-    // Filtro por nome
     if (filtroNome) {
       const filtro = normalize(filtroNome);
       resultado = resultado.filter(venda =>
@@ -472,7 +518,6 @@ export const useDescontos = (
       );
     }
 
-    // Filtro por tipo de desconto
     switch (tipoFiltro) {
       case "com_desconto":
         resultado = resultado.filter(venda => venda.temDesconto);
@@ -493,7 +538,6 @@ export const useDescontos = (
     return resultado;
   }, [vendasComDesconto, filtroResponsavel, filtroMatricula, filtroNome, tipoFiltro]);
 
-  // ===== ORDENAÇÃO =====
   const dadosOrdenados = useMemo(() => {
     if (!sortConfig.key) return dadosFiltrados;
 
@@ -507,7 +551,6 @@ export const useDescontos = (
     });
   }, [dadosFiltrados, sortConfig]);
 
-  // ===== PAGINAÇÃO =====
   const dadosPaginados = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
@@ -516,30 +559,11 @@ export const useDescontos = (
 
   const totalPages = Math.ceil(dadosOrdenados.length / itemsPerPage);
 
-  // ===== ANÁLISE POR CONSULTOR =====
   const analiseConsultores = useMemo(() => {
     if (!vendasComDesconto?.length) return [];
-    
-    console.log(`🔍 [${unidade}] Iniciando análise por consultor:`, {
-      totalVendas: vendasComDesconto.length,
-      exemploVendas: vendasComDesconto.slice(0, 3).map(v => ({
-        responsavel: v.responsavel,
-        unidade: v.unidade,
-        valor: v.valor
-      }))
-    });
-    
-    const resultado = analisarDescontosPorConsultor(vendasComDesconto, unidade);
-    
-    console.log(`📋 [${unidade}] Resultado análise consultores:`, {
-      totalConsultores: resultado.length,
-      consultores: resultado.map(c => c.responsavel)
-    });
-    
-    return resultado;
+    return analisarDescontosPorConsultor(vendasComDesconto, unidade);
   }, [vendasComDesconto, unidade]);
 
-  // ===== ESTATÍSTICAS GERAIS =====
   const estatisticas = useMemo(() => {
     const stats = {
       totalVendas: vendasComDesconto.length,
@@ -579,7 +603,6 @@ export const useDescontos = (
       }
     });
     
-    // Calcular percentuais e médias
     if (stats.totalVendas > 0) {
       stats.percentualVendasComDesconto = parseFloat(((stats.vendasComDesconto / stats.totalVendas) * 100).toFixed(2));
       stats.ticketMedioVendido = parseFloat((stats.valorTotalVendido / stats.totalVendas).toFixed(2));
@@ -596,12 +619,8 @@ export const useDescontos = (
       stats.participacaoDescontoMatricula = parseFloat(((stats.totalDescontoMatricula / stats.totalDescontos) * 100).toFixed(2));
     }
     
-    console.log(`✅ [${unidade}] Estatísticas calculadas:`, stats);
-    
-    // Verificar e corrigir NaN
     Object.entries(stats).forEach(([key, value]) => {
       if (typeof value === 'number' && isNaN(value)) {
-        console.warn(`⚠️ Estatística '${key}' é NaN - corrigindo para 0`);
         stats[key] = 0;
       }
     });
@@ -609,12 +628,10 @@ export const useDescontos = (
     return stats;
   }, [vendasComDesconto, unidade]);
 
-  // ===== RESPONSÁVEIS ÚNICOS =====
   const responsaveis = useMemo(() => {
     return [...new Set(vendasComDesconto.map(v => v.responsavel).filter(Boolean))].sort();
   }, [vendasComDesconto]);
 
-  // ===== FUNÇÕES AUXILIARES =====
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -630,7 +647,6 @@ export const useDescontos = (
     setCurrentPage(1);
   };
 
-  // ===== UPLOAD DE PLANILHA =====
   const uploadPlanilha = async () => {
     if (!file) {
       setError("Nenhum arquivo selecionado");
@@ -654,10 +670,6 @@ export const useDescontos = (
       const functionsUrl = process.env.REACT_APP_FIREBASE_FUNCTIONS_URL || 
         'https://southamerica-east1-chatpos-aff1a.cloudfunctions.net/uploadDescontos';
       
-      console.log('🔗 Upload para:', functionsUrl);
-      console.log('📦 Arquivo:', file.name);
-      console.log('🏢 Unidade:', unidade);
-      
       const response = await fetch(functionsUrl, {
         method: "POST",
         body: formData,
@@ -674,7 +686,6 @@ export const useDescontos = (
         setProcessedData(result.statistics);
         setFile(null);
         
-        // Aguardar um pouco para garantir que o Firestore atualizou
         setTimeout(() => {
           console.log('🔄 Recarregando dados após upload...');
         }, 1000);
@@ -689,7 +700,6 @@ export const useDescontos = (
     }
   };
 
-  // ===== DELETAR DESCONTOS =====
   const deleteAllDescontos = async () => {
     if (!unidade) {
       setError("Unidade não identificada");
@@ -726,7 +736,6 @@ export const useDescontos = (
     }
   };
 
-  // ===== LIMPEZA DE MENSAGENS =====
   const clearMessages = () => {
     setError("");
     setSuccessMessage("");

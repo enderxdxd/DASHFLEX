@@ -11,6 +11,8 @@ import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
 import { calcularRemuneracaoPorDuracao, calcularDuracaoPlano, verificarDescontoPlano } from '../utils/calculoRemuneracaoDuracao';
 
 import { useDescontosSimples } from '../utils/useDescontosSimples';
+import { processarCorrecaoDiarias } from '../utils/correcaoDiarias';
+import MonitorCorrecaoDiarias from '../components/MonitorCorrecaoDiarias';
 import { 
   Settings, 
   Target, 
@@ -807,13 +809,7 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
           <BarChart3 size={16} />
           Visão Geral
         </button>
-        <button 
-          className={`view-tab ${activeView === 'consultores' ? 'active' : ''}`}
-          onClick={() => setActiveView('consultores')}
-        >
-          <Eye size={16} />
-          Por Consultor
-        </button>
+        
         <button 
           className={`view-tab ${activeView === 'analise-planos' ? 'active' : ''}`}
           onClick={() => setActiveView('analise-planos')}
@@ -884,68 +880,7 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
         </div>
       )}
 
-      {activeView === 'consultores' && (
-        <div className="consultores-content">
-          <div className="consultores-grid">
-            {dadosConsultores.map((consultor, index) => (
-              <div key={consultor.id || index} className="consultor-card">
-                <div className="consultor-header">
-                  <h4>{consultor.responsavel}</h4>
-                  <div className={`status-badge ${consultor.metaIndividualBatida ? 'success' : 'warning'}`}>
-                    {consultor.metaIndividualBatida ? 'Meta Atingida' : 'Meta Não Atingida'}
-                  </div>
-                </div>
-                
-                <div className="consultor-stats">
-                  <div className="stat-row">
-                    <span className="label">Meta:</span>
-                    <span className="value">R$ {Number(consultor.meta).toLocaleString('pt-BR')}</span>
-                  </div>
-                  <div className="stat-row">
-                    <span className="label">Vendas:</span>
-                    <span className="value">R$ {consultor.totalVendas.toLocaleString('pt-BR')}</span>
-                  </div>
-                  <div className="stat-row">
-                    <span className="label">% Meta:</span>
-                    <span className={`value ${consultor.percentualMeta >= 100 ? 'success' : 'warning'}`}>
-                      {consultor.percentualMeta.toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-
-                <div className="remuneracao-breakdown">
-                  <h5>Remuneração Detalhada</h5>
-                  <div className="breakdown-item">
-                    <span className="breakdown-label">Comissão Planos:</span>
-                    <span className="breakdown-value success">R$ {consultor.totalComissaoPlanos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="breakdown-item">
-                    <span className="breakdown-label">Comissão Outros:</span>
-                    <span className="breakdown-value">R$ {consultor.totalComissaoOutros.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                  <div className="breakdown-item total">
-                    <span className="breakdown-label"><strong>Total Comissão:</strong></span>
-                    <span className="breakdown-value"><strong>R$ {consultor.totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
-                  </div>
-                </div>
-
-                <div className="vendas-details">
-                  <div className="vendas-summary">
-                    <div className="vendas-type">
-                      <span className="type-label">Planos:</span>
-                      <span className="type-count">{consultor.vendasPlanos.length} vendas</span>
-                    </div>
-                    <div className="vendas-type">
-                      <span className="type-label">Outros:</span>
-                      <span className="type-count">{consultor.vendasOutros.length} vendas</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      
       
       {activeView === 'faixas' && (
         <div className="faixas-content">
@@ -1718,7 +1653,14 @@ const ConfigRemuneracao = () => {
   const { vendas: vendasOriginais, loading: vendasLoading, responsaveis } = useVendas(unidade);
   
   // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS
-  const vendas = useGroupedVendas(vendasOriginais);
+  const vendasAgrupadas = useGroupedVendas(vendasOriginais);
+  
+  // APLICAR CORREÇÃO DE DIÁRIAS
+  const vendas = React.useMemo(() => {
+    if (!vendasAgrupadas?.length) return [];
+    const { vendasCorrigidas } = processarCorrecaoDiarias(vendasAgrupadas);
+    return vendasCorrigidas;
+  }, [vendasAgrupadas]);
   const { metas, loading: metasLoading } = useMetas(unidade);
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'));
   const { configRem, loading: configLoading } = useConfigRem(unidade, selectedMonth);
@@ -1963,6 +1905,9 @@ const ConfigRemuneracao = () => {
       </div>
 
       <div className="tab-content">
+        {/* Monitor de Correção de Diárias */}
+        <MonitorCorrecaoDiarias vendas={vendasAgrupadas} />
+        
         {activeTab === 'meta' && (
           <div className="tab-panel">
             <h2>Meta da Unidade</h2>

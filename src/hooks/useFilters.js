@@ -156,6 +156,101 @@ export const useFilters = (
     currentPage * itemsPerPage
   );
 
+  // Função para aplicar correção de diárias (mesma lógica da ComissaoDetalhes)
+  const corrigirClassificacaoDiarias = (venda) => {
+    if (!venda) return venda;
+    
+    const vendaCorrigida = { ...venda };
+    const planoValue = String(venda.plano || '').toLowerCase().trim();
+    
+    const padroesDiarias = [
+      'diária', 'diárias', 'diaria', 'diarias',
+      'plano.*diária', 'plano.*diárias',
+      '\\d+\\s*diária', '\\d+\\s*diárias'
+    ];
+    
+    const temDiariaNoPlano = padroesDiarias.some(padrao => {
+      const regex = new RegExp(padrao, 'i');
+      return regex.test(planoValue);
+    });
+    
+    if (temDiariaNoPlano) {
+      vendaCorrigida.produto = venda.plano;
+      vendaCorrigida.plano = '';
+      vendaCorrigida.correcaoAplicada = 'diaria_reclassificada';
+      vendaCorrigida.motivoCorrecao = `Diária movida de "plano" para "produto": ${venda.plano}`;
+    }
+    
+    return vendaCorrigida;
+  };
+
+  // Função para verificar se é plano após correção
+  const ehPlanoAposCorrecao = (venda) => {
+    if (!venda) return false;
+    
+    const vendaCorrigida = corrigirClassificacaoDiarias(venda);
+    
+    if (vendaCorrigida.correcaoAplicada === 'diaria_reclassificada') {
+      return false;
+    }
+    
+    // Produtos não comissionáveis
+    const produtosNaoComissionaveis = [
+      'Taxa de Matrícula', 
+      'Estorno', 
+      'Ajuste Contábil',
+      'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
+    ];
+    
+    if (produtosNaoComissionaveis.includes(venda.produto)) {
+      return false;
+    }
+    
+    const produto = String(vendaCorrigida.produto || '').toLowerCase().trim();
+    
+    if (produto.includes('diária') || produto.includes('diaria')) {
+      return false;
+    }
+    
+    if (produto !== 'plano') {
+      return false;
+    }
+    
+    if (vendaCorrigida.duracaoMeses && typeof vendaCorrigida.duracaoMeses === 'number') {
+      return vendaCorrigida.duracaoMeses >= 1;
+    }
+    
+    if (vendaCorrigida.dataInicio && vendaCorrigida.dataFim) {
+      const inicio = new Date(vendaCorrigida.dataInicio);
+      const fim = new Date(vendaCorrigida.dataFim);
+      const diasReais = Math.ceil((fim - inicio) / (1000 * 60 * 60 * 24));
+      return diasReais >= 25;
+    }
+    
+    return false;
+  };
+
+  // Aplicar correção e filtrar vendas corretamente
+  const vendasCorrigidas = filteredVendas.map(corrigirClassificacaoDiarias);
+  const vendasPlanos = vendasCorrigidas.filter(ehPlanoAposCorrecao);
+  
+  // CORREÇÃO: Outros produtos = TODOS que não são planos E que são comissionáveis
+  const vendasOutrosProdutos = vendasCorrigidas.filter(v => {
+    const ehPlano = ehPlanoAposCorrecao(v);
+    
+    // Produtos não comissionáveis
+    const produtosNaoComissionaveis = [
+      'Taxa de Matrícula', 
+      'Estorno', 
+      'Ajuste Contábil',
+      'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
+    ];
+    
+    const ehNaoComissionavel = produtosNaoComissionaveis.includes(v.produto);
+    
+    return !ehPlano && !ehNaoComissionavel; // Apenas produtos comissionáveis
+  });
+
   // Soma por responsável para o gráfico
   const somaPorResponsavel = (() => {
     const arr = vendas.filter((v) => {
@@ -178,39 +273,31 @@ export const useFilters = (
     }, {});
   })();
 
-  // Totais e médias
-  const totalFiltrado = filteredVendas.reduce(
+  // Totais e médias (usando vendas corrigidas)
+  const totalFiltrado = vendasCorrigidas.reduce(
     (sum, v) => sum + (Number(v.valor) || 0),
     0
   );
   const mediaPorVenda =
-    filteredVendas.length > 0 ? totalFiltrado / filteredVendas.length : 0;
+    vendasCorrigidas.length > 0 ? totalFiltrado / vendasCorrigidas.length : 0;
+
+  // Estatísticas para planos (após correção)
+  const estatisticasPlanos = {
+    quantidade: vendasPlanos.length,
+    valorTotal: vendasPlanos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0),
+    valorMedio: vendasPlanos.length > 0 
+      ? vendasPlanos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0) / vendasPlanos.length 
+      : 0
+  };
   
-    const vendasPlanos = filteredVendas.filter(v => 
-      (v.produto || "").trim().toLowerCase() === "plano"
-    );
-    
-    const vendasOutrosProdutos = filteredVendas.filter(v => 
-      (v.produto || "").trim().toLowerCase() !== "plano"
-    );
-    
-    // Estatísticas para planos
-    const estatisticasPlanos = {
-      quantidade: vendasPlanos.length,
-      valorTotal: vendasPlanos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0),
-      valorMedio: vendasPlanos.length > 0 
-        ? vendasPlanos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0) / vendasPlanos.length 
-        : 0
-    };
-    
-    // Estatísticas para outros produtos
-    const estatisticasOutros = {
-      quantidade: vendasOutrosProdutos.length,
-      valorTotal: vendasOutrosProdutos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0),
-      valorMedio: vendasOutrosProdutos.length > 0 
-        ? vendasOutrosProdutos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0) / vendasOutrosProdutos.length 
-        : 0
-    };
+  // Estatísticas para outros produtos (após correção)
+  const estatisticasOutros = {
+    quantidade: vendasOutrosProdutos.length,
+    valorTotal: vendasOutrosProdutos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0),
+    valorMedio: vendasOutrosProdutos.length > 0 
+      ? vendasOutrosProdutos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0) / vendasOutrosProdutos.length 
+      : 0
+  };
 
   // Comparativo mês anterior
   const prevMonth = dayjs(filters.selectedMonth + '-01','YYYY-MM-DD')

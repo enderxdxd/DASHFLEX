@@ -11,6 +11,9 @@ import ComissaoStats from '../components/comissao/ComissaoStats';
 import { useVendas } from '../hooks/useVendas';
 import { useMetas } from '../hooks/useMetas';
 import { useDescontos } from '../hooks/useDescontos';
+import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
+import { useConfigRem } from '../hooks/useConfigRem';
+import { calcularRemuneracao } from '../utils/remuneracao';
 import useDarkMode from '../hooks/useDarkMode';
 import '../styles/ComissaoComponents.css';
 
@@ -77,10 +80,50 @@ const ehPlanoAposCorrecao = (venda) => {
 };
 
 // Função para calcular comissão 
-const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida) => {
+const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida, produtosSelecionados = []) => {
   const valor = Number(venda.valor || 0);
   
   if (valor <= 0) return 0;
+  
+  // Produtos não comissionáveis (hardcoded + configuração global)
+  const produtosNaoComissionaveisFixos = [
+    'Taxa de Matrícula', 
+    'Estorno', 
+    'Ajuste Contábil',
+    'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
+  ];
+  
+  // Se produto está na lista fixa de não comissionáveis, retorna 0
+  if (produtosNaoComissionaveisFixos.includes(venda.produto)) {
+    console.log('🚫 Produto na blacklist fixa:', {
+      produto: venda.produto,
+      matricula: venda.matricula
+    });
+    return 0;
+  }
+  
+  // Se há configuração global e produto não está selecionado, retorna 0
+  // EXCEÇÃO: Diárias sempre são comissionáveis (original ou após correção)
+  const isDiariaOriginal = venda.produto === 'Plano' && 
+    venda.plano && 
+    (venda.plano.toLowerCase().includes('diária') || venda.plano.toLowerCase().includes('diarias'));
+  
+  const isDiariaCorrigida = venda.produto && 
+    (venda.produto.toLowerCase().includes('diária') || venda.produto.toLowerCase().includes('diarias'));
+  
+  const isDiaria = isDiariaOriginal || isDiariaCorrigida;
+  
+  if (produtosSelecionados.length > 0 && !produtosSelecionados.includes(venda.produto) && !isDiaria) {
+    console.log('🚫 Produto filtrado pela configuração global:', {
+      produto: venda.produto,
+      plano: venda.plano,
+      isDiariaOriginal,
+      isDiariaCorrigida,
+      produtosSelecionados: produtosSelecionados.length,
+      matricula: venda.matricula
+    });
+    return 0;
+  }
   
   if (!ehPlano) {
     const taxa = bateuMetaIndividual ? 0.015 : 0.012;
@@ -93,12 +136,27 @@ const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, 
   
   let tabela;
   if (unidadeBatida) {
+    // Meta Time (unidade bateu meta)
     tabela = temDesconto ? [9, 20, 25, 34, 45, 71] : [15, 28, 43, 51, 65, 107];
   } else if (bateuMetaIndividual) {
+    // Com Meta (só consultor bateu meta)
     tabela = temDesconto ? [6, 16, 23, 30, 42, 67] : [12, 24, 37, 47, 60, 103];
   } else {
+    // Sem Meta (nem consultor nem unidade bateram meta)
     tabela = temDesconto ? [3, 11, 21, 25, 38, 61] : [9, 18, 28, 42, 53, 97];
   }
+  
+  console.log('📊 TABELA DE COMISSÃO SELECIONADA:', {
+    matricula: venda.matricula,
+    duracao,
+    indice,
+    bateuMetaIndividual,
+    unidadeBatida,
+    temDesconto,
+    tabelaUsada: unidadeBatida ? 'Meta Time' : (bateuMetaIndividual ? 'Com Meta' : 'Sem Meta'),
+    tabela,
+    valorComissao: tabela[indice] || 0
+  });
   
   return tabela[indice] || 0;
 };
@@ -128,6 +186,12 @@ export default function ComissaoDetalhes() {
     loading: loadingMetas 
   } = useMetas(unidadeSelecionada);
   
+  // Hook para produtos selecionados globalmente
+  const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();
+  
+  // Hook para configuração de remuneração (premiação)
+  const { configRem, loading: loadingConfigRem } = useConfigRem(unidadeSelecionada, selectedMonth);
+  
   // CORREÇÃO: Passar selectedMonth para useDescontos
   const { 
     todasVendasProcessadas: vendasComDesconto,
@@ -135,7 +199,7 @@ export default function ComissaoDetalhes() {
   } = useDescontos(unidadeSelecionada, vendas, metas, true, selectedMonth);
 
   // Loading combinado
-  const loading = loadingVendas || loadingMetas || loadingDescontos;
+  const loading = loadingVendas || loadingMetas || loadingDescontos || loadingConfigRem || !produtosLoaded;
 
   // CORREÇÃO: Usar selectedMonth diretamente do hook useVendas
   const mesAtual = selectedMonth;
@@ -164,7 +228,8 @@ export default function ComissaoDetalhes() {
     
     // Encontrar meta do consultor
     const metaConsultor = metas.find(m => 
-      m.responsavel === consultor && m.periodo === mesAtual
+      (m.responsavel === consultor || m.nome === consultor || m.nomeConsultor === consultor) && 
+      m.periodo === mesAtual
     );
     
     if (!metaConsultor) {
@@ -175,18 +240,79 @@ export default function ComissaoDetalhes() {
     // Calcular totais
     const totalVendasConsultor = vendasDoConsultor.reduce((sum, v) => sum + Number(v.valor || 0), 0);
     
-    const vendasUnidadeNoMes = vendas.filter(v => 
-      v.dataFormatada && v.dataFormatada.startsWith(mesAtual)
-    );
-    const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);
+    // CORREÇÃO: Filtrar vendas da unidade apenas por consultores com meta + produtos comissionáveis
+    const metasUnidade = metas.filter(m => m.periodo === mesAtual);
+    const consultoresComMeta = metasUnidade.map(m => m.responsavel || m.nome || m.nomeConsultor || m.consultor).filter(Boolean);
     
-    const metaUnidadeCalculada = metas
-      .filter(m => m.periodo === mesAtual)
-      .reduce((sum, m) => sum + Number(m.meta || 0), 0);
+    const vendasUnidadeNoMes = vendas.filter(v => {
+      if (!v.dataFormatada || !v.dataFormatada.startsWith(mesAtual)) return false;
+      
+      // FILTRO CRÍTICO: Apenas consultores que têm meta cadastrada
+      if (!consultoresComMeta.includes(v.responsavel || v.consultor)) return false;
+      
+      // Aplicar mesma lógica de filtro de produtos
+      const produtosNaoComissionaveisFixos = [
+        'Taxa de Matrícula', 
+        'Estorno', 
+        'Ajuste Contábil',
+        'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
+      ];
+      
+      if (produtosNaoComissionaveisFixos.includes(v.produto)) return false;
+      
+      // Exceção para diárias
+      const isDiariaOriginal = v.produto === 'Plano' && 
+        v.plano && 
+        (v.plano.toLowerCase().includes('diária') || v.plano.toLowerCase().includes('diarias'));
+      
+      const isDiariaCorrigida = v.produto && 
+        (v.produto.toLowerCase().includes('diária') || v.produto.toLowerCase().includes('diarias'));
+      
+      const isDiaria = isDiariaOriginal || isDiariaCorrigida;
+      
+      if (produtosSelecionados.length > 0 && !produtosSelecionados.includes(v.produto) && !isDiaria) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);
+    const metaUnidadeCalculada = metasUnidade.reduce((sum, m) => sum + Number(m.meta || 0), 0);
+    
+    console.log('📋 DEBUG METAS UNIDADE:', {
+      mesAtual,
+      metasEncontradas: metasUnidade.length,
+      metasDetalhes: metasUnidade.map(m => ({
+        responsavel: m.responsavel,
+        consultor: m.consultor,
+        nome: m.nome,
+        nomeConsultor: m.nomeConsultor,
+        meta: m.meta,
+        periodo: m.periodo
+      })),
+      metaUnidadeTotal: metaUnidadeCalculada,
+      consultoresComMeta
+    });
     
     const metaIndividual = Number(metaConsultor?.meta || 0);
     const bateuMetaIndividual = totalVendasConsultor >= metaIndividual;
     const unidadeBatida = totalVendasUnidade >= metaUnidadeCalculada;
+    
+    console.log('🎯 VERIFICAÇÃO DE METAS:', {
+      consultor,
+      totalVendasConsultor,
+      metaIndividual,
+      bateuMetaIndividual,
+      totalVendasUnidade,
+      metaUnidadeCalculada,
+      unidadeBatida,
+      percentualUnidade: ((totalVendasUnidade / metaUnidadeCalculada) * 100).toFixed(1) + '%',
+      consultoresComMeta: consultoresComMeta.length,
+      consultoresList: consultoresComMeta,
+      vendasUnidadeFiltradas: vendasUnidadeNoMes.length,
+      vendasUnidadeTotal: vendas.filter(v => v.dataFormatada && v.dataFormatada.startsWith(mesAtual)).length
+    });
     
     // Processar cada venda
     const resultados = vendasDoConsultor.map(venda => {
@@ -209,12 +335,33 @@ export default function ComissaoDetalhes() {
       const temDescontoMatricula = desconto.descontoMatricula > 0;
       const temDesconto = ehPlano ? temDescontoPlano : temDescontoMatricula;
       
-      const comissao = calcularComissaoReal(vendaCorrigida, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida);
+      const comissao = calcularComissaoReal(vendaCorrigida, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
+      
+      console.log('💰 CÁLCULO DE COMISSÃO:', {
+        matricula: venda.matricula,
+        produto: venda.produto,
+        plano: venda.plano,
+        vendaCorrigida: vendaCorrigida.produto,
+        ehPlano,
+        temDesconto,
+        bateuMetaIndividual,
+        unidadeBatida,
+        comissao,
+        valor: venda.valor
+      });
       
       // Determinar classificação esperada
       let classificacaoEsperada = 'PRODUTO';
       
-      if (venda.produto === 'Plano' && 
+      // Verificar se é diária após correção
+      const isDiariaCorrigida = vendaCorrigida.correcaoAplicada === 'diaria_reclassificada' ||
+        (vendaCorrigida.produto && 
+         (vendaCorrigida.produto.toLowerCase().includes('diária') || 
+          vendaCorrigida.produto.toLowerCase().includes('diarias')));
+      
+      if (isDiariaCorrigida) {
+        classificacaoEsperada = 'PRODUTO';
+      } else if (venda.produto === 'Plano' && 
           venda.plano &&
           !venda.plano.toLowerCase().includes('diária') && 
           !venda.plano.toLowerCase().includes('diarias')) {
@@ -225,7 +372,7 @@ export default function ComissaoDetalhes() {
         }
       }
       
-      if (['Taxa de Matrícula', 'Estorno', 'Ajuste Contábil'].includes(venda.produto)) {
+      if (['Taxa de Matrícula', 'Estorno', 'Ajuste Contábil', 'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'].includes(venda.produto)) {
         classificacaoEsperada = 'NÃO COMISSIONÁVEL';
       }
       
@@ -250,6 +397,25 @@ export default function ComissaoDetalhes() {
     const produtos = resultados.filter(r => !r.ehPlano && r.comissao > 0);
     const naoComissionaveis = resultados.filter(r => r.comissao <= 0);
     
+    // Calcular valores totais por categoria
+    const valorTotalPlanos = planos.reduce((sum, p) => {
+      console.log('Plano valor:', p.valor, 'Venda original:', p);
+      return sum + Number(p.valor || 0);
+    }, 0);
+    const valorTotalProdutos = produtos.reduce((sum, p) => {
+      console.log('Produto valor:', p.valor, 'Venda original:', p);
+      return sum + Number(p.valor || 0);
+    }, 0);
+    const valorTotalNaoComissionaveis = naoComissionaveis.reduce((sum, p) => sum + Number(p.valor || 0), 0);
+    
+    console.log('Valores calculados:', {
+      valorTotalPlanos,
+      valorTotalProdutos,
+      valorTotalNaoComissionaveis,
+      planosCount: planos.length,
+      produtosCount: produtos.length
+    });
+    
     // Calcular estatísticas
     const estatisticas = {
       totalVendas: resultados.length,
@@ -257,6 +423,9 @@ export default function ComissaoDetalhes() {
       produtos: produtos.length,
       naoComissionaveis: naoComissionaveis.length,
       valorTotal: totalVendasConsultor,
+      valorTotalPlanos,
+      valorTotalProdutos,
+      valorTotalNaoComissionaveis,
       comissaoPlanos: planos.reduce((sum, p) => sum + p.comissao, 0),
       comissaoProdutos: produtos.reduce((sum, p) => sum + p.comissao, 0),
       totalComissao: resultados.reduce((sum, r) => sum + r.comissao, 0),
@@ -289,10 +458,42 @@ export default function ComissaoDetalhes() {
     
     const metasDoMes = metas.filter(m => m.periodo === mesAtual);
     
-    // Calcular totais da unidade uma vez
-    const vendasUnidadeNoMes = vendas.filter(v => 
-      v.dataFormatada && v.dataFormatada.startsWith(mesAtual)
-    );
+    // Calcular totais da unidade uma vez - APLICANDO MESMOS FILTROS
+    const consultoresComMetaCard = metasDoMes.map(m => m.responsavel || m.nome || m.nomeConsultor || m.consultor).filter(Boolean);
+    
+    const vendasUnidadeNoMes = vendas.filter(v => {
+      if (!v.dataFormatada || !v.dataFormatada.startsWith(mesAtual)) return false;
+      
+      // FILTRO: Apenas consultores que têm meta cadastrada
+      if (!consultoresComMetaCard.includes(v.responsavel || v.consultor)) return false;
+      
+      // Aplicar filtro de produtos
+      const produtosNaoComissionaveisFixos = [
+        'Taxa de Matrícula', 
+        'Estorno', 
+        'Ajuste Contábil',
+        'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
+      ];
+      
+      if (produtosNaoComissionaveisFixos.includes(v.produto)) return false;
+      
+      // Exceção para diárias
+      const isDiariaOriginal = v.produto === 'Plano' && 
+        v.plano && 
+        (v.plano.toLowerCase().includes('diária') || v.plano.toLowerCase().includes('diarias'));
+      
+      const isDiariaCorrigida = v.produto && 
+        (v.produto.toLowerCase().includes('diária') || v.produto.toLowerCase().includes('diarias'));
+      
+      const isDiaria = isDiariaOriginal || isDiariaCorrigida;
+      
+      if (produtosSelecionados.length > 0 && !produtosSelecionados.includes(v.produto) && !isDiaria) {
+        return false;
+      }
+      
+      return true;
+    });
+    
     const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);
     const metaUnidadeCalculada = metasDoMes.reduce((sum, m) => sum + Number(m.meta || 0), 0);
     const unidadeBatida = totalVendasUnidade >= metaUnidadeCalculada;
@@ -359,7 +560,7 @@ export default function ComissaoDetalhes() {
             
             // Calcular comissão para plano
             const temDescontoPlano = vendaComDesconto && Number(vendaComDesconto.descontoPlano || 0) > 0;
-            const comissao = calcularComissaoReal(vendaCorrigida, true, temDescontoPlano, bateuMetaIndividual, unidadeBatida);
+            const comissao = calcularComissaoReal(vendaCorrigida, true, temDescontoPlano, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
             totalComissaoReal += comissao;
           } else {
             // Produto
@@ -370,7 +571,7 @@ export default function ComissaoDetalhes() {
             });
             
             const temDescontoMatricula = vendaComDesconto && Number(vendaComDesconto.descontoMatricula || 0) > 0;
-            const comissao = calcularComissaoReal(vendaCorrigida, false, temDescontoMatricula, bateuMetaIndividual, unidadeBatida);
+            const comissao = calcularComissaoReal(vendaCorrigida, false, temDescontoMatricula, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
             
             if (comissao > 0) {
               produtosCount++;
@@ -387,12 +588,35 @@ export default function ComissaoDetalhes() {
       const totalSemDesconto = Object.values(planosDetalhados).reduce((sum, cat) => sum + cat.semDesconto, 0);
       const percentualDesconto = planosCount > 0 ? ((totalComDesconto / planosCount) * 100).toFixed(1) : 0;
       
+      // ===== CÁLCULO DE REMUNERAÇÃO BASEADO NO TIPO =====
+      const remuneracaoType = meta.remuneracaoType || 'comissao';
+      let valorRemuneracao = totalComissaoReal;
+      
+      if (remuneracaoType === 'premiacao') {
+        // Usar cálculo de premiação em vez de comissão
+        valorRemuneracao = calcularRemuneracao(
+          metaIndividual, 
+          vendasConsultor, 
+          'premiacao', 
+          unidadeBatida, 
+          configRem
+        );
+        
+        console.log(`🏆 [PREMIAÇÃO] ${consultor}:`, {
+          metaIndividual,
+          totalVendas,
+          percentualMeta: percentualMeta.toFixed(1) + '%',
+          valorPremiacao: valorRemuneracao.toFixed(2),
+          configPremiacao: configRem?.premiacao || []
+        });
+      }
+      
       return {
         consultor,
-        remuneracaoType: meta.remuneracaoType || 'comissao',
+        remuneracaoType,
         dados: {
           totalVendas,
-          totalComissao: totalComissaoReal,
+          totalComissao: valorRemuneracao,
           metaIndividual,
           bateuMetaIndividual,
           percentualMeta,
@@ -406,7 +630,7 @@ export default function ComissaoDetalhes() {
         }
       };
     });
-  }, [vendas, metas, mesAtual, vendasComDesconto]);
+  }, [vendas, metas, mesAtual, vendasComDesconto, produtosSelecionados, configRem]);
 
   // Filtrar resultados da análise
   const resultadosFiltrados = useMemo(() => {

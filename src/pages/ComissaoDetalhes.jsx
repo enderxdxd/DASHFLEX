@@ -1,5 +1,5 @@
 // src/pages/ComissaoDetalhes.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Calculator, Users, AlertCircle, RefreshCw, Sun, Moon } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -213,8 +213,8 @@ export default function ComissaoDetalhes() {
     return [...new Set(consultoresComMeta)].sort();
   }, [metas, mesAtual]);
 
-  // Executar análise do consultor
-  const analisarConsultor = (consultor) => {
+  // ===== OTIMIZAÇÃO: Memoizar função de análise =====
+  const analisarConsultor = useCallback((consultor) => {
     if (!consultor || !mesAtual) {
       console.warn('Consultor ou mês não informados para análise');
       return;
@@ -450,34 +450,38 @@ export default function ComissaoDetalhes() {
       planos: planos.length,
       produtos: produtos.length
     });
-  };
+  }, [vendas, metas, mesAtual, vendasComDesconto, produtosSelecionados]);
 
-  // Dados dos consultores para os cards
-  const dadosConsultores = useMemo(() => {
-    if (!metas?.length || !vendas?.length || !mesAtual) return [];
+  // ===== OTIMIZAÇÃO: Memoizar filtros custosos =====
+  const filtrosOtimizados = useMemo(() => {
+    const produtosNaoComissionaveisFixos = new Set([
+      'Taxa de Matrícula', 
+      'Estorno', 
+      'Ajuste Contábil',
+      'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
+    ]);
     
-    const metasDoMes = metas.filter(m => m.periodo === mesAtual);
+    const produtosSelecionadosSet = new Set(produtosSelecionados);
     
-    // Calcular totais da unidade uma vez - APLICANDO MESMOS FILTROS
-    const consultoresComMetaCard = metasDoMes.map(m => m.responsavel || m.nome || m.nomeConsultor || m.consultor).filter(Boolean);
+    return {
+      produtosNaoComissionaveisFixos,
+      produtosSelecionadosSet,
+      temProdutosSelecionados: produtosSelecionados.length > 0
+    };
+  }, [produtosSelecionados]);
+  
+  // ===== OTIMIZAÇÃO: Pré-filtrar vendas uma única vez =====
+  const vendasFiltradas = useMemo(() => {
+    if (!vendas?.length || !mesAtual) return [];
     
-    const vendasUnidadeNoMes = vendas.filter(v => {
+    return vendas.filter(v => {
+      // Filtro básico de data
       if (!v.dataFormatada || !v.dataFormatada.startsWith(mesAtual)) return false;
       
-      // FILTRO: Apenas consultores que têm meta cadastrada
-      if (!consultoresComMetaCard.includes(v.responsavel || v.consultor)) return false;
+      // Filtro de produtos não comissionáveis
+      if (filtrosOtimizados.produtosNaoComissionaveisFixos.has(v.produto)) return false;
       
-      // Aplicar filtro de produtos
-      const produtosNaoComissionaveisFixos = [
-        'Taxa de Matrícula', 
-        'Estorno', 
-        'Ajuste Contábil',
-        'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
-      ];
-      
-      if (produtosNaoComissionaveisFixos.includes(v.produto)) return false;
-      
-      // Exceção para diárias
+      // Verificar se é diária (exceção)
       const isDiariaOriginal = v.produto === 'Plano' && 
         v.plano && 
         (v.plano.toLowerCase().includes('diária') || v.plano.toLowerCase().includes('diarias'));
@@ -487,12 +491,60 @@ export default function ComissaoDetalhes() {
       
       const isDiaria = isDiariaOriginal || isDiariaCorrigida;
       
-      if (produtosSelecionados.length > 0 && !produtosSelecionados.includes(v.produto) && !isDiaria) {
+      // Filtro de produtos selecionados
+      if (filtrosOtimizados.temProdutosSelecionados && 
+          !filtrosOtimizados.produtosSelecionadosSet.has(v.produto) && 
+          !isDiaria) {
         return false;
       }
       
       return true;
     });
+  }, [vendas, mesAtual, filtrosOtimizados]);
+  
+  // ===== OTIMIZAÇÃO: Agrupar vendas por consultor uma única vez =====
+  const vendasPorConsultor = useMemo(() => {
+    const grupos = new Map();
+    
+    vendasFiltradas.forEach(venda => {
+      const consultor = venda.responsavel;
+      if (!consultor) return;
+      
+      if (!grupos.has(consultor)) {
+        grupos.set(consultor, []);
+      }
+      grupos.get(consultor).push(venda);
+    });
+    
+    return grupos;
+  }, [vendasFiltradas]);
+
+  // ===== OTIMIZAÇÃO: Pré-processar descontos por matrícula =====
+  const descontosPorMatricula = useMemo(() => {
+    if (!vendasComDesconto?.length) return new Map();
+    
+    const mapa = new Map();
+    vendasComDesconto.forEach(desconto => {
+      const matriculaNorm = String(desconto.matricula || '').replace(/\D/g, '').padStart(6, '0');
+      mapa.set(matriculaNorm, desconto);
+    });
+    return mapa;
+  }, [vendasComDesconto]);
+
+  // Dados dos consultores para os cards
+  const dadosConsultores = useMemo(() => {
+    if (!metas?.length || !vendasFiltradas?.length || !mesAtual) return [];
+    
+    const metasDoMes = metas.filter(m => m.periodo === mesAtual);
+    
+    // Calcular totais da unidade otimizado
+    const consultoresComMetaCard = new Set(
+      metasDoMes.map(m => m.responsavel || m.nome || m.nomeConsultor || m.consultor).filter(Boolean)
+    );
+    
+    const vendasUnidadeNoMes = vendasFiltradas.filter(v => 
+      consultoresComMetaCard.has(v.responsavel || v.consultor)
+    );
     
     const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);
     const metaUnidadeCalculada = metasDoMes.reduce((sum, m) => sum + Number(m.meta || 0), 0);
@@ -500,90 +552,77 @@ export default function ComissaoDetalhes() {
     
     return metasDoMes.map(meta => {
       const consultor = meta.responsavel;
-      const vendasConsultor = vendas.filter(v => 
-        v.responsavel === consultor && 
-        v.dataFormatada && v.dataFormatada.startsWith(mesAtual)
-      );
+      const vendasConsultor = vendasPorConsultor.get(consultor) || [];
       
       const totalVendas = vendasConsultor.reduce((sum, v) => sum + Number(v.valor || 0), 0);
       const metaIndividual = Number(meta.meta || 0);
       const percentualMeta = metaIndividual > 0 ? (totalVendas / metaIndividual * 100) : 0;
       const bateuMetaIndividual = totalVendas >= metaIndividual;
       
-      // Classificar vendas e calcular comissão real
+      // ===== OTIMIZAÇÃO: Calcular comissão e categorizar em uma única passada =====
       let totalComissaoReal = 0;
       let planosCount = 0;
       let produtosCount = 0;
       
-      const categorizarPlanos = () => {
-        const categorias = {
-          'Octomestral': { comDesconto: 0, semDesconto: 0 },
-          'Mensal': { comDesconto: 0, semDesconto: 0 },
-          'Trimestral': { comDesconto: 0, semDesconto: 0 },
-          'Semestral': { comDesconto: 0, semDesconto: 0 },
-          'Anual': { comDesconto: 0, semDesconto: 0 },
-          'Bianual': { comDesconto: 0, semDesconto: 0 }
-        };
-        
-        vendasConsultor.forEach(venda => {
-          const vendaCorrigida = corrigirClassificacaoDiarias(venda);
-          const ehPlano = ehPlanoAposCorrecao(vendaCorrigida);
-          
-          if (ehPlano) {
-            planosCount++;
-            
-            const duracao = Number(venda.duracaoMeses || 0);
-            let categoria = 'Mensal';
-            
-            if (duracao >= 24) categoria = 'Bianual';
-            else if (duracao >= 12) categoria = 'Anual';
-            else if (duracao >= 8) categoria = 'Octomestral';
-            else if (duracao >= 6) categoria = 'Semestral';
-            else if (duracao >= 3) categoria = 'Trimestral';
-            
-            // Verificar desconto
-            const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
-            const vendaComDesconto = vendasComDesconto?.find(v => {
-              const vMatriculaNorm = String(v.matricula || '').replace(/\D/g, '').padStart(6, '0');
-              return vMatriculaNorm === matriculaNorm;
-            });
-            
-            const temDesconto = vendaComDesconto && 
-              (Number(vendaComDesconto.descontoPlano || 0) > 0 || 
-               Number(vendaComDesconto.descontoMatricula || 0) > 0);
-            
-            if (temDesconto) {
-              categorias[categoria].comDesconto++;
-            } else {
-              categorias[categoria].semDesconto++;
-            }
-            
-            // Calcular comissão para plano
-            const temDescontoPlano = vendaComDesconto && Number(vendaComDesconto.descontoPlano || 0) > 0;
-            const comissao = calcularComissaoReal(vendaCorrigida, true, temDescontoPlano, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
-            totalComissaoReal += comissao;
-          } else {
-            // Produto
-            const vendaComDesconto = vendasComDesconto?.find(v => {
-              const vMatriculaNorm = String(v.matricula || '').replace(/\D/g, '').padStart(6, '0');
-              const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
-              return vMatriculaNorm === matriculaNorm;
-            });
-            
-            const temDescontoMatricula = vendaComDesconto && Number(vendaComDesconto.descontoMatricula || 0) > 0;
-            const comissao = calcularComissaoReal(vendaCorrigida, false, temDescontoMatricula, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
-            
-            if (comissao > 0) {
-              produtosCount++;
-              totalComissaoReal += comissao;
-            }
-          }
-        });
-        
-        return categorias;
+      const categorias = {
+        'Octomestral': { comDesconto: 0, semDesconto: 0 },
+        'Mensal': { comDesconto: 0, semDesconto: 0 },
+        'Trimestral': { comDesconto: 0, semDesconto: 0 },
+        'Semestral': { comDesconto: 0, semDesconto: 0 },
+        'Anual': { comDesconto: 0, semDesconto: 0 },
+        'Bianual': { comDesconto: 0, semDesconto: 0 }
       };
       
-      const planosDetalhados = categorizarPlanos();
+      // Processar todas as vendas em uma única passada
+      vendasConsultor.forEach(venda => {
+        const vendaCorrigida = corrigirClassificacaoDiarias(venda);
+        const ehPlano = ehPlanoAposCorrecao(vendaCorrigida);
+        
+        // Buscar desconto otimizado
+        const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
+        const vendaComDesconto = descontosPorMatricula.get(matriculaNorm);
+        
+        if (ehPlano) {
+          planosCount++;
+          
+          // Categorizar plano
+          const duracao = Number(venda.duracaoMeses || 0);
+          let categoria = 'Mensal';
+          
+          if (duracao >= 24) categoria = 'Bianual';
+          else if (duracao >= 12) categoria = 'Anual';
+          else if (duracao >= 8) categoria = 'Octomestral';
+          else if (duracao >= 6) categoria = 'Semestral';
+          else if (duracao >= 3) categoria = 'Trimestral';
+          
+          // Verificar desconto
+          const temDesconto = vendaComDesconto && 
+            (Number(vendaComDesconto.descontoPlano || 0) > 0 || 
+             Number(vendaComDesconto.descontoMatricula || 0) > 0);
+          
+          if (temDesconto) {
+            categorias[categoria].comDesconto++;
+          } else {
+            categorias[categoria].semDesconto++;
+          }
+          
+          // Calcular comissão para plano
+          const temDescontoPlano = vendaComDesconto && Number(vendaComDesconto.descontoPlano || 0) > 0;
+          const comissao = calcularComissaoReal(vendaCorrigida, true, temDescontoPlano, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
+          totalComissaoReal += comissao;
+        } else {
+          // Produto
+          const temDescontoMatricula = vendaComDesconto && Number(vendaComDesconto.descontoMatricula || 0) > 0;
+          const comissao = calcularComissaoReal(vendaCorrigida, false, temDescontoMatricula, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
+          
+          if (comissao > 0) {
+            produtosCount++;
+            totalComissaoReal += comissao;
+          }
+        }
+      });
+      
+      const planosDetalhados = categorias;
       const totalComDesconto = Object.values(planosDetalhados).reduce((sum, cat) => sum + cat.comDesconto, 0);
       const totalSemDesconto = Object.values(planosDetalhados).reduce((sum, cat) => sum + cat.semDesconto, 0);
       const percentualDesconto = planosCount > 0 ? ((totalComDesconto / planosCount) * 100).toFixed(1) : 0;
@@ -630,9 +669,9 @@ export default function ComissaoDetalhes() {
         }
       };
     });
-  }, [vendas, metas, mesAtual, vendasComDesconto, produtosSelecionados, configRem]);
+  }, [vendasFiltradas, metas, mesAtual, vendasComDesconto, produtosSelecionados, configRem, vendasPorConsultor, descontosPorMatricula]);
 
-  // Filtrar resultados da análise
+  // ===== OTIMIZAÇÃO: Filtros com memoização =====
   const resultadosFiltrados = useMemo(() => {
     if (!resultadosAnalise?.resultados) return [];
     
@@ -663,12 +702,30 @@ export default function ComissaoDetalhes() {
     
     return resultados;
   }, [resultadosAnalise, filtroTipo, searchTerm]);
-
-  // Handlers
-  const handleConsultorClick = (consultor) => {
+  
+  // ===== OTIMIZAÇÃO: Callbacks para evitar re-renders =====
+  const handleConsultorClick = useCallback((consultor) => {
     setConsultorSelecionado(consultor);
     analisarConsultor(consultor);
-  };
+  }, [analisarConsultor]);
+  
+  const handleFiltroChange = useCallback((novoFiltro) => {
+    setFiltroTipo(novoFiltro);
+  }, []);
+  
+  const handleSearchChange = useCallback((termo) => {
+    setSearchTerm(termo);
+  }, []);
+  
+  const handleToggleDetails = useCallback(() => {
+    setShowDetails(prev => !prev);
+  }, []);
+  
+  const handleToggleStats = useCallback(() => {
+    setMostrarEstatisticas(prev => !prev);
+  }, []);
+
+  // Handlers otimizados já definidos acima
 
   const handleRefresh = () => {
     if (consultorSelecionado) {

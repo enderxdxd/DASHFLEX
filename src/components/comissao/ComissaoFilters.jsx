@@ -8,7 +8,9 @@ import {
   RefreshCw,
   Download,
   Eye,
-  EyeOff
+  EyeOff,
+  FileText,
+  File
 } from 'lucide-react';
 import useDarkMode from '../../hooks/useDarkMode';
 
@@ -24,9 +26,13 @@ const ComissaoFilters = ({
   mostrarEstatisticas,
   setMostrarEstatisticas,
   onExportar,
+  onExportarPDF,
+  onExportarPDFResumo,
   onRefresh,
   loading = false,
-  hasResults = false
+  hasResults = false,
+  gerandoPDF = false,
+  progressoPDF = { porcentagem: 0, mensagem: '' }
 }) => {
   const [theme] = useDarkMode();
   const unidades = ['alphaville', 'buenavista', 'marista'];
@@ -58,14 +64,44 @@ const ComissaoFilters = ({
           </button>
           
           {hasResults && (
-            <button
-              className="filter-action-btn success"
-              onClick={onExportar}
-              title="Exportar dados"
-            >
-              <Download size={16} />
-              Exportar
-            </button>
+            <>
+              <button
+                className="filter-action-btn success"
+                onClick={onExportar}
+                title="Exportar para Excel"
+              >
+                <Download size={16} />
+                Excel
+              </button>
+              
+              <button
+                className={`filter-action-btn pdf ${gerandoPDF ? 'loading' : ''}`}
+                onClick={onExportarPDF}
+                disabled={gerandoPDF}
+                title={gerandoPDF ? 'Gerando PDF...' : 'Exportar PDF completo'}
+              >
+                {gerandoPDF ? (
+                  <RefreshCw size={16} className="spin" />
+                ) : (
+                  <FileText size={16} />
+                )}
+                {gerandoPDF ? 'Gerando...' : 'PDF Completo'}
+              </button>
+              
+              <button
+                className={`filter-action-btn pdf-light ${gerandoPDF ? 'loading' : ''}`}
+                onClick={onExportarPDFResumo}
+                disabled={gerandoPDF}
+                title={gerandoPDF ? 'Gerando PDF...' : 'Exportar PDF resumido'}
+              >
+                {gerandoPDF ? (
+                  <RefreshCw size={16} className="spin" />
+                ) : (
+                  <File size={16} />
+                )}
+                {gerandoPDF ? 'Gerando...' : 'PDF Resumo'}
+              </button>
+            </>
           )}
           
           <button
@@ -165,6 +201,21 @@ const ComissaoFilters = ({
           </div>
         </div>
       </div>
+
+      {/* Progress Bar para PDF */}
+      {gerandoPDF && (
+        <div className="pdf-progress">
+          <div className="pdf-progress-bar">
+            <div 
+              className="pdf-progress-fill" 
+              style={{ width: `${progressoPDF.porcentagem}%` }}
+            ></div>
+          </div>
+          <div className="pdf-progress-text">
+            {progressoPDF.mensagem} ({progressoPDF.porcentagem}%)
+          </div>
+        </div>
+      )}
 
       {/* Filtros Rápidos */}
       <div className="quick-filters">

@@ -1,7 +1,7 @@
 // src/pages/ComissaoDetalhes.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Calculator, Users, AlertCircle, RefreshCw, Sun, Moon } from 'lucide-react';
+import { Calculator, Users, AlertCircle, RefreshCw, Sun, Moon, FileText, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import NavBar from '../components/NavBar';
 import ConsultorCard from '../components/comissao/ConsultorCard';
@@ -14,6 +14,7 @@ import { useDescontos } from '../hooks/useDescontos';
 import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
 import { useConfigRem } from '../hooks/useConfigRem';
 import { calcularRemuneracao } from '../utils/remuneracao';
+import { gerarPDFComissoes, gerarPDFResumo } from '../utils/pdfGenerator';
 import useDarkMode from '../hooks/useDarkMode';
 import '../styles/ComissaoComponents.css';
 
@@ -171,6 +172,10 @@ export default function ComissaoDetalhes() {
   const [searchTerm, setSearchTerm] = useState('');
   const [resultadosAnalise, setResultadosAnalise] = useState(null);
   const [mostrarEstatisticas, setMostrarEstatisticas] = useState(true);
+  
+  // Estados para PDF
+  const [gerandoPDF, setGerandoPDF] = useState(false);
+  const [progressoPDF, setProgressoPDF] = useState({ porcentagem: 0, mensagem: '' });
 
   // Hooks do sistema
   const [theme, toggleTheme] = useDarkMode();
@@ -796,6 +801,99 @@ export default function ComissaoDetalhes() {
     }
   };
 
+  // Handler para exportar PDF completo
+  const handleExportarPDF = async () => {
+    if (!resultadosAnalise) {
+      alert('Selecione um consultor para gerar o PDF.');
+      return;
+    }
+
+    if (gerandoPDF) {
+      alert('PDF já está sendo gerado. Aguarde a conclusão.');
+      return;
+    }
+
+    try {
+      setGerandoPDF(true);
+      setProgressoPDF({ porcentagem: 0, mensagem: 'Iniciando...' });
+      
+      console.log('🔄 Iniciando geração de PDF completo...');
+      
+      const dadosParaPDF = {
+        resultados: resultadosFiltrados.length > 0 ? resultadosFiltrados : resultadosAnalise.resultados,
+        estatisticas: resultadosAnalise.estatisticas
+      };
+
+      // Callback de progresso
+      const onProgress = (porcentagem, mensagem) => {
+        setProgressoPDF({ porcentagem, mensagem });
+      };
+
+      const resultado = await gerarPDFComissoes(
+        dadosParaPDF,
+        consultorSelecionado,
+        unidadeSelecionada,
+        mesAtual,
+        onProgress
+      );
+
+      if (resultado.success) {
+        console.log('✅ PDF gerado com sucesso:', resultado.filename);
+        alert(`PDF gerado com sucesso!\n\nRelatório executivo criado com ${resultado.totalVendas} vendas analisadas.\n\nArquivo: ${resultado.filename}`);
+      } else {
+        console.error('❌ Erro na geração do PDF:', resultado.error);
+        alert(`Erro ao gerar PDF: ${resultado.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Erro inesperado ao gerar PDF:', error);
+      alert('Erro inesperado ao gerar PDF. Verifique o console para mais detalhes.');
+    } finally {
+      setGerandoPDF(false);
+      setProgressoPDF({ porcentagem: 0, mensagem: '' });
+    }
+  };
+
+  // Handler para exportar PDF resumido (apenas estatísticas)
+  const handleExportarPDFResumo = async () => {
+    if (!resultadosAnalise) {
+      alert('Selecione um consultor para gerar o PDF resumido.');
+      return;
+    }
+
+    if (gerandoPDF) {
+      alert('PDF já está sendo gerado. Aguarde a conclusão.');
+      return;
+    }
+
+    try {
+      setGerandoPDF(true);
+      setProgressoPDF({ porcentagem: 0, mensagem: 'Gerando resumo...' });
+      
+      console.log('🔄 Iniciando geração de PDF resumido...');
+      
+      const resultado = await gerarPDFResumo(
+        resultadosAnalise.estatisticas,
+        consultorSelecionado,
+        unidadeSelecionada,
+        mesAtual
+      );
+
+      if (resultado.success) {
+        console.log('✅ PDF resumido gerado com sucesso:', resultado.filename);
+        alert(`PDF resumido gerado com sucesso: ${resultado.filename}`);
+      } else {
+        console.error('❌ Erro na geração do PDF resumido:', resultado.error);
+        alert(`Erro ao gerar PDF resumido: ${resultado.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Erro inesperado ao gerar PDF resumido:', error);
+      alert('Erro inesperado ao gerar PDF resumido. Verifique o console para mais detalhes.');
+    } finally {
+      setGerandoPDF(false);
+      setProgressoPDF({ porcentagem: 0, mensagem: '' });
+    }
+  };
+
   return (
     <div className="comissao-detalhes-layout">
       {/* Theme Toggle Button */}
@@ -843,9 +941,13 @@ export default function ComissaoDetalhes() {
           mostrarEstatisticas={mostrarEstatisticas}
           setMostrarEstatisticas={setMostrarEstatisticas}
           onExportar={handleExportar}
+          onExportarPDF={handleExportarPDF}
+          onExportarPDFResumo={handleExportarPDFResumo}
           onRefresh={handleRefresh}
           loading={loading}
           hasResults={!!resultadosAnalise}
+          gerandoPDF={gerandoPDF}
+          progressoPDF={progressoPDF}
         />
 
         {/* Loading State */}

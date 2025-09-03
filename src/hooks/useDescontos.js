@@ -274,98 +274,79 @@ export const useDescontos = (
 
   // ===== APLICAR **EXATAMENTE** A MESMA LÓGICA DO COMISSAODETALHES =====
   // ✅ Esta é a parte crítica que deve replicar a função analisarConsultor
-  const vendasParaDescontos = useMemo(() => {
+  const vendasDaUnidade = useMemo(() => {
     if (!vendas?.length) {
-      console.log(`❌ [${unidade}] Vendas não carregadas ainda para descontos!`);
+      console.log(`❌ [${unidade}] Vendas não carregadas ainda!`);
       return [];
     }
-    
-    console.log(`🔥 [DESCONTOS-${unidade}] APLICANDO LÓGICA EXATA DO ANALISARCONSULTOR:`, {
-      vendasOriginais: vendas.length,
-      selectedMonth,
-      unidade,
-      produtosSelecionados: produtosSelecionados.length
-    });
-    
-    // ✅ CORREÇÃO: Filtrar apenas vendas da unidade no mês (igual analisarConsultor)
-    const vendasDoConsultorNoMes = vendas.filter(v => 
-      v.dataFormatada && v.dataFormatada.startsWith(selectedMonth)
-    );
-    
-    // ✅ PASSO 1: Encontrar metas da unidade no mês
-    const metasDoMes = metasFonte.filter(m => m.periodo === selectedMonth);
-    const consultoresComMeta = metasDoMes.map(m => m.responsavel || m.nome || m.nomeConsultor || m.consultor).filter(Boolean);
-    
-    // ✅ PASSO 2: Filtrar vendas usando EXATA lógica do ComissaoDetalhes
-    const vendasUnidadeNoMes = vendas.filter(v => {
-      if (!v.dataFormatada || !v.dataFormatada.startsWith(selectedMonth)) return false;
+
+    // Helper para identificar se é plano
+    const isPlano = (produto) => {
+      if (!produto) return false;
+      const produtoNorm = String(produto)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+        .replace(/[^\w\s]/g, '') // remove pontuação
+        .trim()
+        .toUpperCase();
       
-      // FILTRO CRÍTICO: Apenas consultores que têm meta cadastrada
-      if (!consultoresComMeta.includes(v.responsavel || v.consultor)) return false;
-      
-      // Aplicar mesma lógica de filtro de produtos
+      return produtoNorm.includes('PLANO');
+    };
+
+    // APLICAR MESMA LÓGICA DA COMISSAODETALHES
+    const vendasFiltradas = vendas.filter(venda => {
+      // 1. Filtro por unidade
+      const unidadeVenda = (venda.unidade || '').replace(/\s/g, '').toLowerCase();
+      const unidadeAtual = (unidade || '').replace(/\s/g, '').toLowerCase();
+      if (unidadeVenda !== unidadeAtual) return false;
+
+      // 2. Filtro por mês
+      const vendaMes = parseMes(venda.dataFormatada || venda.dataLancamento);
+      if (!vendaMes || vendaMes !== selectedMonth) return false;
+
+      // 3. Filtro produtos não comissionáveis
       const produtosNaoComissionaveisFixos = [
         'Taxa de Matrícula', 
         'Estorno', 
         'Ajuste Contábil',
         'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
       ];
-      
-      if (produtosNaoComissionaveisFixos.includes(v.produto)) return false;
-      
-      // Exceção para diárias
-      const isDiariaOriginal = v.produto === 'Plano' && 
-        v.plano && 
-        (v.plano.toLowerCase().includes('diária') || v.plano.toLowerCase().includes('diarias'));
-      
-      const isDiariaCorrigida = v.produto && 
-        (v.produto.toLowerCase().includes('diária') || v.produto.toLowerCase().includes('diarias'));
-      
+
+      if (produtosNaoComissionaveisFixos.includes(venda.produto)) return false;
+
+      // 4. Filtro apenas produtos que são PLANO (incluindo diárias)
+      const isDiariaOriginal = venda.produto === 'Plano' && 
+        venda.plano && 
+        (venda.plano.toLowerCase().includes('diária') || venda.plano.toLowerCase().includes('diarias'));
+
+      const isDiariaCorrigida = venda.produto && 
+        (venda.produto.toLowerCase().includes('diária') || venda.produto.toLowerCase().includes('diarias'));
+
       const isDiaria = isDiariaOriginal || isDiariaCorrigida;
-      
-      if (produtosSelecionados.length > 0 && !produtosSelecionados.includes(v.produto) && !isDiaria) {
-        return false;
-      }
-      
+
+      if (!isPlano(venda.produto) && !isDiaria) return false;
+
       return true;
     });
-    
-    // ✅ PASSO 3: Filtrar apenas PLANOS da unidade
-    const planosReais = vendasUnidadeNoMes.filter(venda => {
-      const vendaCorrigida = corrigirClassificacaoDiarias(venda);
-      const ehPlano = ehPlanoAposCorrecao(vendaCorrigida);
-      return ehPlano;
-    });
-    
-    console.log(`✅ [DESCONTOS-${unidade}] RESULTADO LÓGICA EXATA:`, {
+
+    console.log(`📊 [${unidade}] Vendas filtradas para análise:`, {
       totalVendas: vendas.length,
-      vendasMes: vendasDoConsultorNoMes.length,
-      metasDoMes: metasDoMes.length,
-      consultoresComMeta: consultoresComMeta.length,
-      vendasUnidadeFiltradas: vendasUnidadeNoMes.length,
-      planosFinais: planosReais.length,
-      exemploConsultores: consultoresComMeta.slice(0, 3),
-      exemploPlanos: planosReais.slice(0, 3).map(v => ({
-        responsavel: v.responsavel,
-        produto: v.produto,
-        plano: v.plano,
-        valor: v.valor,
-        duracaoMeses: v.duracaoMeses
-      }))
+      planosFiltrados: vendasFiltradas.length,
+      caiqueVendas: vendasFiltradas.filter(v => v.responsavel === 'CAIQUE ROBERTO VIANA QUINTINO').length,
+      caiqueValor: vendasFiltradas.filter(v => v.responsavel === 'CAIQUE ROBERTO VIANA QUINTINO').reduce((sum, v) => sum + Number(v.valor || 0), 0)
     });
-    
-    return planosReais;
-  }, [vendas, metasFonte, unidade, selectedMonth, produtosSelecionados]);
+
+    return vendasFiltradas;
+  }, [vendas, unidade, selectedMonth]);
 
   // ===== RECONCILIAÇÃO: VENDAS x DESCONTOS (MESMO CÓDIGO) =====
   const vendasComDesconto = useMemo(() => {
-    if (!vendasParaDescontos?.length) {
-      console.log(`❌ [${unidade}] vendasParaDescontos está vazio!`);
+    if (!vendasDaUnidade?.length) {
+      console.log(`❌ [${unidade}] vendasDaUnidade está vazio!`);
       return [];
     }
     
     if (!descontos?.length) {
-      return vendasParaDescontos.map(venda => ({
+      return vendasDaUnidade.map(venda => ({
         ...venda,
         temDesconto: false,
         temDescontoPlano: false,
@@ -459,7 +440,7 @@ export const useDescontos = (
     });
     
     // Aplicar lógica de reconciliação
-    const vendasProcessadas = vendasParaDescontos.map(venda => {
+    const vendasProcessadas = vendasDaUnidade.map(venda => {
       const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
       const descontoGrupo = descontosPorMatricula[matriculaNorm];
       
@@ -518,7 +499,7 @@ export const useDescontos = (
     });
     
     return vendasProcessadas;
-  }, [vendasParaDescontos, descontos, unidade, desconsiderarMatricula]);
+  }, [vendasDaUnidade, descontos, unidade, desconsiderarMatricula]);
 
   // ===== RESTO DA LÓGICA PERMANECE IGUAL =====
   const dadosFiltrados = useMemo(() => {
@@ -817,7 +798,7 @@ export const useDescontos = (
     
     // Informações da unidade
     unidade,
-    totalVendasUnidade: vendasParaDescontos.length,
+    totalVendasUnidade: vendasDaUnidade.length,
     totalDescontosUnidade: descontos.length,
     
     // Dados completos para análise detalhada (não paginados)

@@ -421,16 +421,20 @@ export default function NavBar() {
           flex-direction: column;
           width: 280px;
           height: 100vh;
-          background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-          border-right: 1px solid #e2e8f0;
+          background: linear-gradient(145deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%);
+          border-right: 1px solid rgba(226, 232, 240, 0.6);
           position: fixed;
           top: 0;
           left: 0;
           z-index: 100;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
           overflow: hidden;
-          backdrop-filter: blur(20px);
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+          backdrop-filter: blur(24px) saturate(180%);
+          box-shadow: 
+            0 0 0 1px rgba(255, 255, 255, 0.05),
+            0 16px 32px rgba(0, 0, 0, 0.04),
+            0 8px 16px rgba(0, 0, 0, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.6);
         }
         
         .navbar.loading {
@@ -467,14 +471,21 @@ export default function NavBar() {
         
         /* Tema específico para Personal */
         .navbar.personal {
-          background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
-          border-right-color: #bbf7d0;
-          box-shadow: 0 8px 32px rgba(16, 185, 129, 0.12);
+          background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 30%, #ecfdf5 70%, #d1fae5 100%);
+          border-right-color: rgba(187, 247, 208, 0.6);
+          box-shadow: 
+            0 0 0 1px rgba(16, 185, 129, 0.1),
+            0 16px 32px rgba(16, 185, 129, 0.08),
+            0 8px 16px rgba(16, 185, 129, 0.12),
+            inset 0 1px 0 rgba(255, 255, 255, 0.8);
         }
 
         .navbar.personal .brand-icon {
-          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+          background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
+          box-shadow: 
+            0 8px 24px rgba(16, 185, 129, 0.3),
+            0 4px 12px rgba(16, 185, 129, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
 
         .navbar.personal .nav-link.highlight {
@@ -496,15 +507,23 @@ export default function NavBar() {
         }
         
         .navbar.dark {
-          background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-          border-right-color: #334155;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+          background: linear-gradient(145deg, #1e293b 0%, #0f172a 50%, #020617 100%);
+          border-right-color: rgba(51, 65, 85, 0.8);
+          box-shadow: 
+            0 0 0 1px rgba(255, 255, 255, 0.02),
+            0 16px 32px rgba(0, 0, 0, 0.4),
+            0 8px 16px rgba(0, 0, 0, 0.6),
+            inset 0 1px 0 rgba(255, 255, 255, 0.03);
         }
 
         .navbar.dark.personal {
-          background: linear-gradient(180deg, #1e293b 0%, #0f1f13 100%);
-          border-right-color: #22543d;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+          background: linear-gradient(145deg, #1e293b 0%, #0f1f13 50%, #064e3b 100%);
+          border-right-color: rgba(34, 84, 61, 0.8);
+          box-shadow: 
+            0 0 0 1px rgba(16, 185, 129, 0.1),
+            0 16px 32px rgba(0, 0, 0, 0.5),
+            0 8px 16px rgba(6, 78, 59, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }
         
         .navbar.dark .loading-spinner {
@@ -536,19 +555,43 @@ export default function NavBar() {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 2.5rem;
-          height: 2.5rem;
-          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-          border-radius: 0.75rem;
+          width: 2.75rem;
+          height: 2.75rem;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+          border-radius: 1rem;
           color: white;
           flex-shrink: 0;
-          box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
-          transition: all 0.3s ease;
+          box-shadow: 
+            0 12px 28px rgba(99, 102, 241, 0.35),
+            0 6px 14px rgba(99, 102, 241, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.4),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+          transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .brand-icon::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+          transition: left 0.6s ease;
         }
         
         .brand-icon:hover {
-          transform: scale(1.05) rotate(5deg);
-          box-shadow: 0 12px 32px rgba(99, 102, 241, 0.5);
+          transform: scale(1.08) rotate(8deg) translateY(-2px);
+          box-shadow: 
+            0 16px 40px rgba(99, 102, 241, 0.4),
+            0 8px 20px rgba(99, 102, 241, 0.3),
+            inset 0 2px 0 rgba(255, 255, 255, 0.5);
+        }
+        
+        .brand-icon:hover::before {
+          left: 100%;
         }
         
         .brand-text {
@@ -655,20 +698,28 @@ export default function NavBar() {
         .user-section {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
-          padding: 1rem 1.25rem;
-          margin: 0 0.75rem;
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-          border: 1px solid #bae6fd;
-          border-radius: 0.75rem;
+          gap: 0.875rem;
+          padding: 1.125rem 1.375rem;
+          margin: 0 0.875rem;
+          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #dbeafe 100%);
+          border: 1px solid rgba(186, 230, 253, 0.8);
+          border-radius: 1rem;
           position: relative;
-          box-shadow: 0 4px 16px rgba(14, 165, 233, 0.15);
-          transition: all 0.3s ease;
+          box-shadow: 
+            0 8px 20px rgba(14, 165, 233, 0.12),
+            0 4px 10px rgba(14, 165, 233, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.8),
+            inset 0 -1px 0 rgba(14, 165, 233, 0.1);
+          transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+          backdrop-filter: blur(8px);
         }
         
         .user-section:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 8px 24px rgba(14, 165, 233, 0.2);
+          transform: translateY(-2px) scale(1.01);
+          box-shadow: 
+            0 12px 28px rgba(14, 165, 233, 0.18),
+            0 6px 14px rgba(14, 165, 233, 0.12),
+            inset 0 2px 0 rgba(255, 255, 255, 0.9);
         }
 
         .navbar.personal .user-section {
@@ -691,19 +742,27 @@ export default function NavBar() {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 2.25rem;
-          height: 2.25rem;
-          background-color: #0ea5e9;
-          border-radius: 0.625rem;
+          width: 2.5rem;
+          height: 2.5rem;
+          background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 50%, #0369a1 100%);
+          border-radius: 0.75rem;
           color: white;
           flex-shrink: 0;
           overflow: hidden;
-          box-shadow: 0 2px 8px rgba(14, 165, 233, 0.3);
+          box-shadow: 
+            0 6px 16px rgba(14, 165, 233, 0.25),
+            0 3px 8px rgba(14, 165, 233, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          transition: all 0.3s ease;
+          position: relative;
         }
 
         .navbar.personal .user-avatar {
-          background-color: #10b981;
-          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+          background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
+          box-shadow: 
+            0 6px 16px rgba(16, 185, 129, 0.25),
+            0 3px 8px rgba(16, 185, 129, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
         
         .user-avatar img {
@@ -813,16 +872,28 @@ export default function NavBar() {
         .nav-link {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.875rem;
           color: #64748b;
           text-decoration: none;
-          padding: 0.875rem 1rem;
-          border-radius: 0.75rem;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: 1rem 1.125rem;
+          border-radius: 1rem;
+          transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
           font-weight: 500;
           position: relative;
           overflow: hidden;
           border: 1px solid transparent;
+          backdrop-filter: blur(4px);
+        }
+        
+        .nav-link::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+          transition: left 0.5s ease;
         }
 
         .nav-link.disabled {
@@ -852,11 +923,18 @@ export default function NavBar() {
         }
         
         .nav-link:hover:not(.disabled) {
-          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #dbeafe 100%);
           color: #0369a1;
-          transform: translateX(4px) translateY(-1px);
-          box-shadow: 0 8px 24px rgba(14, 165, 233, 0.2);
-          border-color: rgba(14, 165, 233, 0.2);
+          transform: translateX(6px) translateY(-2px) scale(1.02);
+          box-shadow: 
+            0 12px 28px rgba(14, 165, 233, 0.18),
+            0 6px 14px rgba(14, 165, 233, 0.12),
+            inset 0 1px 0 rgba(255, 255, 255, 0.6);
+          border-color: rgba(14, 165, 233, 0.3);
+        }
+        
+        .nav-link:hover:not(.disabled)::after {
+          left: 100%;
         }
 
         .navbar.personal .nav-link:hover:not(.disabled) {
@@ -876,12 +954,16 @@ export default function NavBar() {
         }
         
         .nav-link.active {
-          background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+          background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 50%, #93c5fd 100%);
           color: #1d4ed8;
           font-weight: 600;
-          border: 1px solid #93c5fd;
-          box-shadow: 0 8px 24px rgba(29, 78, 216, 0.25);
-          transform: translateX(2px);
+          border: 1px solid #60a5fa;
+          box-shadow: 
+            0 12px 28px rgba(29, 78, 216, 0.22),
+            0 6px 14px rgba(29, 78, 216, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.7),
+            inset 0 -1px 0 rgba(29, 78, 216, 0.1);
+          transform: translateX(4px) scale(1.02);
         }
 
         .navbar.personal .nav-link.active {
@@ -1128,25 +1210,31 @@ export default function NavBar() {
         .mobile-menu-button {
           display: none;
           position: fixed;
-          top: 1rem;
-          right: 1rem;
+          top: 1.25rem;
+          right: 1.25rem;
           z-index: 101;
           background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(226, 232, 240, 0.8);
-          padding: 0.75rem;
-          border-radius: 0.75rem;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+          backdrop-filter: blur(24px) saturate(180%);
+          border: 1px solid rgba(226, 232, 240, 0.6);
+          padding: 0.875rem;
+          border-radius: 1rem;
+          box-shadow: 
+            0 12px 32px rgba(0, 0, 0, 0.08),
+            0 6px 16px rgba(0, 0, 0, 0.04),
+            inset 0 1px 0 rgba(255, 255, 255, 0.8);
           color: #64748b;
           cursor: pointer;
-          transition: all 0.3s ease;
+          transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         
         .mobile-menu-button:hover {
-          background: rgba(248, 250, 252, 0.95);
+          background: rgba(248, 250, 252, 0.98);
           color: #374151;
-          transform: scale(1.05) rotate(90deg);
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+          transform: scale(1.08) rotate(180deg) translateY(-2px);
+          box-shadow: 
+            0 16px 48px rgba(0, 0, 0, 0.12),
+            0 8px 24px rgba(0, 0, 0, 0.08),
+            inset 0 2px 0 rgba(255, 255, 255, 0.9);
         }
         
         .mobile-overlay {
@@ -1194,24 +1282,33 @@ export default function NavBar() {
         @media (max-width: 768px) {
           .navbar {
             transform: translateX(-100%);
-            width: 280px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            width: 300px;
+            box-shadow: 
+              0 20px 40px rgba(0, 0, 0, 0.15),
+              0 10px 20px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(32px) saturate(200%);
           }
           
           .navbar.menu-open {
             transform: translateX(0);
+            animation: slideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
           }
           
           .navbar.collapsed {
-            width: 280px;
+            width: 300px;
           }
           
           .mobile-menu-button {
             display: flex;
+            align-items: center;
+            justify-content: center;
           }
           
           .mobile-overlay {
             display: block;
+            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.6);
+            animation: fadeIn 0.3s ease;
           }
           
           .desktop-only {
@@ -1225,24 +1322,63 @@ export default function NavBar() {
         
         @media (max-width: 480px) {
           .navbar {
-            width: 100%;
+            width: 100vw;
+            border-radius: 0;
           }
           
           .user-section {
-            margin: 0 0.5rem;
+            margin: 0 0.75rem;
+            padding: 1rem 1.25rem;
           }
           
           .nav-links {
-            padding: 0 0.5rem;
+            padding: 0 0.75rem;
           }
           
           .navbar-footer {
-            padding: 1rem 0.5rem;
+            padding: 1.25rem 0.75rem;
           }
 
           .module-navigation {
-            padding: 0 0.5rem;
+            padding: 0 0.75rem;
           }
+          
+          .nav-link {
+            padding: 1.125rem 1.25rem;
+            font-size: 0.9rem;
+          }
+          
+          .mobile-menu-button {
+            top: 1rem;
+            right: 1rem;
+            padding: 0.75rem;
+          }
+        }
+        
+        @keyframes slideIn {
+          from {
+            transform: translateX(-100%);
+            opacity: 0.8;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        
+        /* Enhanced scrollbar for better UX */
+        .nav-section {
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
         }
       `}</style>
     </>

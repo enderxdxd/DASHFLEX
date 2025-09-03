@@ -589,6 +589,28 @@
   background: var(--accent-green-light);
 }
 
+.filter-action-btn.pdf {
+  background: var(--accent-red);
+  color: var(--text-inverse);
+}
+
+.filter-action-btn.pdf:hover:not(:disabled) {
+  background: var(--accent-red-light);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.filter-action-btn.pdf-light {
+  background: var(--accent-purple);
+  color: var(--text-inverse);
+}
+
+.filter-action-btn.pdf-light:hover:not(:disabled) {
+  background: var(--accent-purple-light);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
 .filter-action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -2105,6 +2127,28 @@
   background: #059669;
 }
 
+.filter-action-btn.pdf {
+  background: #ef4444;
+  color: white;
+}
+
+.filter-action-btn.pdf:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.filter-action-btn.pdf-light {
+  background: #8b5cf6;
+  color: white;
+}
+
+.filter-action-btn.pdf-light:hover:not(:disabled) {
+  background: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
 .filter-action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -2117,6 +2161,142 @@
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes progressFill {
+  0% {
+    width: 0%;
+  }
+  to {
+    width: var(--progress-width);
+  }
+}
+
+/* Spinning animation for loading icons */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.spinning {
+  animation: spin 2s linear infinite;
+}
+
+/* ===== PDF PROGRESS STYLES ===== */
+.pdf-progress {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.pdf-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--border-light);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+
+.pdf-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-blue-light));
+  border-radius: 4px;
+  transition: width 0.3s ease-out;
+  position: relative;
+}
+
+.pdf-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+.pdf-progress-text {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Loading states for buttons */
+.filter-action-btn.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.filter-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.filter-action-btn:disabled:hover {
+  transform: none;
+  box-shadow: var(--shadow-sm);
 }
 
 /* Grid de Filtros */

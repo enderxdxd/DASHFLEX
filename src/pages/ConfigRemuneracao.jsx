@@ -1874,13 +1874,7 @@ const ConfigRemuneracao = () => {
           <Target size={20} />
           Meta da Unidade
         </button>
-        <button 
-          className={`tab ${activeTab === 'planos' ? 'active' : ''}`}
-          onClick={() => setActiveTab('planos')}
-        >
-          <DollarSign size={20} />
-          Planos de Comissão
-        </button>
+        
         <button 
           className={`tab ${activeTab === 'premiacao' ? 'active' : ''}`}
           onClick={() => setActiveTab('premiacao')}
@@ -1906,7 +1900,6 @@ const ConfigRemuneracao = () => {
 
       <div className="tab-content">
         {/* Monitor de Correção de Diárias */}
-        <MonitorCorrecaoDiarias vendas={vendasAgrupadas} />
         
         {activeTab === 'meta' && (
           <div className="tab-panel">

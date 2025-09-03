@@ -13,6 +13,8 @@ import {
   BarChart3
 } from 'lucide-react';
 import useDarkMode from '../../hooks/useDarkMode';
+import { formatCurrency, formatCompactNumber, formatPercentage, shouldUseCompactFormat } from '../../utils/formatters';
+import '../../styles/ModernStatsCards.css';
 
 const ComissaoStats = ({ estatisticas, consultor }) => {
   const [theme] = useDarkMode();
@@ -45,258 +47,242 @@ const ComissaoStats = ({ estatisticas, consultor }) => {
   const percentualComissao = valorTotal > 0 ? (totalComissao / valorTotal * 100) : 0;
 
   return (
-    <div className={`comissao-stats ${theme === 'light' ? 'light-mode' : 'dark-mode'}`}>
-      <div className="stats-header">
-        <h3>
-          <BarChart3 size={20} />
-          Estatísticas - {consultor}
-        </h3>
-        <div className="stats-badges">
-          {bateuMetaIndividual ? (
-            <span className="status-badge success">
+    <div className="stats-container">
+      {/* Header limpo */}
+      <div className="stats-header-clean">
+        <div className="header-left">
+          <BarChart3 size={24} />
+          <h2>Estatísticas - {consultor}</h2>
+        </div>
+        <div className="header-badges">
+          {bateuMetaIndividual && (
+            <div className="success-badge">
               <Award size={16} />
-              Meta Atingida
-            </span>
-          ) : (
-            <span className="status-badge warning">
-              <Target size={16} />
-              {percentualMeta.toFixed(1)}% da Meta
-            </span>
+              <span>Meta Atingida</span>
+            </div>
           )}
           {unidadeBatida && (
-            <span className="status-badge info">
+            <div className="info-badge">
               <TrendingUp size={16} />
-              Unidade Batida
-            </span>
+              <span>Unidade Batida</span>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Métricas Principais */}
-      <div className="main-stats-grid">
+      {/* Cards principais organizados */}
+      <div className="metrics-grid">
         {/* Performance da Meta */}
-        <div className="stat-card primary">
-          <div className="stat-icon">
-            <Target size={24} />
+        <div className="metric-card meta-card">
+          <div className="card-header-simple">
+            <div className="card-icon primary-icon">
+              <Target size={20} />
+            </div>
+            <div className="card-title">
+              <h3>Performance da Meta</h3>
+              <span className={`status-mini ${bateuMetaIndividual ? 'success' : 'warning'}`}>
+                {bateuMetaIndividual ? 'Atingida' : 'Em progresso'}
+              </span>
+            </div>
           </div>
-          <div className="stat-content">
-            <h4>Performance da Meta</h4>
-            <div className="stat-value large">
-              {percentualMeta.toFixed(1)}%
+          
+          <div className="main-number">
+            {percentualMeta.toFixed(1)}%
+          </div>
+          
+          <div className="comparison-simple">
+            <div className="comp-item">
+              <span className="comp-label">Realizado</span>
+              <span className="comp-value success-text">
+                {formatCurrency(valorTotal, shouldUseCompactFormat(valorTotal))}
+              </span>
             </div>
-            <div className="stat-detail">
-              R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / 
-              R$ {metaIndividual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            <div className="comp-separator">vs</div>
+            <div className="comp-item">
+              <span className="comp-label">Meta</span>
+              <span className="comp-value primary-text">
+                {formatCurrency(metaIndividual, shouldUseCompactFormat(metaIndividual))}
+              </span>
             </div>
-            <div className="progress-bar">
+          </div>
+          
+          <div className="progress-simple">
+            <div className="progress-track">
               <div 
-                className={`progress-fill ${bateuMetaIndividual ? 'success' : 'primary'}`}
+                className={`progress-bar ${bateuMetaIndividual ? 'success-bar' : 'primary-bar'}`}
                 style={{ width: `${Math.min(percentualMeta, 100)}%` }}
               />
             </div>
+            <div className="progress-text">{Math.min(percentualMeta, 100).toFixed(1)}% concluído</div>
           </div>
         </div>
 
         {/* Total de Vendas */}
-        <div className="stat-card success">
-          <div className="stat-icon">
-            <DollarSign size={24} />
-          </div>
-          <div className="stat-content">
-            <h4>Total de Vendas</h4>
-            <div className="stat-value large">
-              R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        <div className="metric-card vendas-card">
+          <div className="card-header-simple">
+            <div className="card-icon success-icon">
+              <DollarSign size={20} />
             </div>
-            <div className="stat-detail">
-              {totalVendas} vendas realizadas
+            <div className="card-title">
+              <h3>Total de Vendas</h3>
+              <span className="trend-mini positive">
+                <TrendingUp size={14} />
+                Vendas
+              </span>
+            </div>
+          </div>
+          
+          <div className="main-number">
+            {formatCurrency(valorTotal, shouldUseCompactFormat(valorTotal))}
+          </div>
+          
+          <div className="sub-metrics-simple">
+            <div className="sub-item">
+              <span className="sub-number">{totalVendas}</span>
+              <span className="sub-text">vendas</span>
+            </div>
+            <div className="sub-item">
+              <span className="sub-number">
+                {formatCurrency(totalVendas > 0 ? valorTotal / totalVendas : 0)}
+              </span>
+              <span className="sub-text">ticket médio</span>
             </div>
           </div>
         </div>
 
         {/* Comissão Total */}
-        <div className="stat-card warning">
-          <div className="stat-icon">
-            <Calculator size={24} />
-          </div>
-          <div className="stat-content">
-            <h4>Comissão Total</h4>
-            <div className="stat-value large">
-              R$ {totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        <div className="metric-card comissao-card">
+          <div className="card-header-simple">
+            <div className="card-icon warning-icon">
+              <Calculator size={20} />
             </div>
-            <div className="stat-detail">
-              {percentualComissao.toFixed(2)}% do total vendido
+            <div className="card-title">
+              <h3>Comissão Total</h3>
+              <span className="percentage-mini">
+                {percentualComissao.toFixed(2)}%
+              </span>
             </div>
           </div>
-        </div>
-
-        {/* Status de Classificação */}
-        <div className="stat-card info">
-          <div className="stat-icon">
-            <CheckCircle size={24} />
+          
+          <div className="main-number">
+            {formatCurrency(totalComissao, shouldUseCompactFormat(totalComissao))}
           </div>
-          <div className="stat-content">
-            <h4>Classificações</h4>
-            <div className="stat-value large">
-              {percentualCorretos.toFixed(1)}%
-            </div>
-            <div className="stat-detail">
-              {corretos} corretas de {totalVendas} total
+          
+          <div className="commission-info">
+            <div className="commission-rate-simple">
+              <span className="rate-label">Média por venda:</span>
+              <span className="rate-value">
+                {formatCurrency(totalVendas > 0 ? totalComissao / totalVendas : 0)}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Breakdown Detalhado */}
-      <div className="breakdown-section">
-        <h4>Breakdown por Categoria</h4>
-        <div className="breakdown-grid">
+      {/* Breakdown por categoria */}
+      <div className="breakdown-section-clean">
+        <h3 className="section-title-clean">
+          <PieChart size={18} />
+          Breakdown por Categoria
+        </h3>
+        
+        <div className="category-cards">
           {/* Planos */}
-          <div className="breakdown-card">
-            <div className="breakdown-header">
-              <Package size={18} />
-              <span>Planos</span>
+          <div className="category-item">
+            <div className="category-header-clean">
+              <Package size={16} />
+              <span className="category-name">Planos</span>
+              <span className="category-count">{planos}</span>
             </div>
-            <div className="breakdown-stats">
-              <div className="breakdown-stat">
-                <span className="label">Quantidade:</span>
-                <span className="value">{planos}</span>
-              </div>
-              <div className="breakdown-stat">
-                <span className="label">Valor Total:</span>
-                <span className="value success">
-                  R$ {(valorTotalPlanos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="breakdown-stat">
-                <span className="label">Comissão:</span>
-                <span className="value">
-                  R$ {comissaoPlanos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="breakdown-stat">
-                <span className="label">% do Total:</span>
-                <span className="value">
-                  {totalVendas > 0 ? ((planos / totalVendas) * 100).toFixed(1) : 0}%
-                </span>
-              </div>
+            <div className="category-value">
+              {formatCurrency(valorTotalPlanos || 0, shouldUseCompactFormat(valorTotalPlanos || 0))}
+            </div>
+            <div className="category-details">
+              <span className="detail-item">
+                Comissão: <strong>{formatCurrency(comissaoPlanos)}</strong>
+              </span>
+              <span className="detail-item">
+                {totalVendas > 0 ? ((planos / totalVendas) * 100).toFixed(1) : 0}% do total
+              </span>
             </div>
           </div>
 
           {/* Produtos */}
-          <div className="breakdown-card">
-            <div className="breakdown-header">
-              <PieChart size={18} />
-              <span>Produtos</span>
+          <div className="category-item">
+            <div className="category-header-clean">
+              <PieChart size={16} />
+              <span className="category-name">Produtos</span>
+              <span className="category-count">{produtos}</span>
             </div>
-            <div className="breakdown-stats">
-              <div className="breakdown-stat">
-                <span className="label">Quantidade:</span>
-                <span className="value">{produtos}</span>
-              </div>
-              <div className="breakdown-stat">
-                <span className="label">Valor Total:</span>
-                <span className="value success">
-                  R$ {(valorTotalProdutos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="breakdown-stat">
-                <span className="label">Comissão:</span>
-                <span className="value">
-                  R$ {comissaoProdutos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="breakdown-stat">
-                <span className="label">% do Total:</span>
-                <span className="value">
-                  {totalVendas > 0 ? ((produtos / totalVendas) * 100).toFixed(1) : 0}%
-                </span>
-              </div>
+            <div className="category-value">
+              {formatCurrency(valorTotalProdutos || 0, shouldUseCompactFormat(valorTotalProdutos || 0))}
+            </div>
+            <div className="category-details">
+              <span className="detail-item">
+                Comissão: <strong>{formatCurrency(comissaoProdutos)}</strong>
+              </span>
+              <span className="detail-item">
+                {totalVendas > 0 ? ((produtos / totalVendas) * 100).toFixed(1) : 0}% do total
+              </span>
             </div>
           </div>
 
           {/* Não Comissionáveis */}
-          <div className="breakdown-card">
-            <div className="breakdown-header">
-              <AlertTriangle size={18} />
-              <span>Não Comissionáveis</span>
+          <div className="category-item">
+            <div className="category-header-clean">
+              <AlertTriangle size={16} />
+              <span className="category-name">Não Comissionáveis</span>
+              <span className="category-count">{naoComissionaveis}</span>
             </div>
-            <div className="breakdown-stats">
-              <div className="breakdown-stat">
-                <span className="label">Quantidade:</span>
-                <span className="value">{naoComissionaveis}</span>
-              </div>
-              <div className="breakdown-stat">
-                <span className="label">Valor Total:</span>
-                <span className="value warning">
-                  R$ {(valorTotalNaoComissionaveis || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
-              </div>
-              <div className="breakdown-stat">
-                <span className="label">% do Total:</span>
-                <span className="value">
-                  {totalVendas > 0 ? ((naoComissionaveis / totalVendas) * 100).toFixed(1) : 0}%
-                </span>
-              </div>
-              <div className="breakdown-stat">
-                <span className="label">Tipos:</span>
-                <span className="value">Taxa, Estorno, Ajuste</span>
-              </div>
+            <div className="category-value">
+              {formatCurrency(valorTotalNaoComissionaveis || 0, shouldUseCompactFormat(valorTotalNaoComissionaveis || 0))}
+            </div>
+            <div className="category-details">
+              <span className="detail-item">
+                Comissão: <strong>R$ 0,00</strong>
+              </span>
+              <span className="detail-item">
+                {totalVendas > 0 ? ((naoComissionaveis / totalVendas) * 100).toFixed(1) : 0}% do total
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Indicadores de Problemas */}
+      {/* Problemas (se existirem) */}
       {incorretos > 0 && (
-        <div className="problems-section">
-          <h4>
-            <AlertTriangle size={18} />
-            Problemas Identificados
-          </h4>
-          <div className="problem-alerts">
-            <div className="alert warning">
-              <AlertTriangle size={16} />
-              <span>
-                {incorretos} classificação(ões) incorreta(s) encontrada(s). 
-                Verifique os itens marcados em vermelho na tabela.
-              </span>
-            </div>
-            {incorretos > totalVendas * 0.1 && (
-              <div className="alert danger">
-                <AlertTriangle size={16} />
-                <span>
-                  Alto índice de problemas ({((incorretos / totalVendas) * 100).toFixed(1)}%). 
-                  Recomendamos revisão dos critérios de classificação.
-                </span>
-              </div>
-            )}
+        <div className="alert-simple warning">
+          <AlertTriangle size={18} />
+          <div className="alert-content">
+            <strong>{incorretos} classificação(ões) incorreta(s)</strong> encontrada(s).
+            Verifique os itens destacados na tabela.
           </div>
         </div>
       )}
 
-      {/* Resumo de Performance */}
-      <div className="performance-summary">
+      {/* Resumo final */}
+      <div className="summary-clean">
         <h4>Resumo de Performance</h4>
-        <div className="summary-grid">
-          <div className="summary-item">
-            <span className="summary-label">Taxa de Conversão em Comissão:</span>
-            <span className="summary-value">{percentualComissao.toFixed(2)}%</span>
+        <div className="summary-items">
+          <div className="summary-stat">
+            <span className="stat-label">Taxa de Conversão</span>
+            <span className="stat-value">{percentualComissao.toFixed(2)}%</span>
           </div>
-          <div className="summary-item">
-            <span className="summary-label">Comissão Média por Venda:</span>
-            <span className="summary-value">
-              R$ {totalVendas > 0 ? (totalComissao / totalVendas).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
+          <div className="summary-stat">
+            <span className="stat-label">Comissão Média</span>
+            <span className="stat-value">
+              {formatCurrency(totalVendas > 0 ? totalComissao / totalVendas : 0)}
             </span>
           </div>
-          <div className="summary-item">
-            <span className="summary-label">Valor Médio por Venda:</span>
-            <span className="summary-value">
-              R$ {totalVendas > 0 ? (valorTotal / totalVendas).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
+          <div className="summary-stat">
+            <span className="stat-label">Valor Médio</span>
+            <span className="stat-value">
+              {formatCurrency(totalVendas > 0 ? valorTotal / totalVendas : 0)}
             </span>
           </div>
-          <div className="summary-item">
-            <span className="summary-label">Precisão da Classificação:</span>
-            <span className="summary-value">{percentualCorretos.toFixed(1)}%</span>
+          <div className="summary-stat">
+            <span className="stat-label">Precisão</span>
+            <span className="stat-value">{percentualCorretos.toFixed(1)}%</span>
           </div>
         </div>
       </div>

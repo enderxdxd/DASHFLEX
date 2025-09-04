@@ -179,7 +179,7 @@ export default function UnifiedPersonalDashboard() {
     return classification.status;
   };
 
-  // 🎯 NOVA LÓGICA: Validação de taxa unificada corrigida
+  // 🎯 NOVA LÓGICA: Validação de taxa unificada - mesma taxa para todas as unidades
   const validateUnifiedTax = (totalStudents, currentTaxName) => {
     if (!currentTaxName) return { isValid: false, expectedTax: 'Taxa não informada', taxType: 'open' };
     
@@ -198,25 +198,32 @@ export default function UnifiedPersonalDashboard() {
       return { isValid: true, expectedTax: 'Personal Isento', taxType: 'exempt', skipValidation: true };
     }
     
-    let expectedTax = '';
     let isValid = false;
+    let expectedTax = '';
     
-    // Determinar a taxa esperada baseada no total de alunos
+    // Determinar a taxa esperada baseada no total de alunos (TODAS as unidades)
+    // A taxa deve ser a MESMA para todas as unidades do personal
     if (totalStudents >= 1 && totalStudents <= 7) {
-      expectedTax = 'Taxa Personal 1 A 7 Alunos';
-      isValid = normalizedCurrent.includes('1 a 7') || normalizedCurrent.includes('1-7');
+      expectedTax = 'Taxa Personal 1 A 7 Alunos (todas as unidades)';
+      // Aceita qualquer prefixo de unidade, desde que tenha a faixa correta
+      isValid = (normalizedCurrent.includes('1 a 7') || normalizedCurrent.includes('1-7')) &&
+                (normalizedCurrent.includes('taxa personal') || normalizedCurrent.includes('personal taxa'));
     } else if (totalStudents >= 8 && totalStudents <= 12) {
-      expectedTax = 'Taxa Personal 8 A 12 Alunos';
-      isValid = normalizedCurrent.includes('8 a 12') || normalizedCurrent.includes('8-12');
+      expectedTax = 'Taxa Personal 8 A 12 Alunos (todas as unidades)';
+      isValid = (normalizedCurrent.includes('8 a 12') || normalizedCurrent.includes('8-12')) &&
+                (normalizedCurrent.includes('taxa personal') || normalizedCurrent.includes('personal taxa'));
     } else if (totalStudents >= 13 && totalStudents <= 16) {
-      expectedTax = 'Taxa Personal 13 A 16 Alunos';
-      isValid = normalizedCurrent.includes('13 a 16') || normalizedCurrent.includes('13-16');
+      expectedTax = 'Taxa Personal 13 A 16 Alunos (todas as unidades)';
+      isValid = (normalizedCurrent.includes('13 a 16') || normalizedCurrent.includes('13-16')) &&
+                (normalizedCurrent.includes('taxa personal') || normalizedCurrent.includes('personal taxa'));
     } else if (totalStudents >= 17) {
-      expectedTax = 'Taxa Personal Acima 17 Alunos';
-      isValid = normalizedCurrent.includes('acima 17') || 
-                normalizedCurrent.includes('17 alunos ou mais') ||
-                normalizedCurrent.includes('17+') ||
-                normalizedCurrent.includes('mais de 17');
+      expectedTax = 'Taxa Personal Acima 17 Alunos (todas as unidades)';
+      isValid = ((normalizedCurrent.includes('acima 17') || 
+                 normalizedCurrent.includes('17 alunos ou mais') ||
+                 normalizedCurrent.includes('17+') ||
+                 normalizedCurrent.includes('mais de 17') ||
+                 normalizedCurrent.includes('17 ou mais')) &&
+                (normalizedCurrent.includes('taxa personal') || normalizedCurrent.includes('personal taxa')));
     }
     
     return { isValid, expectedTax, totalStudents, taxType: 'regular' };
@@ -339,20 +346,107 @@ export default function UnifiedPersonalDashboard() {
     setExpandedPersonals(new Set(allPersonalNames));
   }, [filteredPersonalStats]);
 
-  // 🎯 VALIDAÇÃO DE TAXAS CORRIGIDA - OTIMIZADA
+  // 🎯 VALIDAÇÃO DE TAXAS CORRIGIDA - Verifica consistência entre unidades
   const taxValidationData = useMemo(() => {
     if (!personalStats.personalsData.length) return [];
     
     return personalStats.personalsData.map(personal => {
-      const currentTax = personal.produtos[0] || '';
-      const validation = validateUnifiedTax(personal.totalAlunos, currentTax);
+      // Pegar todas as taxas do personal (uma por unidade)
+      const allTaxes = personal.produtos || [];
+      // Filtrar taxas válidas, ignorando "Xxxxxxxxxx" e similares
+      const validTaxes = allTaxes.filter(tax => 
+        tax && 
+        tax.trim() && 
+        !tax.toLowerCase().includes('xxxxxxxxxx') &&
+        !tax.toLowerCase().includes('xxx')
+      );
+      const uniqueTaxes = [...new Set(validTaxes)];
+      
+      // Se não tem taxa definida
+      if (uniqueTaxes.length === 0) {
+        return {
+          ...personal,
+          taxValidation: {
+            isValid: false,
+            expectedTax: 'Taxa não informada',
+            taxType: 'open',
+            currentTax: 'Nenhuma taxa definida'
+          }
+        };
+      }
+      
+      // Determinar a faixa correta baseada no total de alunos
+      let expectedRange = '';
+      if (personal.totalAlunos >= 1 && personal.totalAlunos <= 7) {
+        expectedRange = '1 a 7';
+      } else if (personal.totalAlunos >= 8 && personal.totalAlunos <= 12) {
+        expectedRange = '8 a 12';
+      } else if (personal.totalAlunos >= 13 && personal.totalAlunos <= 16) {
+        expectedRange = '13 a 16';
+      } else if (personal.totalAlunos >= 17) {
+        expectedRange = 'acima 17';
+      }
+      
+      // Verificar se todas as taxas estão na faixa correta
+      let allTaxesValid = true;
+      let taxType = 'regular';
+      let invalidTaxes = [];
+      let hasExemptTax = false;
+      let hasRegularTax = false;
+      
+      for (const tax of uniqueTaxes) {
+        const validation = validateUnifiedTax(personal.totalAlunos, tax);
+        
+        if (validation.taxType === 'exempt' || validation.taxType === 'special') {
+          hasExemptTax = true;
+        } else {
+          hasRegularTax = true;
+          if (!validation.isValid) {
+            allTaxesValid = false;
+            invalidTaxes.push(tax);
+          }
+        }
+      }
+      
+      // Se tem tanto taxa isenta quanto taxa regular, priorizar validação da taxa regular
+      if (hasRegularTax) {
+        taxType = 'regular';
+      } else if (hasExemptTax) {
+        taxType = uniqueTaxes.some(tax => validateUnifiedTax(personal.totalAlunos, tax).taxType === 'special') ? 'special' : 'exempt';
+        allTaxesValid = true;
+      }
+      
+      // Se tem taxas inconsistentes entre unidades
+      if (uniqueTaxes.length > 1 && taxType === 'regular') {
+        const taxRanges = uniqueTaxes.map(tax => {
+          const normalized = tax.toLowerCase();
+          if (normalized.includes('1 a 7') || normalized.includes('1-7')) return '1-7';
+          if (normalized.includes('8 a 12') || normalized.includes('8-12')) return '8-12';
+          if (normalized.includes('13 a 16') || normalized.includes('13-16')) return '13-16';
+          if (normalized.includes('acima 17') || 
+              normalized.includes('17 alunos ou mais') ||
+              normalized.includes('17+') ||
+              normalized.includes('mais de 17') ||
+              normalized.includes('17 ou mais')) return '17+';
+          return 'unknown';
+        });
+        
+        const uniqueRanges = [...new Set(taxRanges.filter(range => range !== 'unknown'))];
+        if (uniqueRanges.length > 1) {
+          allTaxesValid = false;
+          invalidTaxes = uniqueTaxes;
+        }
+      }
       
       return {
         ...personal,
         taxValidation: {
-          ...validation,
-          currentTax: personal.produtos.join(', ') || 'Taxa não informada',
-          hasMultipleTaxes: personal.produtos.length > 1
+          isValid: allTaxesValid,
+          expectedTax: `Taxa Personal ${expectedRange} Alunos (todas as unidades)`,
+          taxType: taxType,
+          currentTax: uniqueTaxes.join(' | '),
+          inconsistentTaxes: invalidTaxes.length > 0 ? invalidTaxes : null,
+          totalStudents: personal.totalAlunos
         }
       };
     });

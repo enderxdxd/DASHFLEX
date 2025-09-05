@@ -708,13 +708,9 @@ export const useDescontos = (
     }
   };
 
-  const deleteAllDescontos = async () => {
+  const deleteAllDescontos = async (startDate = null, endDate = null) => {
     if (!unidade) {
       setError("Unidade não identificada");
-      return;
-    }
-
-    if (!window.confirm(`Tem certeza que deseja deletar TODOS os descontos da unidade ${unidade}? Esta ação não pode ser desfeita.`)) {
       return;
     }
 
@@ -729,13 +725,62 @@ export const useDescontos = (
         return;
       }
 
+      let docsToDelete = snapshot.docs;
+      
+      // Se foi especificado um intervalo de datas, filtrar
+      if (startDate && endDate) {
+        const start = dayjs(startDate).startOf('day');
+        const end = dayjs(endDate).endOf('day');
+        
+        docsToDelete = snapshot.docs.filter(doc => {
+          const data = doc.data();
+          
+          // Tentar diferentes campos de data
+          let docDate = null;
+          
+          if (data.dataVenda) {
+            docDate = dayjs(data.dataVenda);
+          } else if (data.data) {
+            docDate = dayjs(data.data);
+          } else if (data.createdAt) {
+            docDate = dayjs(data.createdAt.toDate ? data.createdAt.toDate() : data.createdAt);
+          } else if (data.timestamp) {
+            docDate = dayjs(data.timestamp.toDate ? data.timestamp.toDate() : data.timestamp);
+          }
+          
+          // Se não conseguiu identificar a data, incluir na exclusão por segurança
+          if (!docDate || !docDate.isValid()) {
+            console.warn('Documento sem data válida será incluído na exclusão:', doc.id, data);
+            return true;
+          }
+          
+          return docDate.isBetween(start, end, null, '[]');
+        });
+        
+        console.log(`Filtro por data aplicado: ${docsToDelete.length} de ${snapshot.docs.length} documentos serão excluídos`);
+      }
+
+      if (docsToDelete.length === 0) {
+        const periodo = startDate && endDate 
+          ? ` no período de ${dayjs(startDate).format('DD/MM/YYYY')} a ${dayjs(endDate).format('DD/MM/YYYY')}`
+          : '';
+        setSuccessMessage(`Nenhum desconto encontrado para deletar${periodo}`);
+        setLoading(false);
+        return;
+      }
+
       const batch = writeBatch(db);
-      snapshot.forEach((docSnap) => {
+      docsToDelete.forEach((docSnap) => {
         batch.delete(docSnap.ref);
       });
 
       await batch.commit();
-      setSuccessMessage(`${snapshot.size} desconto(s) deletado(s) com sucesso!`);
+      
+      const periodo = startDate && endDate 
+        ? ` no período de ${dayjs(startDate).format('DD/MM/YYYY')} a ${dayjs(endDate).format('DD/MM/YYYY')}`
+        : '';
+      setSuccessMessage(`${docsToDelete.length} desconto(s) deletado(s) com sucesso${periodo}!`);
+      
     } catch (err) {
       console.error("Erro ao deletar descontos:", err);
       setError("Erro ao deletar descontos: " + err.message);

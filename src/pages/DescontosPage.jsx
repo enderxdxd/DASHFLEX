@@ -117,6 +117,10 @@ const DescontosPage = () => {
   // Estados locais
   const [activeView, setActiveView] = useState("overview");
   const [showDetails, setShowDetails] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteOption, setDeleteOption] = useState("all"); // "all" ou "range"
+  const [deleteStartDate, setDeleteStartDate] = useState("");
+  const [deleteEndDate, setDeleteEndDate] = useState("");
 
   // Carregar metas da unidade
   useEffect(() => {
@@ -429,11 +433,41 @@ const DescontosPage = () => {
     }
   };
 
-  // Função para deletar todos os descontos
+  // Função para abrir modal de exclusão
   const handleDeleteAll = () => {
-    if (window.confirm("ATENÇÃO: Isso irá deletar TODOS os descontos desta unidade. Tem certeza?")) {
+    setShowDeleteModal(true);
+  };
+
+  // Função para confirmar exclusão
+  const confirmDelete = () => {
+    if (deleteOption === "all") {
       deleteAllDescontos();
+    } else if (deleteOption === "range") {
+      if (!deleteStartDate || !deleteEndDate) {
+        alert("Por favor, selecione as datas de início e fim para exclusão por intervalo.");
+        return;
+      }
+      
+      if (new Date(deleteStartDate) > new Date(deleteEndDate)) {
+        alert("A data de início deve ser anterior à data de fim.");
+        return;
+      }
+      
+      // Chamar função de exclusão por intervalo (será implementada no hook)
+      deleteAllDescontos(deleteStartDate, deleteEndDate);
     }
+    
+    setShowDeleteModal(false);
+    setDeleteStartDate("");
+    setDeleteEndDate("");
+  };
+
+  // Função para cancelar exclusão
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setDeleteOption("all");
+    setDeleteStartDate("");
+    setDeleteEndDate("");
   };
 
   return (
@@ -1196,6 +1230,355 @@ const DescontosPage = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3 className="modal-title">
+                <Trash2 size={24} />
+                Excluir Descontos
+              </h3>
+            </div>
+            
+            <div className="modal-body">
+              <p className="modal-description">
+                Escolha como deseja excluir os descontos desta unidade:
+              </p>
+              
+              <div className="delete-options">
+                <label className="delete-option">
+                  <input
+                    type="radio"
+                    name="deleteOption"
+                    value="all"
+                    checked={deleteOption === "all"}
+                    onChange={(e) => setDeleteOption(e.target.value)}
+                  />
+                  <div className="option-content">
+                    <div className="option-title">Excluir Todos os Descontos</div>
+                    <div className="option-description">
+                      Remove TODOS os descontos cadastrados nesta unidade
+                    </div>
+                  </div>
+                </label>
+                
+                <label className="delete-option">
+                  <input
+                    type="radio"
+                    name="deleteOption"
+                    value="range"
+                    checked={deleteOption === "range"}
+                    onChange={(e) => setDeleteOption(e.target.value)}
+                  />
+                  <div className="option-content">
+                    <div className="option-title">Excluir por Intervalo de Datas</div>
+                    <div className="option-description">
+                      Remove apenas os descontos dentro do período selecionado
+                    </div>
+                  </div>
+                </label>
+              </div>
+              
+              {deleteOption === "range" && (
+                <div className="date-range-selector">
+                  <div className="date-inputs">
+                    <div className="date-input-group">
+                      <label htmlFor="deleteStartDate">Data Início:</label>
+                      <input
+                        type="date"
+                        id="deleteStartDate"
+                        value={deleteStartDate}
+                        onChange={(e) => setDeleteStartDate(e.target.value)}
+                        className="date-input"
+                      />
+                    </div>
+                    
+                    <div className="date-input-group">
+                      <label htmlFor="deleteEndDate">Data Fim:</label>
+                      <input
+                        type="date"
+                        id="deleteEndDate"
+                        value={deleteEndDate}
+                        onChange={(e) => setDeleteEndDate(e.target.value)}
+                        className="date-input"
+                      />
+                    </div>
+                  </div>
+                  
+                  {deleteStartDate && deleteEndDate && (
+                    <div className="date-range-info">
+                      <Calendar size={16} />
+                      <span>
+                        Período: {dayjs(deleteStartDate).format('DD/MM/YYYY')} até {dayjs(deleteEndDate).format('DD/MM/YYYY')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="warning-message">
+                <AlertCircle size={20} />
+                <div>
+                  <strong>Atenção:</strong> Esta ação não pode ser desfeita. 
+                  {deleteOption === "all" 
+                    ? " Todos os descontos serão permanentemente removidos."
+                    : " Os descontos no período selecionado serão permanentemente removidos."
+                  }
+                </div>
+              </div>
+            </div>
+            
+            <div className="modal-actions">
+              <button
+                onClick={cancelDelete}
+                className="modal-button cancel"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="modal-button confirm"
+                disabled={deleteOption === "range" && (!deleteStartDate || !deleteEndDate)}
+              >
+                <Trash2 size={16} />
+                {deleteOption === "all" ? "Excluir Todos" : "Excluir Período"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Estilos do Modal */}
+      <style jsx>{`
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+          width: 90%;
+          max-width: 500px;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+
+        .modal-header {
+          padding: 1.5rem 1.5rem 0;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .modal-title {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin: 0 0 1rem 0;
+          font-size: 1.25rem;
+          font-weight: 600;
+          color: #dc2626;
+        }
+
+        .modal-body {
+          padding: 1.5rem;
+        }
+
+        .modal-description {
+          margin: 0 0 1.5rem 0;
+          color: #374151;
+          line-height: 1.5;
+        }
+
+        .delete-options {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .delete-option {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          padding: 1rem;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .delete-option:hover {
+          border-color: #d1d5db;
+          background: #f9fafb;
+        }
+
+        .delete-option input[type="radio"]:checked + .option-content {
+          color: #dc2626;
+        }
+
+        .delete-option input[type="radio"]:checked {
+          accent-color: #dc2626;
+        }
+
+        .delete-option input[type="radio"] {
+          margin-top: 0.125rem;
+        }
+
+        .option-content {
+          flex: 1;
+        }
+
+        .option-title {
+          font-weight: 600;
+          margin-bottom: 0.25rem;
+        }
+
+        .option-description {
+          font-size: 0.875rem;
+          color: #6b7280;
+        }
+
+        .date-range-selector {
+          background: #f3f4f6;
+          border-radius: 8px;
+          padding: 1rem;
+          margin-top: 1rem;
+        }
+
+        .date-inputs {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+          margin-bottom: 1rem;
+        }
+
+        .date-input-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .date-input-group label {
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #374151;
+        }
+
+        .date-input {
+          padding: 0.5rem;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 0.875rem;
+        }
+
+        .date-input:focus {
+          outline: none;
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .date-range-info {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem;
+          background: #dbeafe;
+          border-radius: 6px;
+          font-size: 0.875rem;
+          color: #1e40af;
+        }
+
+        .warning-message {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.75rem;
+          padding: 1rem;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 8px;
+          color: #dc2626;
+        }
+
+        .warning-message svg {
+          flex-shrink: 0;
+          margin-top: 0.125rem;
+        }
+
+        .modal-actions {
+          display: flex;
+          gap: 0.75rem;
+          padding: 0 1.5rem 1.5rem;
+          justify-content: flex-end;
+        }
+
+        .modal-button {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1.5rem;
+          border-radius: 6px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: none;
+        }
+
+        .modal-button.cancel {
+          background: #f3f4f6;
+          color: #374151;
+        }
+
+        .modal-button.cancel:hover {
+          background: #e5e7eb;
+        }
+
+        .modal-button.confirm {
+          background: #dc2626;
+          color: white;
+        }
+
+        .modal-button.confirm:hover:not(:disabled) {
+          background: #b91c1c;
+        }
+
+        .modal-button.confirm:disabled {
+          background: #d1d5db;
+          color: #9ca3af;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 640px) {
+          .modal-content {
+            width: 95%;
+            margin: 1rem;
+          }
+
+          .date-inputs {
+            grid-template-columns: 1fr;
+          }
+
+          .modal-actions {
+            flex-direction: column;
+          }
+
+          .modal-button {
+            width: 100%;
+            justify-content: center;
+          }
+        }
+      `}</style>
     </div>
   );
 };

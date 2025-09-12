@@ -32,6 +32,8 @@ export default function UnifiedPersonalDashboard() {
   const [showStudents, setShowStudents] = useState(false);
   const [selectedPersonalForStudents, setSelectedPersonalForStudents] = useState('');
   const [expandedPersonals, setExpandedPersonals] = useState(new Set());
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [studentSearchResults, setStudentSearchResults] = useState([]);
 
   // NOVA FUNÇÃO para alternar expansão do card
   const togglePersonalExpansion = (personalName) => {
@@ -59,8 +61,6 @@ export default function UnifiedPersonalDashboard() {
     });
   }, []);
 
-
-
   const collapseAllPersonals = useCallback(() => {
     setExpandedPersonals(new Set());
   }, []);
@@ -85,6 +85,63 @@ export default function UnifiedPersonalDashboard() {
     ];
     return data;
   }, [alphaville.personals, buenavista.personals, marista.personals]);
+
+  // Função para buscar aluno e encontrar seu personal trainer
+  const searchStudentPersonal = useCallback((searchTerm) => {
+    if (!searchTerm.trim()) {
+      setStudentSearchResults([]);
+      return;
+    }
+
+    const results = [];
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    console.log('🔍 Buscando por:', searchLower);
+    console.log('📊 Total de registros:', allPersonalsData.length);
+
+    // A estrutura correta é: cada item já é um aluno com seu personal
+    allPersonalsData.forEach((registro) => {
+      if (registro.aluno) {
+        const alunoLower = registro.aluno.toLowerCase();
+        const isReal = isRealStudent(registro.aluno);
+        const matches = alunoLower.includes(searchLower);
+        
+        // Log detalhado para debug
+        if (alunoLower.includes('amauri') || alunoLower.includes('sergio') || alunoLower.includes(searchLower)) {
+          console.log('👤 Registro encontrado:', {
+            aluno: registro.aluno,
+            personal: registro.personal,
+            unidade: registro.unidade,
+            isReal: isReal,
+            matches: matches,
+            searchTerm: searchLower,
+            situacao: registro.situacao
+          });
+        }
+        
+        if (isReal && matches) {
+          results.push({
+            aluno: registro.aluno,
+            personal: registro.personal,
+            unidade: registro.unidade,
+            situacao: registro.situacao || 'Ativo'
+          });
+        }
+      }
+    });
+
+    console.log('✅ Resultados encontrados:', results.length);
+    setStudentSearchResults(results);
+  }, [allPersonalsData]);
+
+  // Effect para executar busca quando o termo muda
+  React.useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      searchStudentPersonal(studentSearchTerm);
+    }, 300); // Debounce de 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [studentSearchTerm, searchStudentPersonal]);
 
   // Função para filtrar alunos reais
   const isRealStudent = (aluno) => {
@@ -1273,34 +1330,174 @@ export default function UnifiedPersonalDashboard() {
               />
             </div>
 
-            {/* Busca Principal */}
-            <div className="search-section">
-              <div className="search-header">
-                <h2>Buscar Personal Trainer</h2>
-                <p>Digite o nome para encontrar informações detalhadas</p>
-              </div>
-              
-              <div className="search-container">
-                <div className="search-input-wrapper">
-                  <Search size={20} />
-                  <input
-                    type="text"
-                    className="search-input"
-                    placeholder="Ex: João Carlos Simão..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+            {/* Background com partículas animadas */}
+            <div className="animated-bg">
+              <div className="particles">
+                {[...Array(30)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className="particle"
+                    style={{
+                      left: `${Math.random() * 100}%`,
+                      animationDelay: `${Math.random() * 20}s`,
+                      animationDuration: `${15 + Math.random() * 10}s`
+                    }}
                   />
-                  {searchTerm && (
-                    <button 
-                      className="clear-search"
-                      onClick={() => setSearchTerm('')}
-                    >
-                      ×
-                    </button>
-                  )}
+                ))}
+              </div>
+            </div>
+
+            {/* Cards de Busca Redesenhados */}
+            <div className="search-cards-grid">
+              {/* Card Busca Personal Trainer */}
+              <div className="search-card trainer-card">
+                <div className="search-card-header">
+                  <div className="card-icon trainer">
+                    <Users size={24} />
+                  </div>
+                  <div className="card-info">
+                    <h3>Buscar Personal Trainer</h3>
+                    <p>Encontre informações detalhadas sobre personal trainers cadastrados</p>
+                  </div>
+                </div>
+                <div className="search-input-container">
+                  <div className="search-input-wrapper">
+                    <Search className="search-icon" size={18} />
+                    <input
+                      type="text"
+                      placeholder="Digite o nome do personal trainer..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="search-input"
+                    />
+                    {searchTerm && (
+                      <button 
+                        className="clear-btn"
+                        onClick={() => setSearchTerm('')}
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Busca Aluno */}
+              <div className="search-card student-card">
+                <div className="search-card-header">
+                  <div className="card-icon student">
+                    <User size={24} />
+                  </div>
+                  <div className="card-info">
+                    <h3>Buscar Aluno</h3>
+                    <p>Descubra qual personal trainer está vinculado ao aluno</p>
+                  </div>
+                </div>
+                <div className="search-input-container">
+                  <div className="search-input-wrapper">
+                    <Search className="search-icon" size={18} />
+                    <input
+                      type="text"
+                      placeholder="Digite o nome do aluno..."
+                      value={studentSearchTerm}
+                      onChange={(e) => setStudentSearchTerm(e.target.value)}
+                      className="search-input"
+                    />
+                    {studentSearchTerm && (
+                      <button 
+                        className="clear-btn"
+                        onClick={() => setStudentSearchTerm('')}
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Seção de Resultados */}
+            {studentSearchResults.length > 0 && (
+              <div className="results-section">
+                <div className="results-header">
+                  <div className="results-count">
+                    <CheckCircle size={16} />
+                    <span>
+                      {studentSearchResults.length} resultado{studentSearchResults.length !== 1 ? 's' : ''} encontrado{studentSearchResults.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="results-filter">
+                    <Filter size={16} />
+                    <select 
+                      value={selectedUnidade} 
+                      onChange={(e) => setSelectedUnidade(e.target.value)}
+                      className="filter-select"
+                    >
+                      <option value="all">Todas as unidades</option>
+                      <option value="alphaville">Alphaville</option>
+                      <option value="buenavista">Buena Vista</option>
+                      <option value="marista">Marista</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="results-grid">
+                  {studentSearchResults.map((result, index) => (
+                    <div key={index} className="result-card">
+                      <div className="result-header">
+                        <div className="result-avatar">
+                          <User size={20} />
+                        </div>
+                        <div className="result-info">
+                          <h4 className="result-name">{result.aluno}</h4>
+                          <div className="result-unit">
+                            <MapPin size={12} />
+                            <span className={`unit-badge ${result.unidade}`}>
+                              {result.unidade === 'alphaville' ? 'Alphaville' :
+                               result.unidade === 'buenavista' ? 'Buena Vista' : 'Marista'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="result-details">
+                        <div className="detail-item">
+                          <span className="detail-label">Personal Trainer</span>
+                          <span className="detail-value">{result.personal}</span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-label">Unidade</span>
+                          <span className="detail-value">
+                            {result.unidade === 'alphaville' ? 'Alphaville' :
+                             result.unidade === 'buenavista' ? 'Buena Vista' : 'Marista'}
+                          </span>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-label">Status</span>
+                          <div className={`status-indicator ${result.situacao.toLowerCase()}`}>
+                            <div className="status-dot"></div>
+                            <span>{result.situacao}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {studentSearchTerm && studentSearchResults.length === 0 && (
+              <div className="no-results">
+                <div className="no-results-icon">
+                  <AlertCircle size={32} />
+                </div>
+                <div className="no-results-content">
+                  <h3>Nenhum aluno encontrado</h3>
+                  <p>Não encontramos nenhum aluno com o nome <strong>"{studentSearchTerm}"</strong></p>
+                  <p className="suggestion">Tente verificar a grafia ou usar apenas parte do nome</p>
+                </div>
+              </div>
+            )}
 
             {/* Tabs de Navegação */}
             <div className="tabs-navigation">
@@ -4835,6 +5032,470 @@ export default function UnifiedPersonalDashboard() {
           min-width: 400px;
           overflow: hidden;
           animation: toastSlideIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .search-section {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          padding: 3rem 2rem;
+          border-radius: 20px;
+          margin-bottom: 2rem;
+          text-align: center;
+          box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        /* DESIGN MODERNO COMPLETO */
+        
+        /* Background animado */
+        .animated-bg {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(-45deg, #0f0f23, #1a1a3e, #2d1b69, #1a1a3e);
+          background-size: 400% 400%;
+          animation: gradientShift 15s ease infinite;
+          z-index: -2;
+        }
+
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        .particles {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
+
+        .particle {
+          position: absolute;
+          width: 2px;
+          height: 2px;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          animation: float 20s linear infinite;
+        }
+
+        @keyframes float {
+          0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+
+        /* Cards de busca */
+        .search-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+          gap: 2rem;
+          margin-bottom: 3rem;
+          position: relative;
+          z-index: 1;
+        }
+
+        .search-card {
+          background: rgba(255, 255, 255, 0.85);
+          border: 1px solid rgba(255, 255, 255, 0.9);
+          border-radius: 24px;
+          overflow: hidden;
+          backdrop-filter: blur(20px);
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .search-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        .search-card:hover::before {
+          opacity: 1;
+        }
+
+        .search-card:hover {
+          transform: translateY(-8px);
+          border-color: rgba(102, 126, 234, 0.8);
+          box-shadow: 0 20px 60px rgba(102, 126, 234, 0.5);
+          background: rgba(255, 255, 255, 0.95);
+        }
+
+        .search-card-header {
+          padding: 2rem 2rem 1rem;
+          display: flex;
+          align-items: center;
+          gap: 1.5rem;
+          position: relative;
+          z-index: 1;
+        }
+
+        .card-icon {
+          width: 60px;
+          height: 60px;
+          border-radius: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+        }
+
+        .card-icon.trainer {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .card-icon.student {
+          background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .card-info h3 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 0 0 0.5rem;
+          color: #333;
+        }
+
+        .card-info p {
+          color: rgba(0, 0, 0, 0.7);
+          margin: 0;
+          line-height: 1.5;
+        }
+
+        /* Input de busca */
+        .search-input-container {
+          padding: 1rem 2rem 2rem;
+          position: relative;
+          z-index: 1;
+        }
+
+        .search-input-wrapper {
+          position: relative;
+          background: rgba(255, 255, 255, 0.9);
+          border-radius: 16px;
+          padding: 1rem 1.5rem;
+          border: 2px solid rgba(255, 255, 255, 0.95);
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .search-input-wrapper:focus-within {
+          border-color: rgba(102, 126, 234, 0.9);
+          background: rgba(255, 255, 255, 1);
+          transform: scale(1.01);
+          box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+        }
+
+        .search-icon {
+          color: rgba(0, 0, 0, 0.6);
+        }
+
+        .search-input {
+          flex: 1;
+          background: transparent;
+          border: none;
+          outline: none;
+          font-size: 1rem;
+          color: #333;
+          font-weight: 500;
+        }
+
+        .search-input::placeholder {
+          color: rgba(0, 0, 0, 0.5);
+        }
+
+        .clear-btn {
+          background: #ef4444;
+          border: none;
+          border-radius: 8px;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .clear-btn:hover {
+          background: #dc2626;
+          transform: scale(1.1);
+        }
+
+        /* Seção de resultados */
+        .results-section {
+          background: rgba(255, 255, 255, 0.85);
+          border: 1px solid rgba(255, 255, 255, 0.9);
+          border-radius: 24px;
+          padding: 2rem;
+          backdrop-filter: blur(20px);
+          animation: slideUp 0.5s ease-out;
+          margin-bottom: 2rem;
+          position: relative;
+          z-index: 1;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .results-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+
+        .results-count {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: #059669;
+          font-weight: 600;
+        }
+
+        .results-filter {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          color: #333;
+        }
+
+        .filter-select {
+          background: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(0, 0, 0, 0.2);
+          border-radius: 8px;
+          padding: 0.5rem 1rem;
+          color: #333;
+          cursor: pointer;
+        }
+
+        .filter-select option {
+          background: #1a1a3e;
+          color: white;
+        }
+
+        .results-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: 1.5rem;
+        }
+
+        .result-card {
+          background: rgba(255, 255, 255, 0.85);
+          border: 1px solid rgba(255, 255, 255, 0.9);
+          border-radius: 16px;
+          padding: 1.5rem;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+
+        .result-card:hover {
+          background: rgba(255, 255, 255, 0.95);
+          transform: translateY(-4px);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .result-header {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          margin-bottom: 1rem;
+        }
+
+        .result-avatar {
+          width: 48px;
+          height: 48px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+        }
+
+        .result-info {
+          flex: 1;
+        }
+
+        .result-name {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: #333;
+          margin: 0 0 0.5rem;
+        }
+
+        .result-unit {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .unit-badge {
+          padding: 0.25rem 0.75rem;
+          border-radius: 12px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          text-transform: uppercase;
+        }
+
+        .unit-badge.alphaville {
+          background: #d4edda;
+          color: #155724;
+        }
+
+        .unit-badge.buenavista {
+          background: #cce7ff;
+          color: #004085;
+        }
+
+        .unit-badge.marista {
+          background: #fff3cd;
+          color: #856404;
+        }
+
+        .result-details {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+          gap: 1rem;
+        }
+
+        .detail-item {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .detail-label {
+          font-size: 0.8rem;
+          color: rgba(0, 0, 0, 0.6);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .detail-value {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: #333;
+        }
+
+        .status-indicator {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.9rem;
+          font-weight: 500;
+        }
+
+        .status-indicator.ativo {
+          color: #4ade80;
+        }
+
+        .status-indicator.inativo {
+          color: #ef4444;
+        }
+
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: currentColor;
+          box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+        }
+
+        /* No results */
+        .no-results {
+          background: rgba(255, 255, 255, 0.25);
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          border-radius: 24px;
+          padding: 3rem 2rem;
+          text-align: center;
+          backdrop-filter: blur(20px);
+          animation: slideUp 0.5s ease-out;
+          position: relative;
+          z-index: 1;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .no-results-icon {
+          color: #ef4444;
+          margin-bottom: 1.5rem;
+          display: flex;
+          justify-content: center;
+        }
+
+        .no-results-content h3 {
+          color: #1f2937;
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 0 0 1rem;
+        }
+
+        .no-results-content p {
+          color: #374151;
+          margin: 0 0 0.5rem;
+          line-height: 1.5;
+        }
+
+        .suggestion {
+          font-style: italic;
+          font-size: 0.9rem;
+          color: #6b7280 !important;
+        }
+
+        /* Responsivo */
+        @media (max-width: 768px) {
+          .search-cards-grid {
+            grid-template-columns: 1fr;
+          }
+          
+          .search-card-header {
+            flex-direction: column;
+            text-align: center;
+            gap: 1rem;
+          }
+
+          .results-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .results-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .result-details {
+            grid-template-columns: 1fr;
+          }
         }
 
         @keyframes toastSlideIn {

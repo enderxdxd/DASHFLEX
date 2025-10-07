@@ -8,6 +8,7 @@ import {
   writeBatch,
   updateDoc,
   doc,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
@@ -71,14 +72,34 @@ export const useVendas = (unidade, metas = []) => {
   const updateVenda = async (id, dados) => {
     try {
       if (!id) throw new Error("ID faltando");
-      await updateDoc(
-        doc(db, "faturamento", unidade.toLowerCase(), "vendas", id),
-        dados
-      );
+      
+      // Buscar a venda original para obter a unidade correta
+      const vendaOriginal = vendas.find(v => v.id === id);
+      
+  
+      
+      if (!vendaOriginal) {
+        throw new Error(`Venda não encontrada na lista: ${id}`);
+      }
+      
+      const unidadeOriginal = vendaOriginal._unidadeOriginal || unidade.toLowerCase();
+      
+      console.log("✅ Unidade que será usada:", unidadeOriginal);
+      
+      const docRef = doc(db, "faturamento", unidadeOriginal, "vendas", id);
+      
+      // Verificar se o documento existe antes de tentar atualizar
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) {
+        throw new Error(`Documento não encontrado no caminho: faturamento/${unidadeOriginal}/vendas/${id}`);
+      }
+      
+      await updateDoc(docRef, dados);
       setSuccessMessage("Venda atualizada!");
       setTimeout(() => setSuccessMessage(""), 3000);
       return true;
     } catch (err) {
+      console.error("❌ Erro ao atualizar venda:", err);
       setError(err.message);
       return false;
     }
@@ -143,7 +164,11 @@ export const useVendas = (unidade, metas = []) => {
     const unsub = onSnapshot(
       collectionGroup(db, "vendas"),
       (snap) => {
-        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const data = snap.docs.map((d) => ({ 
+          id: d.id, 
+          _unidadeOriginal: d.ref.parent.parent.id, // Captura a unidade original
+          ...d.data() 
+        }));
         setVendas(data);
         setLoading(false);
 

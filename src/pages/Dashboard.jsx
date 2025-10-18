@@ -35,7 +35,6 @@ const Dashboard = () => {
   });
 
   const { configRem } = useConfigRem(unidade, selectedMonth);
-  const metaUnidade = Number(configRem?.metaUnidade) || 0;
 
   useEffect(() => {
     localStorage.setItem('selectedMonth', selectedMonth);
@@ -66,11 +65,21 @@ const Dashboard = () => {
     error: metasError,
   } = useMetas(unidade);
 
-  // Lista de responsáveis oficiais da unidade
-  const responsaveisOficiais = useMemo(
-    () => metas.map(m => m.responsavel.trim().toLowerCase()),
-    [metas]
-  );
+  // Meta da unidade calculada como soma das metas dos consultores do mês
+  const metaUnidade = useMemo(() => {
+    const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
+    const somaMetasConsultores = metasDoMes.reduce((soma, meta) => {
+      return soma + Number(meta.meta || 0);
+    }, 0);
+    return somaMetasConsultores;
+  }, [metas, selectedMonth]);
+
+  // Lista de responsáveis oficiais da unidade (APENAS DO MÊS ATUAL)
+  const responsaveisOficiais = useMemo(() => {
+    const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
+    const responsaveis = metasDoMes.map(m => m.responsavel.trim().toLowerCase());
+    return [...new Set(responsaveis)]; // Remove duplicatas
+  }, [metas, selectedMonth]);
 
   // Filtra vendas pelos produtos selecionados na página de metas
   const vendasFiltradas = useMemo(() => {
@@ -104,7 +113,9 @@ const Dashboard = () => {
 
   // 1. Faturamento DA UNIDADE (TODAS as vendas realizadas na unidade atual)
   const faturamentoUnidade = useMemo(() => {
-    console.log('🏢 Calculando faturamento da unidade:', unidade);
+    console.log('🏢 DEBUG FATURAMENTO UNIDADE:');
+    console.log('🏢 Unidade:', unidade);
+    console.log('📅 Mês selecionado:', selectedMonth);
     console.log('📊 Vendas filtradas total:', vendasFiltradas.length);
     
     // TODAS as vendas da unidade (não filtra por responsáveis oficiais)
@@ -112,10 +123,17 @@ const Dashboard = () => {
       (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase()
     );
     
+    console.log('🏢 Vendas da unidade (todas):', vendasDaUnidade.length);
+    
     const vendasMesAtual = vendasDaUnidade.filter(v => {
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth;
+      if (mesCorreto) {
+        console.log(`🏢 Venda da unidade: ${v.responsavel} - R$ ${v.valor} - ${v.dataFormatada}`);
+      }
       return mesCorreto; // Remove filtro de responsáveis oficiais
     });
+    
+    console.log('🏢 Vendas da unidade no mês:', vendasMesAtual.length);
 
     const vendasMesAnterior = vendasDaUnidade.filter(v => {
       const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
@@ -127,6 +145,9 @@ const Dashboard = () => {
     const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
 
+    console.log('🏢 RESULTADO FATURAMENTO UNIDADE:');
+    console.log('💰 Total atual:', totalAtual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+    console.log('🎯 Meta unidade:', metaUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 
     return { 
       totalAtual, 
@@ -138,14 +159,24 @@ const Dashboard = () => {
 
   // 2. Faturamento DOS CONSULTORES (todas as vendas dos consultores da unidade, mesmo que de outras unidades)
   const faturamentoConsultores = useMemo(() => {
+    console.log('🔍 DEBUG FATURAMENTO CONSULTORES:');
+    console.log('📅 Mês selecionado:', selectedMonth);
+    console.log('👥 Responsáveis oficiais:', responsaveisOficiais);
+    console.log('📊 Total vendas filtradas:', vendasFiltradas.length);
     
     const vendasMesAtual = vendasFiltradas.filter(v => {
       const resp = (v.responsavel || '').trim().toLowerCase();
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth;
       const respOficial = responsaveisOficiais.includes(resp);
       
+      if (mesCorreto && respOficial) {
+        console.log(`✅ Venda incluída: ${resp} - R$ ${v.valor} - ${v.dataFormatada}`);
+      }
+      
       return mesCorreto && respOficial;
     });
+    
+    console.log('💰 Vendas dos consultores encontradas:', vendasMesAtual.length);
 
     const vendasMesAnterior = vendasFiltradas.filter(v => {
       const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
@@ -159,6 +190,10 @@ const Dashboard = () => {
     const totalAtual = vendasMesAtual.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
+
+    console.log('👥 RESULTADO FATURAMENTO CONSULTORES:');
+    console.log('💰 Total atual:', totalAtual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+    console.log('🎯 Meta unidade:', metaUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 
     return { 
       totalAtual, 

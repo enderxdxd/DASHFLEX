@@ -1,7 +1,7 @@
 // src/pages/ComissaoDetalhes.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Calculator, Users, AlertCircle, RefreshCw, Sun, Moon, FileText, Download } from 'lucide-react';
+import { Calculator, Users, AlertCircle, RefreshCw, Sun, Moon, FileText, Download, CheckCircle, Target, DollarSign, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import NavBar from '../components/NavBar';
 import ConsultorCard from '../components/comissao/ConsultorCard';
@@ -14,6 +14,7 @@ import { useDescontos } from '../hooks/useDescontos';
 import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
 import { useConfigRem } from '../hooks/useConfigRem';
 import { calcularRemuneracao } from '../utils/remuneracao';
+import { calcularRemuneracaoPorDuracao } from '../utils/calculoRemuneracaoDuracao';
 import { gerarPDFComissoes, gerarPDFResumo } from '../utils/pdfGenerator';
 import useDarkMode from '../hooks/useDarkMode';
 import '../styles/ComissaoComponents.css';
@@ -147,17 +148,6 @@ const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, 
     tabela = temDesconto ? [3, 11, 21, 25, 38, 61] : [9, 18, 28, 42, 53, 97];
   }
   
-  console.log('📊 TABELA DE COMISSÃO SELECIONADA:', {
-    matricula: venda.matricula,
-    duracao,
-    indice,
-    bateuMetaIndividual,
-    unidadeBatida,
-    temDesconto,
-    tabelaUsada: unidadeBatida ? 'Meta Time' : (bateuMetaIndividual ? 'Com Meta' : 'Sem Meta'),
-    tabela,
-    valorComissao: tabela[indice] || 0
-  });
   
   return tabela[indice] || 0;
 };
@@ -285,39 +275,13 @@ export default function ComissaoDetalhes() {
     const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);
     const metaUnidadeCalculada = metasUnidade.reduce((sum, m) => sum + Number(m.meta || 0), 0);
     
-    console.log('📋 DEBUG METAS UNIDADE:', {
-      mesAtual,
-      metasEncontradas: metasUnidade.length,
-      metasDetalhes: metasUnidade.map(m => ({
-        responsavel: m.responsavel,
-        consultor: m.consultor,
-        nome: m.nome,
-        nomeConsultor: m.nomeConsultor,
-        meta: m.meta,
-        periodo: m.periodo
-      })),
-      metaUnidadeTotal: metaUnidadeCalculada,
-      consultoresComMeta
-    });
+    
     
     const metaIndividual = Number(metaConsultor?.meta || 0);
     const bateuMetaIndividual = totalVendasConsultor >= metaIndividual;
     const unidadeBatida = totalVendasUnidade >= metaUnidadeCalculada;
     
-    console.log('🎯 VERIFICAÇÃO DE METAS:', {
-      consultor,
-      totalVendasConsultor,
-      metaIndividual,
-      bateuMetaIndividual,
-      totalVendasUnidade,
-      metaUnidadeCalculada,
-      unidadeBatida,
-      percentualUnidade: ((totalVendasUnidade / metaUnidadeCalculada) * 100).toFixed(1) + '%',
-      consultoresComMeta: consultoresComMeta.length,
-      consultoresList: consultoresComMeta,
-      vendasUnidadeFiltradas: vendasUnidadeNoMes.length,
-      vendasUnidadeTotal: vendas.filter(v => v.dataFormatada && v.dataFormatada.startsWith(mesAtual)).length
-    });
+    
     
     // Processar cada venda
     const resultados = vendasDoConsultor.map(venda => {
@@ -341,19 +305,7 @@ export default function ComissaoDetalhes() {
       const temDesconto = ehPlano ? temDescontoPlano : temDescontoMatricula;
       
       const comissao = calcularComissaoReal(vendaCorrigida, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
-      
-      console.log('💰 CÁLCULO DE COMISSÃO:', {
-        matricula: venda.matricula,
-        produto: venda.produto,
-        plano: venda.plano,
-        vendaCorrigida: vendaCorrigida.produto,
-        ehPlano,
-        temDesconto,
-        bateuMetaIndividual,
-        unidadeBatida,
-        comissao,
-        valor: venda.valor
-      });
+     
       
       // Determinar classificação esperada
       let classificacaoEsperada = 'PRODUTO';
@@ -449,12 +401,7 @@ export default function ComissaoDetalhes() {
       consultor
     });
     
-    console.log(`✅ Análise concluída para ${consultor}:`, {
-      vendas: resultados.length,
-      comissaoTotal: estatisticas.totalComissao.toFixed(2),
-      planos: planos.length,
-      produtos: produtos.length
-    });
+    
   }, [vendas, metas, mesAtual, vendasComDesconto, produtosSelecionados]);
 
   // ===== OTIMIZAÇÃO: Memoizar filtros custosos =====
@@ -637,21 +584,39 @@ export default function ComissaoDetalhes() {
       let valorRemuneracao = totalComissaoReal;
       
       if (remuneracaoType === 'premiacao') {
-        // Usar cálculo de premiação em vez de comissão
-        valorRemuneracao = calcularRemuneracao(
-          metaIndividual, 
-          vendasConsultor, 
-          'premiacao', 
-          unidadeBatida, 
-          configRem
-        );
+        // ✅ CORREÇÃO: Usar calcularRemuneracaoPorDuracao igual ao Metas.jsx
+        const totalVendasIndividual = vendasConsultor.reduce((s, v) => s + Number(v.valor || 0), 0);
+        const totalVendasTime = vendasFiltradas.reduce((s, v) => s + Number(v.valor || 0), 0);
+
+        // ✅ CALCULAR MAIOR META DO PERÍODO
+        const metasDoMes = metas.filter(m => m.periodo === mesAtual);
+        const maiorMeta = metasDoMes.reduce((max, m) => {
+          const metaValor = Number(m.meta || 0);
+          return metaValor > max ? metaValor : max;
+        }, 0);
+
+        const resultado = calcularRemuneracaoPorDuracao({
+          vendas: vendasConsultor,
+          metaIndividual: metaIndividual,
+          metaTime: metaUnidadeCalculada,
+          totalVendasIndividual,
+          totalVendasTime,
+          premiacao: configRem.premiacao || [],
+          tipo: 'premiacao',
+          produtosSelecionados,
+          descontos: descontosPorMatricula ? Array.from(descontosPorMatricula.values()) : [],
+          maiorMeta // ✅ NOVO: passa maior meta para proporcionalidade
+        });
+
+        valorRemuneracao = resultado.totalPremiacao;
         
         console.log(`🏆 [PREMIAÇÃO] ${consultor}:`, {
           metaIndividual,
           totalVendas,
           percentualMeta: percentualMeta.toFixed(1) + '%',
           valorPremiacao: valorRemuneracao.toFixed(2),
-          configPremiacao: configRem?.premiacao || []
+          configPremiacao: configRem?.premiacao || [],
+          faixasAtingidas: resultado.faixasAtingidas?.length || 0
         });
       }
       
@@ -675,6 +640,48 @@ export default function ComissaoDetalhes() {
       };
     });
   }, [vendasFiltradas, metas, mesAtual, vendasComDesconto, produtosSelecionados, configRem, vendasPorConsultor, descontosPorMatricula]);
+
+  // ===== CÁLCULO DA PREMIAÇÃO DO SUPERVISOR =====
+  const premiacaoSupervisor = useMemo(() => {
+    // ✅ CORRIGIDO: Usar premiacaoSupervisor em vez de premiacao
+    if (!metas?.length || !vendasFiltradas?.length || !mesAtual || !configRem?.premiacaoSupervisor) return null;
+    
+    const metasDoMes = metas.filter(m => m.periodo === mesAtual);
+    
+    // Calcular totais da unidade
+    const consultoresComMeta = new Set(
+      metasDoMes.map(m => m.responsavel || m.nome || m.nomeConsultor || m.consultor).filter(Boolean)
+    );
+    
+    const vendasUnidadeNoMes = vendasFiltradas.filter(v => 
+      consultoresComMeta.has(v.responsavel || v.consultor)
+    );
+    
+    const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);
+    const metaUnidadeCalculada = metasDoMes.reduce((sum, m) => sum + Number(m.meta || 0), 0);
+    
+    // Calcular percentual de atingimento
+    const percentualMeta = metaUnidadeCalculada > 0 ? (totalVendasUnidade / metaUnidadeCalculada) * 100 : 0;
+    
+    // ✅ CORRIGIDO: Usar premiacaoSupervisor em vez de premiacao
+    const faixasAtingidas = (configRem.premiacaoSupervisor || [])
+      .filter(faixa => Number(faixa.percentual || 0) <= percentualMeta)
+      .sort((a, b) => Number(a.percentual || 0) - Number(b.percentual || 0));
+    
+    // Calcular premiação total (cumulativa)
+    const premiacaoTotal = faixasAtingidas.reduce((soma, faixa) => {
+      return soma + Number(faixa.premio || 0);
+    }, 0);
+    
+    return {
+      totalVendasUnidade,
+      metaUnidadeCalculada,
+      percentualMeta,
+      faixasAtingidas,
+      premiacaoTotal,
+      consultoresCount: consultoresComMeta.size
+    };
+  }, [vendasFiltradas, metas, mesAtual, configRem]);
 
   // ===== OTIMIZAÇÃO: Filtros com memoização =====
   const resultadosFiltrados = useMemo(() => {
@@ -869,7 +876,6 @@ export default function ComissaoDetalhes() {
       setGerandoPDF(true);
       setProgressoPDF({ porcentagem: 0, mensagem: 'Gerando resumo...' });
       
-      console.log('🔄 Iniciando geração de PDF resumido...');
       
       const resultado = await gerarPDFResumo(
         resultadosAnalise.estatisticas,
@@ -984,6 +990,92 @@ export default function ComissaoDetalhes() {
                   isExpanded={consultorSelecionado === item.consultor}
                 />
               ))}
+            </div>
+          </section>
+        )}
+
+        {/* Card de Premiação do Supervisor */}
+        {!loading && premiacaoSupervisor && premiacaoSupervisor.premiacaoTotal > 0 && (
+          <section className="premiacao-supervisor-section">
+            <div className={`consultor-card supervisor-card ${premiacaoSupervisor.percentualMeta >= 100 ? 'success' : 'warning'}`}>
+              {/* Header do Card */}
+              <div className="consultor-card-header">
+                <div className="consultor-info">
+                  <h3 className="consultor-nome">SUPERVISOR DE VENDAS</h3>
+                  <div className="consultor-stats">
+                    <span className="vendas-count">{premiacaoSupervisor.consultoresCount} consultores</span>
+                    <span className="remuneracao-type">🏆 Premiação</span>
+                  </div>
+                </div>
+                <div className="status-indicator">
+                  {premiacaoSupervisor.percentualMeta >= 100 ? (
+                    <CheckCircle size={20} />
+                  ) : (
+                    <Target size={20} />
+                  )}
+                </div>
+              </div>
+
+              {/* Métricas Principais */}
+              <div className="consultor-metrics">
+                {/* Total de Vendas */}
+                <div className="metric">
+                  <div className="metric-icon">
+                    <DollarSign size={16} />
+                  </div>
+                  <div className="metric-content">
+                    <span className="metric-label">Total Vendas</span>
+                    <span className="metric-value">
+                      R$ {premiacaoSupervisor.totalVendasUnidade.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Premiação Total */}
+                <div className="metric highlight">
+                  <div className="metric-icon">
+                    <Calculator size={16} />
+                  </div>
+                  <div className="metric-content">
+                    <span className="metric-label">Premiação</span>
+                    <span className="metric-value">
+                      R$ {premiacaoSupervisor.premiacaoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Performance da Meta */}
+                <div className="metric">
+                  <div className="metric-icon">
+                    <BarChart3 size={16} />
+                  </div>
+                  <div className="metric-content">
+                    <span className="metric-label">Meta</span>
+                    <span className="metric-value">
+                      {premiacaoSupervisor.percentualMeta.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Barra de Progresso da Meta */}
+              <div className="progress-section">
+                <div className="progress-info">
+                  <span className="progress-label">
+                    R$ {premiacaoSupervisor.totalVendasUnidade.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / 
+                    R$ {premiacaoSupervisor.metaUnidadeCalculada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className={`progress-status ${premiacaoSupervisor.percentualMeta >= 100 ? 'success' : 'warning'}`}>
+                    {premiacaoSupervisor.percentualMeta >= 100 ? 'Meta Atingida' : 'Em Andamento'}
+                  </span>
+                </div>
+                <div className="progress-bar">
+                  <div 
+                    className={`progress-fill ${premiacaoSupervisor.percentualMeta >= 100 ? 'success' : 'warning'}`}
+                    style={{ width: `${Math.min(premiacaoSupervisor.percentualMeta, 100)}%` }}
+                  />
+                </div>
+              </div>
             </div>
           </section>
         )}
@@ -1192,13 +1284,24 @@ export default function ComissaoDetalhes() {
           max-width: 500px;
         }
 
-        .spinning {
-          animation: spin 1s linear infinite;
+            .spinning {
+              animation: spin 1s linear infinite;
+            }
+
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+
+        /* Premiação Supervisor Section */
+        .premiacao-supervisor-section {
+          padding: 0 2rem 2rem;
+          max-width: 600px;
+          margin: 0 auto;
         }
 
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        .supervisor-card {
+          /* Usa os mesmos estilos do .consultor-card */
         }
 
         /* Theme Toggle Button */

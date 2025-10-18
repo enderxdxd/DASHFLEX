@@ -135,18 +135,15 @@ export const useVendas = (unidade, metas = []) => {
         throw new Error(text || "Erro desconhecido no upload");
       }
   
-      // 5) Extrai o JSON – a função deve retornar algo como { success: true, count: 123 }
       const json = await res.json();
       if (!json.success) {
         throw new Error(json.error || "Falha no processamento");
       }
   
-      // 6) Atualiza estado para exibir quantas vendas vieram
       const count = json.count ?? json.processedCount ?? 0;
       setProcessedVendasCount(count);
       setSuccessMessage(`Foram processadas ${json.count} vendas!`);
   
-      // 7) Limpa o arquivo selecionado da UI
       setFile(null);
   
     } catch (err) {

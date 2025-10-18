@@ -8,7 +8,7 @@ import { useGroupedVendas } from '../hooks/useGroupedVendas';
 import { useConfigRem } from '../hooks/useConfigRem';
 import { useMetas } from '../hooks/useMetas';
 import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
-import { calcularRemuneracaoPorDuracao, calcularDuracaoPlano, verificarDescontoPlano } from '../utils/calculoRemuneracaoDuracao';
+import { calcularRemuneracaoPorDuracao, calcularDuracaoPlano, verificarDescontoPlano, calcularPremiacaoSupervisor } from '../utils/calculoRemuneracaoDuracao';
 
 import { useDescontosSimples } from '../utils/useDescontosSimples';
 import { processarCorrecaoDiarias } from '../utils/correcaoDiarias';
@@ -1642,6 +1642,86 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
           </div>
         </div>
       )}
+
+      {/* Seção de Premiação do Supervisor */}
+      {configRem?.premiacaoSupervisor && configRem.premiacaoSupervisor.length > 0 && (
+        <div className="supervisor-premiacao-section">
+          <div className="section-header">
+            <Trophy size={24} />
+            <h3>Premiação do Supervisor</h3>
+          </div>
+          
+          {(() => {
+            const premiacaoSupervisor = calcularPremiacaoSupervisor({
+              totalVendasUnidade: totalUnidade,
+              metaUnidade: metaUnidadeCalculada,
+              premiacaoSupervisor: configRem.premiacaoSupervisor
+            });
+
+            return (
+              <div className="supervisor-premiacao-content">
+                <div className="supervisor-stats-grid">
+                  <div className="supervisor-stat-card">
+                    <div className="stat-header">
+                      <Target size={20} />
+                      <span>Meta da Unidade</span>
+                    </div>
+                    <div className="stat-value">
+                      {metaUnidadeCalculada.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                  </div>
+                  
+                  <div className="supervisor-stat-card">
+                    <div className="stat-header">
+                      <DollarSign size={20} />
+                      <span>Total Vendas</span>
+                    </div>
+                    <div className="stat-value">
+                      {totalUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                  </div>
+                  
+                  <div className="supervisor-stat-card">
+                    <div className="stat-header">
+                      <TrendingUp size={20} />
+                      <span>Percentual Atingido</span>
+                    </div>
+                    <div className="stat-value">
+                      {premiacaoSupervisor.percentualMeta.toFixed(1)}%
+                    </div>
+                  </div>
+                  
+                  <div className={`supervisor-stat-card ${premiacaoSupervisor.totalPremiacao > 0 ? 'success' : ''}`}>
+                    <div className="stat-header">
+                      <Award size={20} />
+                      <span>Premiação Total</span>
+                    </div>
+                    <div className="stat-value">
+                      {premiacaoSupervisor.totalPremiacao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                  </div>
+                </div>
+
+                {premiacaoSupervisor.faixasAtingidas.length > 0 && (
+                  <div className="supervisor-faixas-atingidas">
+                    <h4>Faixas Atingidas</h4>
+                    <div className="faixas-atingidas-grid">
+                      {premiacaoSupervisor.faixasAtingidas.map((faixa, index) => (
+                        <div key={index} className="faixa-atingida-card">
+                          <div className="faixa-percentual">{faixa.percentual}%</div>
+                          <div className="faixa-premio">
+                            {Number(faixa.premio).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 };
@@ -1684,20 +1764,42 @@ const ConfigRemuneracao = () => {
 
   const [metaUnidade, setMetaUnidade] = useState('');
   const [faixas, setFaixas] = useState([]);
+  const [faixasSupervisor, setFaixasSupervisor] = useState([]);
   const [comissaoPlanos, setComissaoPlanos] = useState([]);
   const [taxaSem, setTaxaSem] = useState('1.2');
   const [taxaCom, setTaxaCom] = useState('1.5');
+  const [isSaving, setIsSaving] = useState(false); // ✅ Flag para evitar sobrescrever durante salvamento
 
   useEffect(() => {
-    if (configRem && !configLoading) {
+    console.log('🔄 useEffect disparado:', {
+      configRemExists: !!configRem,
+      configLoading,
+      isSaving,
+      configRemKeys: configRem ? Object.keys(configRem) : [],
+      premiacaoSupervisorLength: configRem?.premiacaoSupervisor?.length
+    });
+    
+    // ✅ NÃO sobrescrever estados se estiver salvando
+    if (configRem && !configLoading && !isSaving) {
+      console.log('📥 Carregando configuração:', {
+        totalFaixasConsultores: configRem.premiacao?.length || 0,
+        totalFaixasSupervisor: configRem.premiacaoSupervisor?.length || 0,
+        primeirasFaixasSupervisor: configRem.premiacaoSupervisor?.slice(0, 3),
+        configRemCompleto: configRem
+      });
       // Não mais definir metaUnidade do configRem, usar valor calculado
       // setMetaUnidade(configRem.metaUnidade?.toString() || '');
       setFaixas(configRem.premiacao || []);
+      setFaixasSupervisor(configRem.premiacaoSupervisor || []);
       setComissaoPlanos(configRem.comissaoPlanos || []);
       setTaxaSem(((configRem.taxaSem || 0.012) * 100).toString());
       setTaxaCom(((configRem.taxaCom || 0.015) * 100).toString());
+      
+      console.log('✅ Estados atualizados:', {
+        faixasSupervisorState: (configRem.premiacaoSupervisor || []).length
+      });
     }
-  }, [configRem, configLoading]);
+  }, [configRem, configLoading, isSaving]);
   
   // Atualizar metaUnidade automaticamente quando as metas dos consultores mudarem
   useEffect(() => {
@@ -1748,6 +1850,35 @@ const ConfigRemuneracao = () => {
     setTimeout(() => setSuccessMessage(''), 3000);
   };
 
+  // Funções para gerenciar faixas do supervisor
+  const addFaixaSupervisor = () => {
+    setFaixasSupervisor([...faixasSupervisor, { percentual: '', premio: '' }]);
+  };
+
+  const updateFaixaSupervisor = (index, field, value) => {
+    const novasFaixas = [...faixasSupervisor];
+    novasFaixas[index][field] = value;
+    setFaixasSupervisor(novasFaixas);
+  };
+
+  const removeFaixaSupervisor = (index) => {
+    setFaixasSupervisor(faixasSupervisor.filter((_, i) => i !== index));
+  };
+
+  const gerarFaixasPadraoSupervisor = () => {
+    if (!unidade) return;
+    // ✅ USAR MESMAS FAIXAS DOS CONSULTORES
+    const novasFaixas = gerarFaixasPremiacaoLocal(unidade);
+    console.log('🏆 Gerando faixas padrão supervisor:', {
+      unidade,
+      totalFaixas: novasFaixas.length,
+      primeirasFaixas: novasFaixas.slice(0, 5)
+    });
+    setFaixasSupervisor(novasFaixas);
+    setSuccessMessage('Faixas de premiação do supervisor geradas!');
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
   const addPlano = () => {
     setComissaoPlanos([
       ...comissaoPlanos,
@@ -1779,11 +1910,16 @@ const ConfigRemuneracao = () => {
   const salvarConfiguracao = async () => {
     try {
       setIsLoading(true);
+      setIsSaving(true); // ✅ Bloquear recarregamento durante salvamento
       setError('');
 
       const configData = {
         metaUnidade: metaUnidadeCalculada || 0,
         premiacao: faixas.map(f => ({
+          percentual: parseFloat(f.percentual) || 0,
+          premio: parseFloat(f.premio) || 0
+        })),
+        premiacaoSupervisor: faixasSupervisor.map(f => ({
           percentual: parseFloat(f.percentual) || 0,
           premio: parseFloat(f.premio) || 0
         })),
@@ -1800,6 +1936,12 @@ const ConfigRemuneracao = () => {
         updatedAt: dayjs().toISOString()
       };
 
+      console.log('💾 Salvando configuração:', {
+        totalFaixasConsultores: configData.premiacao.length,
+        totalFaixasSupervisor: configData.premiacaoSupervisor.length,
+        primeirasFaixasSupervisor: configData.premiacaoSupervisor.slice(0, 3)
+      });
+
       const docRef = doc(
         db,
         'faturamento',
@@ -1812,9 +1954,15 @@ const ConfigRemuneracao = () => {
 
       setSuccessMessage('Configuração salva com sucesso!');
       setTimeout(() => setSuccessMessage(''), 3000);
+      
+      // ✅ Aguardar um pouco antes de permitir recarregamento
+      setTimeout(() => {
+        setIsSaving(false);
+      }, 1000);
     } catch (err) {
       console.error('Erro ao salvar:', err);
       setError('Erro ao salvar configuração. Tente novamente.');
+      setIsSaving(false); // ✅ Liberar em caso de erro
     } finally {
       setIsLoading(false);
     }
@@ -1823,6 +1971,7 @@ const ConfigRemuneracao = () => {
   const configParaVisualizer = {
     metaUnidade: parseInt(metaUnidade, 10) || 0,
     premiacao: faixas,
+    premiacaoSupervisor: faixasSupervisor,
     comissaoPlanos: comissaoPlanos,
     taxaSem: parseFloat(taxaSem) / 100 || 0.012,
     taxaCom: parseFloat(taxaCom) / 100 || 0.015
@@ -1880,8 +2029,17 @@ const ConfigRemuneracao = () => {
           onClick={() => setActiveTab('premiacao')}
         >
           <Award size={20} />
-          Faixas de Premiação
+          Premiação Consultores
         </button>
+        
+        <button 
+          className={`tab ${activeTab === 'premiacaoSupervisor' ? 'active' : ''}`}
+          onClick={() => setActiveTab('premiacaoSupervisor')}
+        >
+          <Trophy size={20} />
+          Premiação Supervisor
+        </button>
+        
         <button 
           className={`tab ${activeTab === 'outros' ? 'active' : ''}`}
           onClick={() => setActiveTab('outros')}
@@ -1957,7 +2115,7 @@ const ConfigRemuneracao = () => {
         {activeTab === 'premiacao' && (
           <div className="tab-panel">
             <div className="section-header">
-              <h2>Faixas de Premiação</h2>
+              <h2>Faixas de Premiação - Consultores</h2>
               <div className="section-actions">
                 <button className="btn secondary" onClick={addFaixa}>
                   <Plus size={16} />
@@ -2010,6 +2168,82 @@ const ConfigRemuneracao = () => {
                           type="number"
                           value={faixa.premio}
                           onChange={(e) => updateFaixa(index, 'premio', e.target.value)}
+                          placeholder="0"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'premiacaoSupervisor' && (
+          <div className="tab-panel">
+            <div className="section-header">
+              <h2>Faixas de Premiação - Supervisor</h2>
+              <div className="section-actions">
+                <button className="btn secondary" onClick={addFaixaSupervisor}>
+                  <Plus size={16} />
+                  Adicionar
+                </button>
+                <button className="btn secondary" onClick={gerarFaixasPadraoSupervisor}>
+                  <RefreshCw size={16} />
+                  Gerar Padrão
+                </button>
+              </div>
+            </div>
+            
+            <div className="info-card">
+              <Info size={20} />
+              <div>
+                <h4>Premiação do Supervisor</h4>
+                <p>As faixas de premiação do supervisor são baseadas no percentual de atingimento da meta da unidade. O supervisor recebe prêmios conforme a performance geral da equipe.</p>
+              </div>
+            </div>
+            
+            {faixasSupervisor.length === 0 ? (
+              <div className="empty-state">
+                <Trophy size={48} />
+                <p>Nenhuma faixa de premiação configurada para o supervisor</p>
+                <button className="btn primary" onClick={gerarFaixasPadraoSupervisor}>
+                  Gerar Faixas Padrão
+                </button>
+              </div>
+            ) : (
+              <div className="faixas-grid">
+                {faixasSupervisor.map((faixa, index) => (
+                  <div key={index} className="faixa-card supervisor">
+                    <div className="card-header">
+                      <span className="faixa-number">#{index + 1}</span>
+                      <button 
+                        className="btn-icon danger"
+                        onClick={() => removeFaixaSupervisor(index)}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    
+                    <div className="card-content">
+                      <div className="input-group">
+                        <label>Percentual da Meta da Unidade (%)</label>
+                        <input
+                          type="number"
+                          value={faixa.percentual}
+                          onChange={(e) => updateFaixaSupervisor(index, 'percentual', e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          max="500"
+                        />
+                      </div>
+                      <div className="input-group">
+                        <label>Prêmio (R$)</label>
+                        <input
+                          type="number"
+                          value={faixa.premio}
+                          onChange={(e) => updateFaixaSupervisor(index, 'premio', e.target.value)}
                           placeholder="0"
                           min="0"
                         />

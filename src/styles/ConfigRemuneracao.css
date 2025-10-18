@@ -684,9 +684,157 @@
   
   .faixas-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  
+  /* Estilos específicos para faixas do supervisor */
+  .faixa-card.supervisor {
+    border-left: 4px solid var(--warning-color);
+    background: linear-gradient(135deg, var(--warning-light) 0%, var(--gray-50) 100%);
+  }
+
+  .dark .faixa-card.supervisor {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, var(--gray-100) 100%);
+  }
+
+  .faixa-card.supervisor .faixa-number {
+    background: var(--warning-color);
+    color: var(--white);
+  }
+
+  .faixa-card.supervisor:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(251, 191, 36, 0.15);
+  }
+
+  /* Seção de Premiação do Supervisor */
+  .supervisor-premiacao-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, var(--warning-light) 0%, var(--gray-50) 100%);
+    border-radius: 12px;
+    border-left: 4px solid var(--warning-color);
+  }
+
+  .dark .supervisor-premiacao-section {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, var(--gray-100) 100%);
+  }
+
+  .supervisor-premiacao-section .section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    color: var(--warning-color);
+  }
+
+  .supervisor-premiacao-section .section-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .supervisor-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .supervisor-stat-card {
+    background: var(--white);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid var(--gray-200);
+    transition: var(--transition);
+  }
+
+  .dark .supervisor-stat-card {
+    background: var(--gray-100);
+    border-color: var(--gray-300);
+  }
+
+  .supervisor-stat-card.success {
+    border-color: var(--success-color);
+    background: linear-gradient(135deg, var(--success-light) 0%, var(--white) 100%);
+  }
+
+  .dark .supervisor-stat-card.success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, var(--gray-100) 100%);
+  }
+
+  .supervisor-stat-card .stat-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--gray-600);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .supervisor-stat-card .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gray-900);
+  }
+
+  .dark .supervisor-stat-card .stat-value {
+    color: var(--gray-100);
+  }
+
+  .supervisor-faixas-atingidas h4 {
+    margin: 0 0 1rem 0;
+    color: var(--gray-800);
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .dark .supervisor-faixas-atingidas h4 {
+    color: var(--gray-200);
+  }
+
+  .faixas-atingidas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .faixa-atingida-card {
+    background: var(--white);
+    border: 2px solid var(--success-color);
+    border-radius: 8px;
+    padding: 0.75rem;
+    text-align: center;
+    transition: var(--transition);
+  }
+
+  .dark .faixa-atingida-card {
+    background: var(--gray-100);
+  }
+
+  .faixa-atingida-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  }
+
+  .faixa-percentual {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--success-color);
+    margin-bottom: 0.25rem;
+  }
+
+  .faixa-premio {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--gray-700);
+  }
+
+  .dark .faixa-premio {
+    color: var(--gray-300);
   }
   
   .taxas-grid {

@@ -78,7 +78,7 @@ export default function Metas() {
   // Hook para buscar descontos do Firebase
   const { descontos, loading: loadingDescontos } = useDescontosSimples(unidade);
 
-function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRem, metaUnidadeCalculada) {
+function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRem, metaUnidadeCalculada, maiorMeta = 0) {
   // Validações iniciais
   if (!Array.isArray(vendasArr)) {
     console.warn('VendasArr não é um array válido');
@@ -108,7 +108,8 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
       totalVendasTime,
       descontos, // Usa os descontos do hook
       tipo: 'comissao',
-      produtosSelecionados // Passa o filtro de produtos
+      produtosSelecionados, // Passa o filtro de produtos
+      maiorMeta // ✅ NOVO: passa maior meta
     });
     
     console.log(`💰 Nova lógica - ${resultado.totalComissao.toFixed(2)} (${resultado.resumo.totalPlanosProcessados} planos, ${resultado.resumo.totalProdutosProcessados} produtos)`);
@@ -125,10 +126,11 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
       premiacao: configRem.premiacao || [],
       tipo: 'premiacao',
       produtosSelecionados,
-      descontos // ✅ ADICIONADO: parâmetro descontos
+      descontos, // ✅ ADICIONADO: parâmetro descontos
+      maiorMeta // ✅ NOVO: passa maior meta para proporcionalidade
     });
     
-    console.log(`🏆 Premiação - ${resultado.totalPremiacao.toFixed(2)} (${resultado.percentualMeta?.toFixed(2)}% meta, ${resultado.faixasAtingidas?.length || 0} faixas)`);
+    console.log(`🏆 Premiação - ${resultado.totalPremiacao.toFixed(2)} (${resultado.percentualMeta?.toFixed(2)}% meta, ${resultado.faixasAtingidas?.length || 0} faixas, proporcionalidade: ${maiorMeta > 0 ? (metaValor/maiorMeta).toFixed(4) : '1.0000'})`);
     return resultado.totalPremiacao; // ✅ CORRIGIDO: usar totalPremiacao
   }
   
@@ -349,6 +351,12 @@ function debugConsultor(nomeConsultor, todasVendas, configRem, metas) {
   const totalVendasUnidade = todasVendas.reduce((s, v) => s + Number(v.valor || 0), 0);
   const unidadeBatida = totalVendasUnidade >= metaUnidade;
   
+  // Calcular maior meta do período
+  const metasDoMes = metas.filter(m => m.periodo === metaConsultor.periodo);
+  const maiorMeta = metasDoMes.reduce((max, m) => {
+    const metaValor = Number(m.meta || 0);
+    return metaValor > max ? metaValor : max;
+  }, 0);
   
   // Calcular remuneração usando a função principal
   const remuneracao = calcularRemuneracao(
@@ -356,7 +364,9 @@ function debugConsultor(nomeConsultor, todasVendas, configRem, metas) {
     vendasConsultor,
     metaConsultor.remuneracaoType || 'comissao',
     unidadeBatida,
-    configRem
+    configRem,
+    metaUnidade,
+    maiorMeta
   );
   
   
@@ -1033,43 +1043,57 @@ function debugCalculoASMIHS(vendasArr, configRem) {
               </tr>
             </thead>
             <tbody>
-            {metas
-    .filter((m) => m.periodo === selectedMonth)
-    .sort((a, b) =>
-      a.responsavel
-        .trim()
-        .localeCompare(b.responsavel.trim(), "pt", { sensitivity: "base" })
-    )
-    .map((m) => {
-      // 1) filtra vendas por consultor - CROSSING: TODAS AS UNIDADES
-      const vendasDoResp = vendasAgrupadas.filter(v => {
-        const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
-        const matchResponsavel = v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase();
-        const matchMes = mes === selectedMonth;
-        // REMOVIDO: filtro por unidade para permitir crossing
-        
-        // LÓGICA GLOBAL: Se não há produtos selecionados, inclui todas as vendas
-        const matchProduto = produtosSelecionados.length === 0 || 
-          (v.produto && produtosSelecionados.includes(v.produto.trim()));
-        
-        return matchResponsavel && matchMes && matchProduto;
-      });
+            {(() => {
+              // ✅ CALCULAR MAIOR META DO PERÍODO ANTES DO LOOP
+              const metasDoMes = metas.filter((m) => m.periodo === selectedMonth);
+              const maiorMeta = metasDoMes.reduce((max, m) => {
+                const metaValor = Number(m.meta || 0);
+                return metaValor > max ? metaValor : max;
+              }, 0);
+              
+              console.log('📊 MAIOR META DO PERÍODO:', {
+                periodo: selectedMonth,
+                maiorMeta: maiorMeta.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+                totalConsultores: metasDoMes.length
+              });
+              
+              return metasDoMes
+                .sort((a, b) =>
+                  a.responsavel
+                    .trim()
+                    .localeCompare(b.responsavel.trim(), "pt", { sensitivity: "base" })
+                )
+                .map((m) => {
+                  // 1) filtra vendas por consultor - CROSSING: TODAS AS UNIDADES
+                  const vendasDoResp = vendasAgrupadas.filter(v => {
+                    const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
+                    const matchResponsavel = v.responsavel.trim().toLowerCase() === m.responsavel.trim().toLowerCase();
+                    const matchMes = mes === selectedMonth;
+                    // REMOVIDO: filtro por unidade para permitir crossing
+                    
+                    // LÓGICA GLOBAL: Se não há produtos selecionados, inclui todas as vendas
+                    const matchProduto = produtosSelecionados.length === 0 || 
+                      (v.produto && produtosSelecionados.includes(v.produto.trim()));
+                    
+                    return matchResponsavel && matchMes && matchProduto;
+                  });
 
-      // 1.1) soma total das vendas para exibir e calcular % Meta
-      const totalV = vendasDoResp.reduce(
-        (soma, v) => soma + Number(v.valor || 0),
-        0
-      );
+                  // 1.1) soma total das vendas para exibir e calcular % Meta
+                  const totalV = vendasDoResp.reduce(
+                    (soma, v) => soma + Number(v.valor || 0),
+                    0
+                  );
 
-      // 2) chama a função única que engloba toda a lógica de remuneração
-      const remuneracao = calcularRemuneracao(
-        Number(m.meta),     // meta individual
-        vendasDoResp,       // array de vendas do consultor
-        m.remuneracaoType,  // "comissao" ou "premiacao"
-        unidadeBatida,
-        configRem,
-        metaUnidade         // passa a meta da unidade calculada
-      );
+                  // 2) chama a função única que engloba toda a lógica de remuneração
+                  const remuneracao = calcularRemuneracao(
+                    Number(m.meta),     // meta individual
+                    vendasDoResp,       // array de vendas do consultor
+                    m.remuneracaoType,  // "comissao" ou "premiacao"
+                    unidadeBatida,
+                    configRem,
+                    metaUnidade,        // passa a meta da unidade calculada
+                    maiorMeta           // ✅ NOVO: passa maior meta para proporcionalidade
+                  );
 
       // 3) percentual de meta atingido - USAR DADOS CONSISTENTES
       let pctMeta = 0;
@@ -1218,7 +1242,8 @@ function debugCalculoASMIHS(vendasArr, configRem) {
           </td>
         </tr>
       );
-    })}
+    });
+  })()}
 </tbody>
 
           </table>

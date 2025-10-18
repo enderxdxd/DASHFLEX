@@ -7,6 +7,7 @@ export function useConfigRem(unidade, month) {
   const [configRem, setConfigRem] = useState({
     metaUnidade: 0,
     premiacao: [],
+    premiacaoSupervisor: [],
     comissaoPlanos: []
   });
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,7 @@ export function useConfigRem(unidade, month) {
           setConfigRem({
             metaUnidade: data.metaUnidade || 0,
             premiacao: Array.isArray(data.premiacao) ? data.premiacao : [],
+            premiacaoSupervisor: Array.isArray(data.premiacaoSupervisor) ? data.premiacaoSupervisor : [],
             comissaoPlanos: Array.isArray(data.comissaoPlanos) ? data.comissaoPlanos : []
           });
           setLoading(false);
@@ -62,6 +64,7 @@ export function useConfigRem(unidade, month) {
                 setConfigRem({
                   metaUnidade: data.metaUnidade || 0,
                   premiacao: Array.isArray(data.premiacao) ? data.premiacao : [],
+                  premiacaoSupervisor: Array.isArray(data.premiacaoSupervisor) ? data.premiacaoSupervisor : [],
                   comissaoPlanos: Array.isArray(data.comissaoPlanos) ? data.comissaoPlanos : []
                 });
               } else {
@@ -69,6 +72,7 @@ export function useConfigRem(unidade, month) {
                 setConfigRem({
                   metaUnidade: 0,
                   premiacao: [],
+                  premiacaoSupervisor: [],
                   comissaoPlanos: []
                 });
               }

@@ -169,10 +169,11 @@ export function calcularRemuneracaoPorDuracao(params) {
     totalVendasTime = 0,
     descontos = [],
     tipo = 'comissao',
-    produtosSelecionados = []
+    produtosSelecionados = [],
+    maiorMeta = 0 // ✅ NOVO PARÂMETRO: maior meta do grupo
   } = params;
 
-  if (tipo === 'premiacao') return calcularPremiacao(params);
+  if (tipo === 'premiacao') return calcularPremiacao({ ...params, maiorMeta });
 
   const bateuMetaIndividual = totalVendasIndividual >= metaIndividual;
   const bateuMetaTime = totalVendasTime >= metaTime;
@@ -318,12 +319,14 @@ function calcularPremiacao(params) {
     totalVendasIndividual = 0,
     totalVendasTime = 0,
     premiacao = [],
-    produtosSelecionados = []
+    produtosSelecionados = [],
+    maiorMeta = 0 // ✅ NOVO PARÂMETRO: maior meta do grupo
   } = params;
 
   console.log('🏆 INICIANDO CÁLCULO DE PREMIAÇÃO:', {
     totalVendas: vendas.length,
     metaIndividual,
+    maiorMeta,
     totalVendasIndividual,
     faixasPremiacao: premiacao.length
   });
@@ -331,10 +334,17 @@ function calcularPremiacao(params) {
   // Calcula o percentual de meta atingido
   const percentualMeta = metaIndividual > 0 ? (totalVendasIndividual / metaIndividual) * 100 : 0;
   
+  // ✅ CALCULA FATOR DE PROPORCIONALIDADE
+  const fatorProporcionalidade = (maiorMeta > 0 && metaIndividual > 0) 
+    ? (metaIndividual / maiorMeta) 
+    : 1;
+  
   console.log('🎯 PERCENTUAL DE META:', {
     percentual: percentualMeta.toFixed(2) + '%',
     totalVendas: totalVendasIndividual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    meta: metaIndividual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    meta: metaIndividual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    maiorMeta: maiorMeta.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    fatorProporcionalidade: fatorProporcionalidade.toFixed(4)
   });
 
   // Ordena as faixas por percentual crescente e filtra as atingidas
@@ -350,10 +360,12 @@ function calcularPremiacao(params) {
     detalhes: faixasAtingidas.map(f => `${f.percentual}% → R$ ${f.premio}`)
   });
 
-  // NOVA LÓGICA: Soma TODAS as faixas atingidas
-  const premioTotal = faixasAtingidas.reduce((soma, faixa) => {
+  // ✅ NOVA LÓGICA: Soma TODAS as faixas atingidas E APLICA PROPORCIONALIDADE
+  const premioBase = faixasAtingidas.reduce((soma, faixa) => {
     return soma + Number(faixa.premio || 0);
   }, 0);
+  
+  const premioTotal = premioBase * fatorProporcionalidade;
 
   // Determina se bateu as metas
   const bateuMetaIndividual = totalVendasIndividual >= metaIndividual;
@@ -395,9 +407,98 @@ function calcularPremiacao(params) {
   console.log('🏆 RESULTADO FINAL PREMIAÇÃO:', {
     percentualMeta: percentualMeta.toFixed(2) + '%',
     faixasAtingidas: faixasAtingidas.length,
+    premioBase: premioBase.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    fatorProporcionalidade: fatorProporcionalidade.toFixed(4),
     premioTotal: premioTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
     bateuMetaIndividual,
     bateuMetaTime
+  });
+
+  return resultado;
+}
+
+/**
+ * 🏆 FUNÇÃO PARA CALCULAR PREMIAÇÃO DO SUPERVISOR
+ * Calcula a premiação do supervisor baseada no percentual de atingimento da meta da unidade
+ */
+export function calcularPremiacaoSupervisor({
+  totalVendasUnidade,
+  metaUnidade,
+  premiacaoSupervisor = []
+}) {
+  console.log('🏆 INICIANDO CÁLCULO PREMIAÇÃO SUPERVISOR:', {
+    totalVendasUnidade,
+    metaUnidade,
+    faixasConfiguradas: premiacaoSupervisor.length
+  });
+
+  // Validações básicas
+  if (!premiacaoSupervisor || premiacaoSupervisor.length === 0) {
+    console.log('⚠️ Nenhuma faixa de premiação configurada para supervisor');
+    return {
+      totalPremiacao: 0,
+      percentualMeta: 0,
+      faixasAtingidas: [],
+      bateuMeta: false
+    };
+  }
+
+  if (!metaUnidade || metaUnidade <= 0) {
+    console.log('⚠️ Meta da unidade não configurada ou inválida');
+    return {
+      totalPremiacao: 0,
+      percentualMeta: 0,
+      faixasAtingidas: [],
+      bateuMeta: false
+    };
+  }
+
+  // Calcular percentual de atingimento da meta da unidade
+  const percentualMeta = (totalVendasUnidade / metaUnidade) * 100;
+  const bateuMeta = percentualMeta >= 100;
+
+  console.log('📊 ANÁLISE META UNIDADE:', {
+    totalVendas: totalVendasUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    metaUnidade: metaUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    percentual: percentualMeta.toFixed(2) + '%',
+    bateuMeta
+  });
+
+  // Filtrar faixas atingidas (todas as faixas com percentual <= percentual atingido)
+  const faixasAtingidas = premiacaoSupervisor
+    .filter(faixa => {
+      const percentualFaixa = Number(faixa.percentual || 0);
+      return percentualFaixa <= percentualMeta;
+    })
+    .sort((a, b) => Number(a.percentual || 0) - Number(b.percentual || 0));
+
+  console.log('🎯 FAIXAS ATINGIDAS:', faixasAtingidas.map(f => ({
+    percentual: f.percentual + '%',
+    premio: Number(f.premio || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  })));
+
+  // Somar todos os prêmios das faixas atingidas (sistema cumulativo)
+  const premioTotal = faixasAtingidas.reduce((soma, faixa) => {
+    return soma + Number(faixa.premio || 0);
+  }, 0);
+
+  const resultado = {
+    totalPremiacao: premioTotal,
+    percentualMeta,
+    faixasAtingidas,
+    bateuMeta,
+    resumo: {
+      totalFaixasConfiguradas: premiacaoSupervisor.length,
+      totalFaixasAtingidas: faixasAtingidas.length,
+      metodo: 'Premiação supervisor por faixas de percentual da unidade'
+    }
+  };
+
+  console.log('🏆 RESULTADO FINAL PREMIAÇÃO SUPERVISOR:', {
+    percentualMeta: percentualMeta.toFixed(2) + '%',
+    faixasAtingidas: faixasAtingidas.length,
+    premioTotal: premioTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    bateuMeta
   });
 
   return resultado;

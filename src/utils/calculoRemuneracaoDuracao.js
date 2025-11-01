@@ -282,12 +282,36 @@ export function calcularRemuneracaoPorDuracao(params) {
     }
   }
 
+  // 🎁 BÔNUS DE 10% PARA COMISSIONADOS
+  // A partir de 110% da meta, ganha R$ 100 por cada 10% adicional
+  const percentualMeta = metaIndividual > 0 ? (totalVendasIndividual / metaIndividual) * 100 : 0;
+  let bonusDezPorcento = 0;
+  
+  if (percentualMeta >= 110) {
+    // Calcula quantas faixas de 10% foram atingidas a partir de 110%
+    // 110% = 1 bônus, 120% = 2 bônus, 130% = 3 bônus, etc.
+    const faixasDeDezPorcento = Math.floor((percentualMeta - 100) / 10);
+    bonusDezPorcento = faixasDeDezPorcento * 100;
+    
+    console.log('🎁 BÔNUS DE 10% CALCULADO:', {
+      percentualMeta: percentualMeta.toFixed(2) + '%',
+      faixasAtingidas: faixasDeDezPorcento,
+      bonusTotal: bonusDezPorcento.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    });
+  }
+  
+  // Adiciona o bônus ao total de comissão
+  const totalComissaoComBonus = totalComissao + bonusDezPorcento;
+
   const resultado = {
-    totalComissao,
+    totalComissao: totalComissaoComBonus,
+    comissaoBase: totalComissao, // Comissão sem bônus
+    bonusDezPorcento, // Valor do bônus de 10%
     comissaoProdutos,
     comissaoPlanos,
     bateuMetaIndividual,
     bateuMetaTime,
+    percentualMeta, // Adiciona percentual para referência
     qtdPlanosSemDesconto: Object.values(qtdPlanos.semDesconto).reduce((a, b) => a + b, 0),
     qtdPlanosComDesconto: Object.values(qtdPlanos.comDesconto).reduce((a, b) => a + b, 0),
     vendasDetalhadas,
@@ -301,8 +325,11 @@ export function calcularRemuneracaoPorDuracao(params) {
 
   console.log('📊 RESULTADO FINAL:', {
     totalComissao: resultado.totalComissao,
+    comissaoBase: resultado.comissaoBase,
+    bonusDezPorcento: resultado.bonusDezPorcento,
     comissaoPlanos: resultado.comissaoPlanos,
     comissaoProdutos: resultado.comissaoProdutos,
+    percentualMeta: percentualMeta.toFixed(2) + '%',
     qtdPlanos: resultado.qtdPlanosSemDesconto + resultado.qtdPlanosComDesconto,
     qtdProdutos: resultado.vendasDetalhadas.filter(v => v.tipo === 'produto').length
   });
@@ -319,6 +346,8 @@ function calcularPremiacao(params) {
     totalVendasIndividual = 0,
     totalVendasTime = 0,
     premiacao = [],
+    // produtosSelecionados não é usado na premiação, mas mantido para compatibilidade
+    // eslint-disable-next-line no-unused-vars
     produtosSelecionados = [],
     maiorMeta = 0 // ✅ NOVO PARÂMETRO: maior meta do grupo
   } = params;

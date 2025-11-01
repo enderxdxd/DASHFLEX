@@ -2,7 +2,6 @@
 import React from 'react';
 import { 
   Target, 
-  TrendingUp, 
   CheckCircle, 
   AlertTriangle, 
   DollarSign,
@@ -23,12 +22,13 @@ const ConsultorCard = ({
   const {
     totalVendas,
     totalComissao,
+    bonusRemuneracao = 0, // ✅ Adiciona bônus
     metaIndividual,
     bateuMetaIndividual,
     percentualMeta,
     vendasCount,
     planosCount,
-    produtosCount,
+    // produtosCount não é usado na visualização
     planosDetalhados,
     totalComDesconto,
     totalSemDesconto,
@@ -90,11 +90,31 @@ const ConsultorCard = ({
           </div>
           <div className="metric-content">
             <span className="metric-label">
-              {remuneracaoType === 'premiacao' ? 'Premiação' : 'Comissão'}
+              {remuneracaoType === 'premiacao' ? 'Premiação' : 'Comissão Total'}
             </span>
             <span className="metric-value">
               R$ {totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
+            {bonusRemuneracao > 0 && remuneracaoType === 'comissao' && (
+              <div style={{ 
+                fontSize: '0.7rem',
+                marginTop: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderRadius: '4px',
+                border: '1px solid rgba(16, 185, 129, 0.2)'
+              }}>
+                <span style={{ color: '#6b7280' }}>
+                  Base: R$ {(totalComissao - bonusRemuneracao).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+                <span style={{ color: '#10b981', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                  + 🎁 R$ {bonusRemuneracao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

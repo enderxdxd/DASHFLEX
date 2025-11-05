@@ -506,6 +506,15 @@ export default function ComissaoDetalhes() {
     const metaUnidadeCalculada = metasDoMes.reduce((sum, m) => sum + Number(m.meta || 0), 0);
     const unidadeBatida = totalVendasUnidade >= metaUnidadeCalculada;
     
+    console.log(`🎯 [COMISSAO] Cálculo unidadeBatida:`, {
+      totalUnidade: totalVendasUnidade.toFixed(2),
+      metaUnidade: metaUnidadeCalculada.toFixed(2),
+      unidadeBatida,
+      diferenca: (totalVendasUnidade - metaUnidadeCalculada).toFixed(2),
+      vendasCount: vendasUnidadeNoMes.length,
+      consultoresCount: metasDoMes.length
+    });
+    
     return metasDoMes.map(meta => {
       const consultor = meta.responsavel;
       const vendasConsultor = vendasPorConsultor.get(consultor) || [];
@@ -565,13 +574,39 @@ export default function ComissaoDetalhes() {
           // Calcular comissão para plano
           const temDescontoPlano = vendaComDesconto && Number(vendaComDesconto.descontoPlano || 0) > 0;
           const comissao = calcularComissaoReal(vendaCorrigida, true, temDescontoPlano, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
+          
+          // Debug detalhado
+          if (comissao > 0) {
+            console.log(`[COMISSAO] Venda processada:`, {
+              matricula: venda.matricula,
+              produto: venda.produto,
+              valor: venda.valor,
+              ehPlano: true,
+              temDesconto: temDescontoPlano,
+              comissao: comissao.toFixed(2),
+              bateuMetaIndividual,
+              unidadeBatida
+            });
+          }
+          
           totalComissaoReal += comissao;
         } else {
           // Produto
           const temDescontoMatricula = vendaComDesconto && Number(vendaComDesconto.descontoMatricula || 0) > 0;
           const comissao = calcularComissaoReal(vendaCorrigida, false, temDescontoMatricula, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
           
+          // Debug detalhado
           if (comissao > 0) {
+            console.log(`[COMISSAO] Venda processada:`, {
+              matricula: venda.matricula,
+              produto: venda.produto,
+              valor: venda.valor,
+              ehPlano: false,
+              temDesconto: temDescontoMatricula,
+              comissao: comissao.toFixed(2),
+              bateuMetaIndividual,
+              unidadeBatida
+            });
             produtosCount++;
             totalComissaoReal += comissao;
           }
@@ -636,13 +671,16 @@ export default function ComissaoDetalhes() {
         // Usar comissão base calculada manualmente + bônus
         valorRemuneracao = totalComissaoReal + bonusRemuneracao;
         
-        console.log(`💰 [COMISSÃO] ${consultor}:`, {
+        console.log(`💰 [COMISSAO] Comissão Final - ${consultor}:`, {
+          totalVendas: vendasConsultor.length,
           metaIndividual,
-          totalVendas: totalVendasIndividual,
-          percentualMeta: percentualMetaCalc.toFixed(1) + '%',
+          totalVendasValor: totalVendasIndividual.toFixed(2),
+          percentualMeta: percentualMetaCalc.toFixed(2) + '%',
           comissaoBase: totalComissaoReal.toFixed(2),
           bonus: bonusRemuneracao.toFixed(2),
-          comissaoTotal: valorRemuneracao.toFixed(2)
+          total: valorRemuneracao.toFixed(2),
+          bateuMetaIndividual,
+          unidadeBatida
         });
       }
       
@@ -693,12 +731,18 @@ export default function ComissaoDetalhes() {
     // ✅ CORRIGIDO: Usar premiacaoSupervisor em vez de premiacao
     const faixasAtingidas = (configRem.premiacaoSupervisor || [])
       .filter(faixa => Number(faixa.percentual || 0) <= percentualMeta)
-      .sort((a, b) => Number(a.percentual || 0) - Number(b.percentual || 0));
+      .sort((a, b) => Number(b.percentual || 0) - Number(a.percentual || 0)); // Ordenar decrescente
     
-    // Calcular premiação total (cumulativa)
-    const premiacaoTotal = faixasAtingidas.reduce((soma, faixa) => {
-      return soma + Number(faixa.premio || 0);
-    }, 0);
+    // ✅ NÃO É CUMULATIVO: Pega apenas a MAIOR faixa atingida
+    const premiacaoTotal = faixasAtingidas.length > 0 ? Number(faixasAtingidas[0].premio || 0) : 0;
+    
+    console.log('🏆 [SUPERVISOR] Cálculo de Premiação:', {
+      percentualMeta: percentualMeta.toFixed(2) + '%',
+      totalFaixas: (configRem.premiacaoSupervisor || []).length,
+      faixasAtingidas: faixasAtingidas.length,
+      premiacaoTotal: premiacaoTotal.toFixed(2),
+      primeirasFaixas: (configRem.premiacaoSupervisor || []).slice(0, 3)
+    });
     
     return {
       totalVendasUnidade,

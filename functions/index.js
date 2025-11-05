@@ -596,13 +596,13 @@ appDescontos.post("/", (req, res) => {
       for (let i = 0; i < jsonData.length; i++) {
         const row = jsonData[i];
 
-        // Extrai dados conforme estrutura real: Matrícula, Nome, Responsável, Tipo, Convênio, Lançamento, Valor
+        // Extrai dados conforme estrutura real: Matrícula, Nome, Resp. Alteração, Tipo, Convênio, Dt. Lançamento, Valor
         const matricula = (row["Matrícula"] || row["Matricula"] || "").toString().trim();
         const nome = (row["Nome"] || "").toString().trim();
-        const responsavel = (row["Responsável"] || row["Responsavel"] || "").toString().trim();
+        const responsavel = (row["Resp. Alteração"] || row["Resp Alteração"] || row["Responsável"] || row["Responsavel"] || "").toString().trim();
         const tipo = (row["Tipo"] || "").toString().trim().toUpperCase(); // PLANO ou MATRÍCULA
         const convenio = (row["Convênio"] || row["Convenio"] || "").toString().trim();
-        const lancamento = row["Lançamento"] || row["Lancamento"] || currentDate;
+        const lancamento = row["Dt. Lançamento"] || row["Dt Lançamento"] || row["Lançamento"] || row["Lancamento"] || currentDate;
         // 🔧 CORREÇÃO: Usar a mesma lógica de limpeza de valores da função principal
         const valorDesconto = Number(
           (row["Valor"] || "")

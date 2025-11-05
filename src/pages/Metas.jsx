@@ -171,6 +171,21 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
         : (vendaComDesconto && Number(vendaComDesconto.descontoMatricula || 0) > 0);
       
       const comissao = calcularComissaoReal(vendaCorrigida, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
+      
+      // Debug detalhado
+      if (comissao > 0) {
+        console.log(`[METAS] Venda processada:`, {
+          matricula: venda.matricula,
+          produto: venda.produto,
+          valor: venda.valor,
+          ehPlano,
+          temDesconto,
+          comissao: comissao.toFixed(2),
+          bateuMetaIndividual,
+          unidadeBatida
+        });
+      }
+      
       totalComissaoReal += comissao;
     });
     
@@ -183,7 +198,15 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
     
     const totalComBonus = totalComissaoReal + bonusDezPorcento;
     
-    console.log(`💰 Comissão - Base: ${totalComissaoReal.toFixed(2)} + Bônus: ${bonusDezPorcento.toFixed(2)} = Total: ${totalComBonus.toFixed(2)}`);
+    console.log(`💰 [METAS] Comissão Final:`, {
+      totalVendas: vendasArr.length,
+      comissaoBase: totalComissaoReal.toFixed(2),
+      bonus: bonusDezPorcento.toFixed(2),
+      total: totalComBonus.toFixed(2),
+      percentualMeta: percentualMeta.toFixed(2) + '%',
+      bateuMetaIndividual,
+      unidadeBatida
+    });
     
     return {
       total: totalComBonus,
@@ -682,12 +705,26 @@ function debugCalculoASMIHS(vendasArr, configRem) {
 
   // --- Checa meta da unidade (TODAS as vendas realizadas na unidade) ---
   const totalUnidade = useMemo(() => {
-    // TODAS as vendas da unidade (não filtra por responsáveis oficiais)
-    // A meta da unidade é baseada no faturamento TOTAL da unidade
-    return vendasParaMeta
-      .filter(v => (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase())
-      .reduce((s, v) => s + Number(v.valor || 0), 0);
-  }, [vendasParaMeta, unidade]);
+    // ✅ MESMA LÓGICA DO COMISSAODETALHES: só conta vendas de consultores com meta
+    const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
+    const consultoresComMeta = new Set(
+      metasDoMes.map(m => m.responsavel).filter(Boolean)
+    );
+    
+    const vendasConsultoresComMeta = vendasParaMeta.filter(v => 
+      consultoresComMeta.has(v.responsavel || v.consultor)
+    );
+    
+    const total = vendasConsultoresComMeta.reduce((s, v) => s + Number(v.valor || 0), 0);
+    
+    console.log(`📊 [METAS] Total Unidade para unidadeBatida:`, {
+      total: total.toFixed(2),
+      vendasCount: vendasConsultoresComMeta.length,
+      consultoresCount: consultoresComMeta.size
+    });
+    
+    return total;
+  }, [vendasParaMeta, metas, selectedMonth]);
   
   // Calcular meta da unidade automaticamente baseada na soma das metas dos consultores
   const metaUnidade = useMemo(() => {
@@ -702,6 +739,13 @@ function debugCalculoASMIHS(vendasArr, configRem) {
   }, [metas, selectedMonth]);
   
   const unidadeBatida = totalUnidade >= metaUnidade;
+  
+  console.log(`🎯 [METAS] Cálculo unidadeBatida:`, {
+    totalUnidade: totalUnidade.toFixed(2),
+    metaUnidade: metaUnidade.toFixed(2),
+    unidadeBatida,
+    diferenca: (totalUnidade - metaUnidade).toFixed(2)
+  });
 
   // --- Responsáveis únicos ---
   const responsaveisUnicos = useMemo(

@@ -111,15 +111,14 @@ export default function AnalyticsPage() {
 
   // Filtra vendas pelos produtos selecionados (IGUAL AO DASHBOARD)
   const vendasFiltradas = useMemo(() => {
-    const todasVendas = Array.isArray(vendasRaw) ? vendasRaw : [];
+    // ✅ USAR vendasUnidade (já filtradas por unidade) em vez de vendasRaw
+    if (!vendasUnidade.length || !produtosLoaded) return vendasUnidade;
     
-    if (!todasVendas.length || !produtosLoaded) return todasVendas;
-    
-    // Se não há produtos selecionados, inclui todas as vendas
-    if (produtosSelecionados.length === 0) return todasVendas;
+    // Se não há produtos selecionados, inclui todas as vendas da unidade
+    if (produtosSelecionados.length === 0) return vendasUnidade;
     
     // Filtra apenas vendas dos produtos selecionados (MESMA LÓGICA DO DASHBOARD)
-    const vendasComFiltro = todasVendas.filter(venda => {
+    const vendasComFiltro = vendasUnidade.filter(venda => {
       const produtoVenda = (venda.produto || "").trim().toLowerCase();
       return produtosSelecionados.some(produtoSelecionado => 
         produtoSelecionado.toLowerCase() === produtoVenda
@@ -128,11 +127,11 @@ export default function AnalyticsPage() {
     
     console.log('📊 Analytics - Aplicando filtro de produtos:');
     console.log('📊 Analytics - Produtos selecionados:', produtosSelecionados);
-    console.log('📊 Analytics - Vendas antes do filtro:', todasVendas.length);
+    console.log('📊 Analytics - Vendas antes do filtro:', vendasUnidade.length);
     console.log('📊 Analytics - Vendas após filtro:', vendasComFiltro.length);
     
     return vendasComFiltro;
-  }, [vendasRaw, produtosSelecionados, produtosLoaded]);
+  }, [vendasUnidade, produtosSelecionados, produtosLoaded]);
 
   // Clientes oficiais
   const responsaveisOficiais = useMemo(
@@ -170,23 +169,11 @@ export default function AnalyticsPage() {
     console.log('📊 Analytics - Calculando total de vendas');
     console.log('📊 Analytics - dadosFiltrados total:', dadosFiltrados.length);
     console.log('📊 Analytics - selMonth:', selMonth);
-    console.log('📊 Analytics - responsaveisOficiais:', responsaveisOficiais);
     
+    // ✅ MESMA LÓGICA DO DASHBOARD: Conta TODAS as vendas da unidade (não filtra por responsáveis oficiais)
     const vendasDoMes = dadosFiltrados.filter(v => {
-      const resp = (v.responsavel || '').trim().toLowerCase();
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selMonth;
-      const respOficial = responsaveisOficiais.includes(resp);
-      
-      if (mesCorreto && respOficial) {
-        console.log('📊 Analytics - Venda incluída:', {
-          responsavel: resp,
-          valor: v.valor,
-          data: v.dataFormatada,
-          produto: v.produto
-        });
-      }
-      
-      return mesCorreto && respOficial;
+      return mesCorreto;
     });
     
     const total = vendasDoMes.reduce((sum, v) => sum + Number(v.valor||0), 0);
@@ -194,20 +181,18 @@ export default function AnalyticsPage() {
     console.log('📊 Analytics - Vendas do mês:', vendasDoMes.length);
     
     return total;
-  }, [dadosFiltrados, selMonth, responsaveisOficiais]);
+  }, [dadosFiltrados, selMonth]);
 
   const totalVendasMesAnterior = useMemo(() => {
     const mesAnt = dayjs(selMonth + "-01","YYYY-MM-DD").subtract(1,"month").format("YYYY-MM");
+    // ✅ MESMA LÓGICA DO DASHBOARD: Conta TODAS as vendas da unidade
     return dadosFiltrados
       .filter(v => {
-        const resp = (v.responsavel || '').trim().toLowerCase();
         const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === mesAnt;
-        const respOficial = responsaveisOficiais.includes(resp);
-        
-        return mesCorreto && respOficial;
+        return mesCorreto;
       })
       .reduce((sum, v) => sum + Number(v.valor||0), 0);
-  }, [dadosFiltrados, selMonth, responsaveisOficiais]);
+  }, [dadosFiltrados, selMonth]);
 
   const crescimentoPercentual = totalVendasMesAnterior > 0
     ? ((totalVendasMes - totalVendasMesAnterior) / totalVendasMesAnterior) * 100

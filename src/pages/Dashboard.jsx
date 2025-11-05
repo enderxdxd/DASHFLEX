@@ -157,7 +157,7 @@ const Dashboard = () => {
     };
   }, [vendasFiltradas, unidade, selectedMonth, metaUnidade]);
 
-  // 2. Faturamento DOS CONSULTORES (todas as vendas dos consultores da unidade, mesmo que de outras unidades)
+  // 2. Faturamento DOS CONSULTORES (apenas vendas dos consultores COM META)
   const faturamentoConsultores = useMemo(() => {
     console.log('🔍 DEBUG FATURAMENTO CONSULTORES:');
     console.log('📅 Mês selecionado:', selectedMonth);

@@ -1,6 +1,6 @@
 // src/pages/Metas.jsx
 import { useEffect, useState, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   collection,
   collectionGroup,
@@ -11,6 +11,7 @@ import {
   deleteDoc,
   getDoc
 } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import NavBar from "../components/NavBar";
@@ -28,8 +29,7 @@ import {
 import "react-datepicker/dist/react-datepicker.css";
 import Loading3D from '../components/ui/Loading3D';
 import { calcularRemuneracaoPorDuracao } from '../utils/calculoRemuneracaoDuracao';
-import { useDescontos } from '../hooks/useDescontos';
-import { corrigirClassificacaoDiarias, ehPlanoAposCorrecao } from '../utils/correcaoDiarias';
+import { useDescontosSimples } from '../utils/useDescontosSimples';
 
 
 
@@ -37,6 +37,8 @@ ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 export default function Metas() {
   const { unidade } = useParams();
+  const navigate = useNavigate();
+  const auth = getAuth();
 
   // --- Estados gerais ---
   const [loading, setLoading] = useState(true);
@@ -48,6 +50,7 @@ export default function Metas() {
   // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS
   const vendasAgrupadas = useGroupedVendas(vendas);
   const [produtos, setProdutos] = useState([]);
+  const [editingData, setEditingData] = useState({});
   const [showProductFilter, setShowProductFilter] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
   const [crossUnitPeriod, setCrossUnitPeriod] = useState(dayjs().format("YYYY-MM"));
@@ -72,162 +75,48 @@ export default function Metas() {
   // --- Filtros e persistência ---
   const { produtosSelecionados, loaded: produtosLoaded, isAdmin } = useGlobalProdutos();
 
-  // Hook para buscar descontos do Firebase (MESMO HOOK DO ComissaoDetalhes)
-  const { 
-    todasVendasProcessadas: vendasComDesconto,
-    loading: loadingDescontos
-  } = useDescontos(unidade, vendas, metas, true, selectedMonth);
+  // Hook para buscar descontos do Firebase
+  const { descontos, loading: loadingDescontos } = useDescontosSimples(unidade);
 
-// Função para calcular comissão (mesma lógica do ComissaoDetalhes)
-function calcularComissaoReal(venda, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida, produtosSelecionadosParam = []) {
-  const valor = Number(venda.valor || 0);
-  if (valor <= 0) return 0;
-  
-  // Produtos não comissionáveis
-  const produtosNaoComissionaveisFixos = [
-    'Taxa de Matrícula', 
-    'Estorno', 
-    'Ajuste Contábil',
-    'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
-  ];
-  
-  if (produtosNaoComissionaveisFixos.includes(venda.produto)) return 0;
-  
-  // Verificar se é diária (sempre comissionável)
-  const isDiariaOriginal = venda.produto === 'Plano' && 
-    venda.plano && 
-    (venda.plano.toLowerCase().includes('diária') || venda.plano.toLowerCase().includes('diarias'));
-  
-  const isDiariaCorrigida = venda.produto && 
-    (venda.produto.toLowerCase().includes('diária') || venda.produto.toLowerCase().includes('diarias'));
-  
-  const isDiaria = isDiariaOriginal || isDiariaCorrigida;
-  
-  // Filtro global de produtos
-  if (produtosSelecionadosParam.length > 0 && !produtosSelecionadosParam.includes(venda.produto) && !isDiaria) {
-    return 0;
-  }
-  
-  // Produtos (não planos)
-  if (!ehPlano) {
-    const taxa = bateuMetaIndividual ? 0.015 : 0.012;
-    return valor * taxa;
-  }
-  
-  // Planos
-  const duracao = venda.duracaoMeses || 1;
-  const duracaoMap = { 1: 0, 3: 1, 6: 2, 8: 3, 12: 4, 24: 5 };
-  const indice = duracaoMap[duracao] || 0;
-  
-  let tabela;
-  if (unidadeBatida) {
-    tabela = temDesconto ? [9, 20, 25, 34, 45, 71] : [15, 28, 43, 51, 65, 107];
-  } else if (bateuMetaIndividual) {
-    tabela = temDesconto ? [6, 16, 23, 30, 42, 67] : [12, 24, 37, 47, 60, 103];
-  } else {
-    tabela = temDesconto ? [3, 11, 21, 25, 38, 61] : [9, 18, 28, 42, 53, 97];
-  }
-  
-  return tabela[indice] || 0;
-}
-
-function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRem, metaUnidadeCalculada, maiorMeta = 0, vendasComDescontoParam = []) {
+function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRem, metaUnidadeCalculada, maiorMeta = 0) {
   // Validações iniciais
   if (!Array.isArray(vendasArr)) {
     console.warn('VendasArr não é um array válido');
-    return { total: 0, comissaoBase: 0, bonus: 0, percentual: 0 };
+    return 0;
   }
 
-  // Calcula totais necessários
+  // Calcula totais necessários para a nova lógica
   const totalVendasIndividual = vendasArr.reduce((soma, v) => soma + Number(v.valor || 0), 0);
-  const bateuMetaIndividual = totalVendasIndividual >= metaValor;
-  const percentualMeta = metaValor > 0 ? (totalVendasIndividual / metaValor) * 100 : 0;
+  
+  // Para o total da equipe, usa vendas agrupadas do mês selecionado FILTRANDO POR UNIDADE
+  const totalVendasTime = vendasAgrupadas
+    .filter(venda => {
+      const dataVenda = dayjs(venda.dataFormatada, 'YYYY-MM-DD');
+      const mesVenda = dataVenda.format('YYYY-MM');
+      const vendaUnidade = (venda.unidade || "").toLowerCase();
+      const unidadeAtual = (unidadeParam || "").toLowerCase();
+      return mesVenda === selectedMonth && vendaUnidade === unidadeAtual;
+    })
+    .reduce((soma, v) => soma + Number(v.valor || 0), 0);
 
   if (tipo === 'comissao') {
-    // ✅ USAR MESMA LÓGICA DO ComissaoDetalhes.jsx
-    let totalComissaoReal = 0;
-    
-    // Criar Map de descontos (mesma lógica do ComissaoDetalhes)
-    const descontosPorMatricula = new Map();
-    if (vendasComDescontoParam && Array.isArray(vendasComDescontoParam)) {
-      vendasComDescontoParam.forEach(venda => {
-        if (venda.matricula) {
-          const matriculaNorm = String(venda.matricula).replace(/\D/g, '').padStart(6, '0');
-          descontosPorMatricula.set(matriculaNorm, venda);
-        }
-      });
-    }
-    
-    vendasArr.forEach(venda => {
-      const vendaCorrigida = corrigirClassificacaoDiarias(venda);
-      const ehPlano = ehPlanoAposCorrecao(vendaCorrigida);
-      
-      // Buscar desconto (mesma lógica do ComissaoDetalhes)
-      const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
-      const vendaComDesconto = descontosPorMatricula.get(matriculaNorm);
-      
-      const temDesconto = ehPlano 
-        ? (vendaComDesconto && Number(vendaComDesconto.descontoPlano || 0) > 0)
-        : (vendaComDesconto && Number(vendaComDesconto.descontoMatricula || 0) > 0);
-      
-      const comissao = calcularComissaoReal(vendaCorrigida, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
-      
-      // Debug detalhado
-      if (comissao > 0) {
-        console.log(`[METAS] Venda processada:`, {
-          matricula: venda.matricula,
-          produto: venda.produto,
-          valor: venda.valor,
-          ehPlano,
-          temDesconto,
-          comissao: comissao.toFixed(2),
-          bateuMetaIndividual,
-          unidadeBatida
-        });
-      }
-      
-      totalComissaoReal += comissao;
+    const resultado = calcularRemuneracaoPorDuracao({
+      vendas: vendasArr,
+      metaIndividual: metaValor,
+      metaTime: metaUnidadeCalculada,
+      totalVendasIndividual,
+      totalVendasTime,
+      descontos, // Usa os descontos do hook
+      tipo: 'comissao',
+      produtosSelecionados, // Passa o filtro de produtos
+      maiorMeta // ✅ NOVO: passa maior meta
     });
     
-    // Calcular bônus de 10%
-    let bonusDezPorcento = 0;
-    if (percentualMeta >= 110) {
-      const faixasDeDezPorcento = Math.floor((percentualMeta - 100) / 10);
-      bonusDezPorcento = faixasDeDezPorcento * 100;
-    }
-    
-    const totalComBonus = totalComissaoReal + bonusDezPorcento;
-    
-    console.log(`💰 [METAS] Comissão Final:`, {
-      totalVendas: vendasArr.length,
-      comissaoBase: totalComissaoReal.toFixed(2),
-      bonus: bonusDezPorcento.toFixed(2),
-      total: totalComBonus.toFixed(2),
-      percentualMeta: percentualMeta.toFixed(2) + '%',
-      bateuMetaIndividual,
-      unidadeBatida
-    });
-    
-    return {
-      total: totalComBonus,
-      comissaoBase: totalComissaoReal,
-      bonus: bonusDezPorcento,
-      percentual: percentualMeta
-    };
+    console.log(`💰 Nova lógica - ${resultado.totalComissao.toFixed(2)} (${resultado.resumo.totalPlanosProcessados} planos, ${resultado.resumo.totalProdutosProcessados} produtos)`);
+    return resultado.totalComissao;
   }
   
   if (tipo === 'premiacao') {
-    // Calcular total de vendas da equipe (time)
-    const totalVendasTime = vendasAgrupadas
-      .filter(venda => {
-        const dataVenda = dayjs(venda.dataFormatada, 'YYYY-MM-DD');
-        const mesVenda = dataVenda.format('YYYY-MM');
-        const vendaUnidade = (venda.unidade || "").toLowerCase();
-        const unidadeAtual = (unidadeParam || "").toLowerCase();
-        return mesVenda === selectedMonth && vendaUnidade === unidadeAtual;
-      })
-      .reduce((soma, v) => soma + Number(v.valor || 0), 0);
-    
     const resultado = calcularRemuneracaoPorDuracao({
       vendas: vendasArr,
       metaIndividual: metaValor,
@@ -237,21 +126,15 @@ function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRe
       premiacao: configRem.premiacao || [],
       tipo: 'premiacao',
       produtosSelecionados,
-      descontos: vendasComDescontoParam, // ✅ ADICIONADO: parâmetro descontos
+      descontos, // ✅ ADICIONADO: parâmetro descontos
       maiorMeta // ✅ NOVO: passa maior meta para proporcionalidade
     });
     
-    console.log(`🏆 Premiação - ${resultado.totalPremiacao.toFixed(2)} (${resultado.percentualMeta?.toFixed(2)}% meta, ${resultado.faixasAtingidas?.length || 0} faixas, proporcionalidade: ${maiorMeta > 0 ? (metaValor/maiorMeta).toFixed(4) : '1.0000'}`);
-    // ✅ Retorna objeto para consistência
-    return {
-      total: resultado.totalPremiacao,
-      comissaoBase: 0,
-      bonus: 0,
-      percentual: resultado.percentualMeta || 0
-    };
+    console.log(`🏆 Premiação - ${resultado.totalPremiacao.toFixed(2)} (${resultado.percentualMeta?.toFixed(2)}% meta, ${resultado.faixasAtingidas?.length || 0} faixas, proporcionalidade: ${maiorMeta > 0 ? (metaValor/maiorMeta).toFixed(4) : '1.0000'})`);
+    return resultado.totalPremiacao; // ✅ CORRIGIDO: usar totalPremiacao
   }
   
-  return { total: 0, comissaoBase: 0, bonus: 0, percentual: 0 };
+  return 0;
 }
 
 // Função para debug da nova lógica
@@ -285,7 +168,7 @@ function debugRemuneracao(responsavel) {
     metaTime: metaUnidade,
     totalVendasIndividual: vendasResp.reduce((s, v) => s + Number(v.valor || 0), 0),
     totalVendasTime,
-    descontos: vendasComDesconto,
+    descontos,
     tipo: metaResp.remuneracaoType || 'comissao',
     produtosSelecionados
   });
@@ -705,26 +588,12 @@ function debugCalculoASMIHS(vendasArr, configRem) {
 
   // --- Checa meta da unidade (TODAS as vendas realizadas na unidade) ---
   const totalUnidade = useMemo(() => {
-    // ✅ MESMA LÓGICA DO COMISSAODETALHES: só conta vendas de consultores com meta
-    const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
-    const consultoresComMeta = new Set(
-      metasDoMes.map(m => m.responsavel).filter(Boolean)
-    );
-    
-    const vendasConsultoresComMeta = vendasParaMeta.filter(v => 
-      consultoresComMeta.has(v.responsavel || v.consultor)
-    );
-    
-    const total = vendasConsultoresComMeta.reduce((s, v) => s + Number(v.valor || 0), 0);
-    
-    console.log(`📊 [METAS] Total Unidade para unidadeBatida:`, {
-      total: total.toFixed(2),
-      vendasCount: vendasConsultoresComMeta.length,
-      consultoresCount: consultoresComMeta.size
-    });
-    
-    return total;
-  }, [vendasParaMeta, metas, selectedMonth]);
+    // TODAS as vendas da unidade (não filtra por responsáveis oficiais)
+    // A meta da unidade é baseada no faturamento TOTAL da unidade
+    return vendasParaMeta
+      .filter(v => (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase())
+      .reduce((s, v) => s + Number(v.valor || 0), 0);
+  }, [vendasParaMeta, unidade]);
   
   // Calcular meta da unidade automaticamente baseada na soma das metas dos consultores
   const metaUnidade = useMemo(() => {
@@ -739,13 +608,6 @@ function debugCalculoASMIHS(vendasArr, configRem) {
   }, [metas, selectedMonth]);
   
   const unidadeBatida = totalUnidade >= metaUnidade;
-  
-  console.log(`🎯 [METAS] Cálculo unidadeBatida:`, {
-    totalUnidade: totalUnidade.toFixed(2),
-    metaUnidade: metaUnidade.toFixed(2),
-    unidadeBatida,
-    diferenca: (totalUnidade - metaUnidade).toFixed(2)
-  });
 
   // --- Responsáveis únicos ---
   const responsaveisUnicos = useMemo(
@@ -907,7 +769,7 @@ function debugCalculoASMIHS(vendasArr, configRem) {
     window.metas = metas;
     window.unidade = unidade;
     window.totalUnidade = totalUnidade;
-    window.descontos = vendasComDesconto;
+    window.descontos = descontos;
     
     // Expor função de debug da nova lógica
     window.debugRemuneracao = debugRemuneracao;
@@ -939,9 +801,7 @@ function debugCalculoASMIHS(vendasArr, configRem) {
     unidadeBatida, 
     metas, 
     unidade, 
-    totalUnidade,
-    vendasComDesconto,
-    debugRemuneracao
+    totalUnidade
   ]);
  
   if (loading || loadingDescontos) {
@@ -1232,8 +1092,7 @@ function debugCalculoASMIHS(vendasArr, configRem) {
                     unidadeBatida,
                     configRem,
                     metaUnidade,        // passa a meta da unidade calculada
-                    maiorMeta,          // ✅ NOVO: passa maior meta para proporcionalidade
-                    vendasComDesconto   // ✅ NOVO: passa vendas com desconto
+                    maiorMeta           // ✅ NOVO: passa maior meta para proporcionalidade
                   );
 
       // 3) percentual de meta atingido - USAR DADOS CONSISTENTES
@@ -1325,34 +1184,11 @@ function debugCalculoASMIHS(vendasArr, configRem) {
           </td>
 
           <td>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontWeight: '600', fontSize: '0.95rem' }}>
-                {(typeof remuneracao === 'number' ? remuneracao : remuneracao.total).toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL"
-                })}
-              </span>
-              {remuneracao.bonus > 0 && (
-                <div style={{ 
-                  fontSize: '0.7rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '3px 8px',
-                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                  borderRadius: '4px',
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
-                  width: 'fit-content'
-                }}>
-                  <span style={{ color: '#6b7280' }}>
-                    Base: {(remuneracao.total - remuneracao.bonus).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                  </span>
-                  <span style={{ color: '#10b981', fontWeight: '600' }}>
-                    + 🎁 {remuneracao.bonus.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                  </span>
-                </div>
-              )}
-            </div>
+            {remuneracao.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+              
+            })}
           </td>
 
           <td>{isEditing ? (

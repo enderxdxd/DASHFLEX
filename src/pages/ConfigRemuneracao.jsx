@@ -1768,7 +1768,6 @@ const ConfigRemuneracao = () => {
   const [comissaoPlanos, setComissaoPlanos] = useState([]);
   const [taxaSem, setTaxaSem] = useState('1.2');
   const [taxaCom, setTaxaCom] = useState('1.5');
-  const [faixasGeradasManualmente, setFaixasGeradasManualmente] = useState(false);
   const [isSaving, setIsSaving] = useState(false); // ✅ Flag para evitar sobrescrever durante salvamento
 
   useEffect(() => {
@@ -1780,8 +1779,8 @@ const ConfigRemuneracao = () => {
       premiacaoSupervisorLength: configRem?.premiacaoSupervisor?.length
     });
     
-    // ✅ NÃO sobrescrever estados se estiver salvando OU se faixas foram geradas manualmente
-    if (configRem && !configLoading && !isSaving && !faixasGeradasManualmente) {
+    // ✅ NÃO sobrescrever estados se estiver salvando
+    if (configRem && !configLoading && !isSaving) {
       console.log('📥 Carregando configuração:', {
         totalFaixasConsultores: configRem.premiacao?.length || 0,
         totalFaixasSupervisor: configRem.premiacaoSupervisor?.length || 0,
@@ -1868,33 +1867,14 @@ const ConfigRemuneracao = () => {
 
   const gerarFaixasPadraoSupervisor = () => {
     if (!unidade) return;
-    // ✅ FAIXAS ESPECÍFICAS PARA SUPERVISOR (70% a 150%)
-    const novasFaixas = [
-      { percentual: 70, premio: 450 },
-      { percentual: 75, premio: 900 },
-      { percentual: 80, premio: 1350 },
-      { percentual: 85, premio: 1800 },
-      { percentual: 90, premio: 2250 },
-      { percentual: 95, premio: 2700 },
-      { percentual: 100, premio: 3150 },
-      { percentual: 105, premio: 3600 },
-      { percentual: 110, premio: 4050 },
-      { percentual: 115, premio: 4500 },
-      { percentual: 120, premio: 4950 },
-      { percentual: 125, premio: 5400 },
-      { percentual: 130, premio: 5850 },
-      { percentual: 135, premio: 6300 },
-      { percentual: 140, premio: 6750 },
-      { percentual: 145, premio: 7200 },
-      { percentual: 150, premio: 7650 }
-    ];
+    // ✅ USAR MESMAS FAIXAS DOS CONSULTORES
+    const novasFaixas = gerarFaixasPremiacaoLocal(unidade);
     console.log('🏆 Gerando faixas padrão supervisor:', {
       unidade,
       totalFaixas: novasFaixas.length,
       primeirasFaixas: novasFaixas.slice(0, 5)
     });
     setFaixasSupervisor(novasFaixas);
-    setFaixasGeradasManualmente(true);
     setSuccessMessage('Faixas de premiação do supervisor geradas!');
     setTimeout(() => setSuccessMessage(''), 3000);
   };
@@ -1957,12 +1937,9 @@ const ConfigRemuneracao = () => {
       };
 
       console.log('💾 Salvando configuração:', {
-        unidade: unidade?.toLowerCase(),
-        mes: selectedMonth,
         totalFaixasConsultores: configData.premiacao.length,
         totalFaixasSupervisor: configData.premiacaoSupervisor.length,
-        primeirasFaixasSupervisor: configData.premiacaoSupervisor.slice(0, 3),
-        ultimasFaixasSupervisor: configData.premiacaoSupervisor.slice(-3)
+        primeirasFaixasSupervisor: configData.premiacaoSupervisor.slice(0, 3)
       });
 
       const docRef = doc(
@@ -1974,10 +1951,6 @@ const ConfigRemuneracao = () => {
       );
 
       await setDoc(docRef, configData);
-      
-      console.log('✅ Configuração salva com sucesso no Firebase!');
-      
-      setFaixasGeradasManualmente(false);
 
       setSuccessMessage('Configuração salva com sucesso!');
       setTimeout(() => setSuccessMessage(''), 3000);

@@ -97,28 +97,20 @@ export default function AnalyticsPage() {
   const comissaoPlanos = configRem.comissaoPlanos || [];
   const premiacao = configRem.premiacao || [];
 
-  // Filtra só as vendas da unidade
-  const vendasUnidade = useMemo(
-    () =>
-      Array.isArray(vendasRaw)
-        ? vendasRaw.filter(v => (v.unidade || "").toLowerCase() === lowerUni)
-        : [],
-    [vendasRaw, lowerUni]
-  );
-
   // Hook para produtos selecionados (igual ao Dashboard)
   const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();
 
-  // Filtra vendas pelos produtos selecionados (IGUAL AO DASHBOARD)
+  // ✅ MESMA LÓGICA DO DASHBOARD: Filtra vendas pelos produtos selecionados PRIMEIRO
   const vendasFiltradas = useMemo(() => {
-    // ✅ USAR vendasUnidade (já filtradas por unidade) em vez de vendasRaw
-    if (!vendasUnidade.length || !produtosLoaded) return vendasUnidade;
+    const todasVendas = Array.isArray(vendasRaw) ? vendasRaw : [];
     
-    // Se não há produtos selecionados, inclui todas as vendas da unidade
-    if (produtosSelecionados.length === 0) return vendasUnidade;
+    if (!todasVendas.length || !produtosLoaded) return todasVendas;
+    
+    // Se não há produtos selecionados, inclui todas as vendas
+    if (produtosSelecionados.length === 0) return todasVendas;
     
     // Filtra apenas vendas dos produtos selecionados (MESMA LÓGICA DO DASHBOARD)
-    const vendasComFiltro = vendasUnidade.filter(venda => {
+    const vendasComFiltro = todasVendas.filter(venda => {
       const produtoVenda = (venda.produto || "").trim().toLowerCase();
       return produtosSelecionados.some(produtoSelecionado => 
         produtoSelecionado.toLowerCase() === produtoVenda
@@ -127,11 +119,17 @@ export default function AnalyticsPage() {
     
     console.log('📊 Analytics - Aplicando filtro de produtos:');
     console.log('📊 Analytics - Produtos selecionados:', produtosSelecionados);
-    console.log('📊 Analytics - Vendas antes do filtro:', vendasUnidade.length);
+    console.log('📊 Analytics - Vendas antes do filtro:', todasVendas.length);
     console.log('📊 Analytics - Vendas após filtro:', vendasComFiltro.length);
     
     return vendasComFiltro;
-  }, [vendasUnidade, produtosSelecionados, produtosLoaded]);
+  }, [vendasRaw, produtosSelecionados, produtosLoaded]);
+
+  // ✅ DEPOIS filtra por unidade (igual ao Dashboard)
+  const vendasUnidade = useMemo(
+    () => vendasFiltradas.filter(v => (v.unidade || "").toLowerCase() === lowerUni),
+    [vendasFiltradas, lowerUni]
+  );
 
   // Clientes oficiais
   const responsaveisOficiais = useMemo(
@@ -164,14 +162,14 @@ export default function AnalyticsPage() {
     return filteredData || vendasFiltradas;
   }, [filteredData, vendasFiltradas]);
 
-  // KPIs - Agora usa TODAS as vendas dos consultores (como no Dashboard)
+  // KPIs - ✅ TOTAL DA UNIDADE (TODAS as vendas, não filtra por responsáveis oficiais)
   const totalVendasMes = useMemo(() => {
     console.log('📊 Analytics - Calculando total de vendas');
-    console.log('📊 Analytics - dadosFiltrados total:', dadosFiltrados.length);
+    console.log('📊 Analytics - vendasUnidade total:', vendasUnidade.length);
     console.log('📊 Analytics - selMonth:', selMonth);
     
-    // ✅ MESMA LÓGICA DO DASHBOARD: Conta TODAS as vendas da unidade (não filtra por responsáveis oficiais)
-    const vendasDoMes = dadosFiltrados.filter(v => {
+    // ✅ MESMA LÓGICA DO DASHBOARD: Conta TODAS as vendas da unidade
+    const vendasDoMes = vendasUnidade.filter(v => {
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selMonth;
       return mesCorreto;
     });
@@ -181,18 +179,18 @@ export default function AnalyticsPage() {
     console.log('📊 Analytics - Vendas do mês:', vendasDoMes.length);
     
     return total;
-  }, [dadosFiltrados, selMonth]);
+  }, [vendasUnidade, selMonth]);
 
   const totalVendasMesAnterior = useMemo(() => {
     const mesAnt = dayjs(selMonth + "-01","YYYY-MM-DD").subtract(1,"month").format("YYYY-MM");
-    // ✅ MESMA LÓGICA DO DASHBOARD: Conta TODAS as vendas da unidade
-    return dadosFiltrados
+    // ✅ MESMA LÓGICA: Conta TODAS as vendas da unidade (sem filtro de responsáveis)
+    return vendasUnidade
       .filter(v => {
         const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === mesAnt;
         return mesCorreto;
       })
       .reduce((sum, v) => sum + Number(v.valor||0), 0);
-  }, [dadosFiltrados, selMonth]);
+  }, [vendasUnidade, selMonth]);
 
   const crescimentoPercentual = totalVendasMesAnterior > 0
     ? ((totalVendasMes - totalVendasMesAnterior) / totalVendasMesAnterior) * 100

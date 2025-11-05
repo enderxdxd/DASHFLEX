@@ -1,7 +1,7 @@
 // src/pages/ComissaoDetalhes.jsx
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Calculator, Users, AlertCircle, RefreshCw, Sun, Moon, CheckCircle, Target, DollarSign, BarChart3 } from 'lucide-react';
+import { Calculator, Users, AlertCircle, RefreshCw, Sun, Moon, FileText, Download, CheckCircle, Target, DollarSign, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import NavBar from '../components/NavBar';
 import ConsultorCard from '../components/comissao/ConsultorCard';
@@ -13,7 +13,6 @@ import { useMetas } from '../hooks/useMetas';
 import { useDescontos } from '../hooks/useDescontos';
 import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
 import { useConfigRem } from '../hooks/useConfigRem';
-import { useGroupedVendas } from '../hooks/useGroupedVendas';
 import { calcularRemuneracao } from '../utils/remuneracao';
 import { calcularRemuneracaoPorDuracao } from '../utils/calculoRemuneracaoDuracao';
 import { gerarPDFComissoes, gerarPDFResumo } from '../utils/pdfGenerator';
@@ -176,9 +175,6 @@ export default function ComissaoDetalhes() {
     selectedMonth,
     setSelectedMonth 
   } = useVendas(unidadeSelecionada);
-  
-  // ✅ APLICAR AGRUPAMENTO DE VENDAS DUPLICADAS (mesma lógica do Metas.jsx)
-  const vendasAgrupadas = useGroupedVendas(vendas);
   
   const { 
     metas, 
@@ -428,9 +424,9 @@ export default function ComissaoDetalhes() {
   
   // ===== OTIMIZAÇÃO: Pré-filtrar vendas uma única vez =====
   const vendasFiltradas = useMemo(() => {
-    if (!vendasAgrupadas?.length || !mesAtual) return [];
+    if (!vendas?.length || !mesAtual) return [];
     
-    return vendasAgrupadas.filter(v => {
+    return vendas.filter(v => {
       // Filtro básico de data
       if (!v.dataFormatada || !v.dataFormatada.startsWith(mesAtual)) return false;
       
@@ -456,7 +452,7 @@ export default function ComissaoDetalhes() {
       
       return true;
     });
-  }, [vendasAgrupadas, mesAtual, filtrosOtimizados]);
+  }, [vendas, mesAtual, filtrosOtimizados]);
   
   // ===== OTIMIZAÇÃO: Agrupar vendas por consultor uma única vez =====
   const vendasPorConsultor = useMemo(() => {
@@ -505,15 +501,6 @@ export default function ComissaoDetalhes() {
     const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);
     const metaUnidadeCalculada = metasDoMes.reduce((sum, m) => sum + Number(m.meta || 0), 0);
     const unidadeBatida = totalVendasUnidade >= metaUnidadeCalculada;
-    
-    console.log(`🎯 [COMISSAO] Cálculo unidadeBatida:`, {
-      totalUnidade: totalVendasUnidade.toFixed(2),
-      metaUnidade: metaUnidadeCalculada.toFixed(2),
-      unidadeBatida,
-      diferenca: (totalVendasUnidade - metaUnidadeCalculada).toFixed(2),
-      vendasCount: vendasUnidadeNoMes.length,
-      consultoresCount: metasDoMes.length
-    });
     
     return metasDoMes.map(meta => {
       const consultor = meta.responsavel;
@@ -574,39 +561,13 @@ export default function ComissaoDetalhes() {
           // Calcular comissão para plano
           const temDescontoPlano = vendaComDesconto && Number(vendaComDesconto.descontoPlano || 0) > 0;
           const comissao = calcularComissaoReal(vendaCorrigida, true, temDescontoPlano, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
-          
-          // Debug detalhado
-          if (comissao > 0) {
-            console.log(`[COMISSAO] Venda processada:`, {
-              matricula: venda.matricula,
-              produto: venda.produto,
-              valor: venda.valor,
-              ehPlano: true,
-              temDesconto: temDescontoPlano,
-              comissao: comissao.toFixed(2),
-              bateuMetaIndividual,
-              unidadeBatida
-            });
-          }
-          
           totalComissaoReal += comissao;
         } else {
           // Produto
           const temDescontoMatricula = vendaComDesconto && Number(vendaComDesconto.descontoMatricula || 0) > 0;
           const comissao = calcularComissaoReal(vendaCorrigida, false, temDescontoMatricula, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
           
-          // Debug detalhado
           if (comissao > 0) {
-            console.log(`[COMISSAO] Venda processada:`, {
-              matricula: venda.matricula,
-              produto: venda.produto,
-              valor: venda.valor,
-              ehPlano: false,
-              temDesconto: temDescontoMatricula,
-              comissao: comissao.toFixed(2),
-              bateuMetaIndividual,
-              unidadeBatida
-            });
             produtosCount++;
             totalComissaoReal += comissao;
           }
@@ -621,19 +582,19 @@ export default function ComissaoDetalhes() {
       // ===== CÁLCULO DE REMUNERAÇÃO BASEADO NO TIPO =====
       const remuneracaoType = meta.remuneracaoType || 'comissao';
       let valorRemuneracao = totalComissaoReal;
-      let bonusRemuneracao = 0;
       
       if (remuneracaoType === 'premiacao') {
-        // ✅ PREMIAÇÃO: Usar calcularRemuneracaoPorDuracao
+        // ✅ CORREÇÃO: Usar calcularRemuneracaoPorDuracao igual ao Metas.jsx
         const totalVendasIndividual = vendasConsultor.reduce((s, v) => s + Number(v.valor || 0), 0);
         const totalVendasTime = vendasFiltradas.reduce((s, v) => s + Number(v.valor || 0), 0);
 
+        // ✅ CALCULAR MAIOR META DO PERÍODO
         const metasDoMes = metas.filter(m => m.periodo === mesAtual);
         const maiorMeta = metasDoMes.reduce((max, m) => {
           const metaValor = Number(m.meta || 0);
           return metaValor > max ? metaValor : max;
         }, 0);
-        
+
         const resultado = calcularRemuneracaoPorDuracao({
           vendas: vendasConsultor,
           metaIndividual: metaIndividual,
@@ -644,7 +605,7 @@ export default function ComissaoDetalhes() {
           tipo: 'premiacao',
           produtosSelecionados,
           descontos: descontosPorMatricula ? Array.from(descontosPorMatricula.values()) : [],
-          maiorMeta
+          maiorMeta // ✅ NOVO: passa maior meta para proporcionalidade
         });
 
         valorRemuneracao = resultado.totalPremiacao;
@@ -657,31 +618,6 @@ export default function ComissaoDetalhes() {
           configPremiacao: configRem?.premiacao || [],
           faixasAtingidas: resultado.faixasAtingidas?.length || 0
         });
-      } else {
-        // ✅ COMISSÃO: Usar comissão calculada manualmente + adicionar bônus de 10%
-        const totalVendasIndividual = vendasConsultor.reduce((s, v) => s + Number(v.valor || 0), 0);
-        const percentualMetaCalc = metaIndividual > 0 ? (totalVendasIndividual / metaIndividual) * 100 : 0;
-        
-        // Calcular bônus de 10%
-        if (percentualMetaCalc >= 110) {
-          const faixasDeDezPorcento = Math.floor((percentualMetaCalc - 100) / 10);
-          bonusRemuneracao = faixasDeDezPorcento * 100;
-        }
-        
-        // Usar comissão base calculada manualmente + bônus
-        valorRemuneracao = totalComissaoReal + bonusRemuneracao;
-        
-        console.log(`💰 [COMISSAO] Comissão Final - ${consultor}:`, {
-          totalVendas: vendasConsultor.length,
-          metaIndividual,
-          totalVendasValor: totalVendasIndividual.toFixed(2),
-          percentualMeta: percentualMetaCalc.toFixed(2) + '%',
-          comissaoBase: totalComissaoReal.toFixed(2),
-          bonus: bonusRemuneracao.toFixed(2),
-          total: valorRemuneracao.toFixed(2),
-          bateuMetaIndividual,
-          unidadeBatida
-        });
       }
       
       return {
@@ -690,7 +626,6 @@ export default function ComissaoDetalhes() {
         dados: {
           totalVendas,
           totalComissao: valorRemuneracao,
-          bonusRemuneracao, // ✅ Adiciona bônus para exibição
           metaIndividual,
           bateuMetaIndividual,
           percentualMeta,
@@ -731,18 +666,12 @@ export default function ComissaoDetalhes() {
     // ✅ CORRIGIDO: Usar premiacaoSupervisor em vez de premiacao
     const faixasAtingidas = (configRem.premiacaoSupervisor || [])
       .filter(faixa => Number(faixa.percentual || 0) <= percentualMeta)
-      .sort((a, b) => Number(b.percentual || 0) - Number(a.percentual || 0)); // Ordenar decrescente
+      .sort((a, b) => Number(a.percentual || 0) - Number(b.percentual || 0));
     
-    // ✅ NÃO É CUMULATIVO: Pega apenas a MAIOR faixa atingida
-    const premiacaoTotal = faixasAtingidas.length > 0 ? Number(faixasAtingidas[0].premio || 0) : 0;
-    
-    console.log('🏆 [SUPERVISOR] Cálculo de Premiação:', {
-      percentualMeta: percentualMeta.toFixed(2) + '%',
-      totalFaixas: (configRem.premiacaoSupervisor || []).length,
-      faixasAtingidas: faixasAtingidas.length,
-      premiacaoTotal: premiacaoTotal.toFixed(2),
-      primeirasFaixas: (configRem.premiacaoSupervisor || []).slice(0, 3)
-    });
+    // Calcular premiação total (cumulativa)
+    const premiacaoTotal = faixasAtingidas.reduce((soma, faixa) => {
+      return soma + Number(faixa.premio || 0);
+    }, 0);
     
     return {
       totalVendasUnidade,

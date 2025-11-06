@@ -23,6 +23,8 @@ const ConsultorCard = ({
   const {
     totalVendas,
     totalComissao,
+    comissaoBase,
+    bonus,
     metaIndividual,
     bateuMetaIndividual,
     percentualMeta,
@@ -95,6 +97,11 @@ const ConsultorCard = ({
             <span className="metric-value">
               R$ {totalComissao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
+            {remuneracaoType === 'comissao' && bonus > 0 && (
+              <span style={{ fontSize: '10px', color: '#10b981', marginTop: '2px', display: 'block' }}>
+                Base: R$ {comissaoBase.toFixed(2)} + BONUS R$ {bonus.toFixed(2)}
+              </span>
+            )}
           </div>
         </div>
 

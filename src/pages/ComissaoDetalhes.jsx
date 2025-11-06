@@ -97,10 +97,6 @@ const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, 
   
   // Se produto está na lista fixa de não comissionáveis, retorna 0
   if (produtosNaoComissionaveisFixos.includes(venda.produto)) {
-    console.log('🚫 Produto na blacklist fixa:', {
-      produto: venda.produto,
-      matricula: venda.matricula
-    });
     return 0;
   }
   
@@ -116,14 +112,6 @@ const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, 
   const isDiaria = isDiariaOriginal || isDiariaCorrigida;
   
   if (produtosSelecionados.length > 0 && !produtosSelecionados.includes(venda.produto) && !isDiaria) {
-    console.log('🚫 Produto filtrado pela configuração global:', {
-      produto: venda.produto,
-      plano: venda.plano,
-      isDiariaOriginal,
-      isDiariaCorrigida,
-      produtosSelecionados: produtosSelecionados.length,
-      matricula: venda.matricula
-    });
     return 0;
   }
   
@@ -147,7 +135,6 @@ const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, 
     // Sem Meta (nem consultor nem unidade bateram meta)
     tabela = temDesconto ? [3, 11, 21, 25, 38, 61] : [9, 18, 28, 42, 53, 97];
   }
-  
   
   return tabela[indice] || 0;
 };
@@ -582,6 +569,14 @@ export default function ComissaoDetalhes() {
       // ===== CÁLCULO DE REMUNERAÇÃO BASEADO NO TIPO =====
       const remuneracaoType = meta.remuneracaoType || 'comissao';
       let valorRemuneracao = totalComissaoReal;
+      let bonus = 0;
+      
+      // ✅ CALCULAR BÔNUS DE 10% PARA COMISSIONADOS
+      if (remuneracaoType === 'comissao' && metaIndividual > 0 && percentualMeta >= 110) {
+        const faixas = Math.floor((percentualMeta - 100) / 10);
+        bonus = faixas * 100;
+        valorRemuneracao = totalComissaoReal + bonus;
+      }
       
       if (remuneracaoType === 'premiacao') {
         // ✅ CORREÇÃO: Usar calcularRemuneracaoPorDuracao igual ao Metas.jsx
@@ -626,6 +621,8 @@ export default function ComissaoDetalhes() {
         dados: {
           totalVendas,
           totalComissao: valorRemuneracao,
+          comissaoBase: totalComissaoReal, // ✅ Base sem bônus
+          bonus, // ✅ Valor do bônus
           metaIndividual,
           bateuMetaIndividual,
           percentualMeta,
@@ -668,10 +665,10 @@ export default function ComissaoDetalhes() {
       .filter(faixa => Number(faixa.percentual || 0) <= percentualMeta)
       .sort((a, b) => Number(a.percentual || 0) - Number(b.percentual || 0));
     
-    // Calcular premiação total (cumulativa)
-    const premiacaoTotal = faixasAtingidas.reduce((soma, faixa) => {
-      return soma + Number(faixa.premio || 0);
-    }, 0);
+    // ✅ CORRIGIDO: NÃO CUMULATIVO - Usar apenas a MAIOR faixa atingida
+    const premiacaoTotal = faixasAtingidas.length > 0 
+      ? Number(faixasAtingidas[faixasAtingidas.length - 1].premio || 0)
+      : 0;
     
     return {
       totalVendasUnidade,

@@ -131,11 +131,12 @@ export default function AnalyticsPage() {
     [vendasFiltradas, lowerUni]
   );
 
-  // Clientes oficiais
-  const responsaveisOficiais = useMemo(
-    () => metas.map(m => m.responsavel.trim().toLowerCase()),
-    [metas]
-  );
+  // Lista de responsáveis oficiais da unidade (APENAS DO MÊS ATUAL)
+  const responsaveisOficiais = useMemo(() => {
+    const metasDoMes = metas.filter(m => m.periodo === selMonth);
+    const responsaveis = metasDoMes.map(m => m.responsavel.trim().toLowerCase());
+    return [...new Set(responsaveis)]; // Remove duplicatas
+  }, [metas, selMonth]);
 
   // Dados de análise
   const trend      = useMonthlyTrend(vendasUnidade, metas, configRem);
@@ -162,16 +163,24 @@ export default function AnalyticsPage() {
     return filteredData || vendasFiltradas;
   }, [filteredData, vendasFiltradas]);
 
-  // KPIs - ✅ TOTAL DA UNIDADE (TODAS as vendas, não filtra por responsáveis oficiais)
+  // KPIs - ✅ TOTAL DOS CONSULTORES (apenas vendas dos consultores COM META)
   const totalVendasMes = useMemo(() => {
-    console.log('📊 Analytics - Calculando total de vendas');
-    console.log('📊 Analytics - vendasUnidade total:', vendasUnidade.length);
+    console.log('📊 Analytics - Calculando total de vendas dos consultores');
+    console.log('📊 Analytics - vendasFiltradas total:', vendasFiltradas.length);
     console.log('📊 Analytics - selMonth:', selMonth);
+    console.log('📊 Analytics - responsaveisOficiais:', responsaveisOficiais);
     
-    // ✅ MESMA LÓGICA DO DASHBOARD: Conta TODAS as vendas da unidade
-    const vendasDoMes = vendasUnidade.filter(v => {
+    // ✅ MESMA LÓGICA DO DASHBOARD: Conta apenas vendas dos consultores COM META
+    const vendasDoMes = vendasFiltradas.filter(v => {
+      const resp = (v.responsavel || '').trim().toLowerCase();
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selMonth;
-      return mesCorreto;
+      const respOficial = responsaveisOficiais.includes(resp);
+      
+      if (mesCorreto && respOficial) {
+        console.log(`✅ Venda incluída: ${resp} - R$ ${v.valor} - ${v.dataFormatada}`);
+      }
+      
+      return mesCorreto && respOficial;
     });
     
     const total = vendasDoMes.reduce((sum, v) => sum + Number(v.valor||0), 0);
@@ -179,18 +188,20 @@ export default function AnalyticsPage() {
     console.log('📊 Analytics - Vendas do mês:', vendasDoMes.length);
     
     return total;
-  }, [vendasUnidade, selMonth]);
+  }, [vendasFiltradas, selMonth, responsaveisOficiais]);
 
   const totalVendasMesAnterior = useMemo(() => {
     const mesAnt = dayjs(selMonth + "-01","YYYY-MM-DD").subtract(1,"month").format("YYYY-MM");
-    // ✅ MESMA LÓGICA: Conta TODAS as vendas da unidade (sem filtro de responsáveis)
-    return vendasUnidade
+    // ✅ MESMA LÓGICA: Conta apenas vendas dos consultores COM META
+    return vendasFiltradas
       .filter(v => {
+        const resp = (v.responsavel || '').trim().toLowerCase();
         const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === mesAnt;
-        return mesCorreto;
+        const respOficial = responsaveisOficiais.includes(resp);
+        return mesCorreto && respOficial;
       })
       .reduce((sum, v) => sum + Number(v.valor||0), 0);
-  }, [vendasUnidade, selMonth]);
+  }, [vendasFiltradas, selMonth, responsaveisOficiais]);
 
   const crescimentoPercentual = totalVendasMesAnterior > 0
     ? ((totalVendasMes - totalVendasMesAnterior) / totalVendasMesAnterior) * 100
@@ -675,7 +686,7 @@ const applyFilters = (filters) => {
                 <div className="kpi-card">
                   <div className="kpi-header">
                     <div className="kpi-info">
-                      <p className="kpi-label">Total de Vendas</p>
+                      <p className="kpi-label">Total Vendido (Consultores)</p>
                       <h3 className="kpi-value">{formatMoney(totalVendasMes)}</h3>
                     </div>
                     <div className={`trend-indicator ${crescimentoPercentual >= 0 ? 'positive' : 'negative'}`}>

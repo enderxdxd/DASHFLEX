@@ -165,28 +165,15 @@ export default function AnalyticsPage() {
 
   // KPIs - ✅ TOTAL DOS CONSULTORES (apenas vendas dos consultores COM META)
   const totalVendasMes = useMemo(() => {
-    console.log('📊 Analytics - Calculando total de vendas dos consultores');
-    console.log('📊 Analytics - vendasFiltradas total:', vendasFiltradas.length);
-    console.log('📊 Analytics - selMonth:', selMonth);
-    console.log('📊 Analytics - responsaveisOficiais:', responsaveisOficiais);
-    
     // ✅ MESMA LÓGICA DO DASHBOARD: Conta apenas vendas dos consultores COM META
     const vendasDoMes = vendasFiltradas.filter(v => {
       const resp = (v.responsavel || '').trim().toLowerCase();
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selMonth;
       const respOficial = responsaveisOficiais.includes(resp);
-      
-      if (mesCorreto && respOficial) {
-        console.log(`✅ Venda incluída: ${resp} - R$ ${v.valor} - ${v.dataFormatada}`);
-      }
-      
       return mesCorreto && respOficial;
     });
     
     const total = vendasDoMes.reduce((sum, v) => sum + Number(v.valor||0), 0);
-    console.log('📊 Analytics - Total calculado:', total);
-    console.log('📊 Analytics - Vendas do mês:', vendasDoMes.length);
-    
     return total;
   }, [vendasFiltradas, selMonth, responsaveisOficiais]);
 

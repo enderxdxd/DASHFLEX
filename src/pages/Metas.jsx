@@ -1050,43 +1050,20 @@ function debugCalculoASMIHS(vendasArr, configRem) {
           </div>
         )}
 
-        {/* Card informativo sobre a nova lógica */}
-        <div className="info-card" style={{ 
-          background: 'var(--info-bg, #e3f2fd)', 
-          padding: '15px', 
-          borderRadius: '8px',
-          marginBottom: '20px',
-          border: '1px solid var(--info-border, #90caf9)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'start', gap: '10px' }}>
-            <svg style={{ flexShrink: 0, marginTop: '2px', width: '20px', height: '20px' }} viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-            </svg>
-            <div>
-              <strong>Nova Lógica de Comissão Ativa</strong>
-              <p style={{ margin: '5px 0 0 0', fontSize: '14px' }}>
-                As comissões agora são calculadas baseadas na duração dos planos 
-                (diferença entre data início e fim) ao invés de intervalos de valores.
-                Descontos de matrícula não afetam mais a comissão dos planos.
-              </p>
+        <section className="metas-list">
+          <div className="section-header">
+            <h2>Metas Cadastradas</h2>
+            <span className="total-metas">{metas.length} metas registradas</span>
+            <div className="filter-group month-filter" style={{ marginTop: "1rem" }}>
+              <label>Selecione o Período:</label>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="modern-input"
+              />
             </div>
           </div>
-        </div>
-
-<section className="metas-list">
-  <div className="section-header">
-    <h2>Metas Cadastradas</h2>
-    <span className="total-metas">{metas.length} metas registradas</span>
-    <div className="filter-group month-filter" style={{ marginTop: "1rem" }}>
-      <label>Selecione o Período:</label>
-      <input
-        type="month"
-        value={selectedMonth}
-        onChange={(e) => setSelectedMonth(e.target.value)}
-        className="modern-input"
-      />
-    </div>
-  </div>
 
    {/* Tabela de Metas */}
           <table className="data-table">

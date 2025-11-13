@@ -19,8 +19,7 @@
 .env.production.local
 .env
 serviceAccountKey.json
-package-lock.json
-package.json
+
 
 npm-debug.log*
 yarn-debug.log*

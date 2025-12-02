@@ -128,13 +128,13 @@ const gerarPlanosPadraoLocal = (unidade) => {
 const gerarFaixasPremiacaoLocal = (unidade) => {
   if (!unidade) return [];
   
-  const isAlphaville = unidade.toLowerCase() === 'alphaville';
   const faixas = [];
   const inicio = 35;
   const incremento = 5;
-  const valorBase = isAlphaville ? 200 : 180;
-  const valorMeta = isAlphaville ? 220 : 200;
-  const valorSuperacao = isAlphaville ? 320 : 300; // Valor para faixas "especiais"
+  // Todas as unidades usam os mesmos valores de Alphaville
+  const valorBase = 200;
+  const valorMeta = 220;
+  const valorSuperacao = 320; // Valor para faixas "especiais"
   
   for (let percentual = inicio; percentual < 100; percentual += incremento) {
     faixas.push({ percentual: percentual, premio: valorBase });
@@ -152,6 +152,27 @@ const gerarFaixasPremiacaoLocal = (unidade) => {
     faixas.push({ 
       percentual: percentual, 
       premio: isEspecial ? valorSuperacao : valorMeta 
+    });
+  }
+  
+  return faixas;
+};
+
+// Função específica para gerar faixas de premiação do SUPERVISOR
+// Padrão: 70% → 450, 75% → 900, 80% → 1350, etc. (acumulativo de 450)
+const gerarFaixasPremiacaoSupervisorLocal = () => {
+  const faixas = [];
+  const inicio = 70;
+  const incremento = 5;
+  const valorIncremento = 450;
+  let premioAcumulado = 0;
+  
+  // Gera faixas de 70% até 200% com incremento de 5%
+  for (let percentual = inicio; percentual <= 200; percentual += incremento) {
+    premioAcumulado += valorIncremento;
+    faixas.push({ 
+      percentual: percentual, 
+      premio: premioAcumulado 
     });
   }
   
@@ -1878,8 +1899,8 @@ const ConfigRemuneracao = () => {
 
   const gerarFaixasPadraoSupervisor = () => {
     if (!unidade) return;
-    // ✅ USAR MESMAS FAIXAS DOS CONSULTORES
-    const novasFaixas = gerarFaixasPremiacaoLocal(unidade);
+    // ✅ USAR FAIXAS ESPECÍFICAS DO SUPERVISOR (70% → 450, 75% → 900, etc.)
+    const novasFaixas = gerarFaixasPremiacaoSupervisorLocal();
     console.log('🏆 Gerando faixas padrão supervisor:', {
       unidade,
       totalFaixas: novasFaixas.length,

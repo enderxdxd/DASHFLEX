@@ -57,13 +57,14 @@ const ehPlanoAposCorrecao = (venda) => {
     return false;
   }
   
-  const produto = String(vendaCorrigida.produto || '').toLowerCase().trim();
+  const produto = String(vendaCorrigida.produto || '').trim();
+  const produtoLower = produto.toLowerCase();
   
-  if (produto.includes('diária') || produto.includes('diaria')) {
+  if (produtoLower.includes('diária') || produtoLower.includes('diaria')) {
     return false;
   }
   
-  if (produto !== 'plano') {
+  if (produtoLower !== 'plano') {
     return false;
   }
   
@@ -294,30 +295,20 @@ export default function ComissaoDetalhes() {
       const comissao = calcularComissaoReal(vendaCorrigida, ehPlano, temDesconto, bateuMetaIndividual, unidadeBatida, produtosSelecionados);
      
       
-      // Determinar classificação esperada
-      let classificacaoEsperada = 'PRODUTO';
+      // Determinar classificação esperada baseada na análise já feita
+      let classificacaoEsperada;
       
-      // Verificar se é diária após correção
-      const isDiariaCorrigida = vendaCorrigida.correcaoAplicada === 'diaria_reclassificada' ||
-        (vendaCorrigida.produto && 
-         (vendaCorrigida.produto.toLowerCase().includes('diária') || 
-          vendaCorrigida.produto.toLowerCase().includes('diarias')));
-      
-      if (isDiariaCorrigida) {
-        classificacaoEsperada = 'PRODUTO';
-      } else if (venda.produto === 'Plano' && 
-          venda.plano &&
-          !venda.plano.toLowerCase().includes('diária') && 
-          !venda.plano.toLowerCase().includes('diarias')) {
-        if (venda.duracaoMeses >= 1 || 
-            (venda.dataInicio && venda.dataFim && 
-             Math.ceil((new Date(venda.dataFim) - new Date(venda.dataInicio)) / (1000 * 60 * 60 * 24)) >= 25)) {
-          classificacaoEsperada = 'PLANO';
-        }
-      }
-      
-      if (['Taxa de Matrícula', 'Estorno', 'Ajuste Contábil', 'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'].includes(venda.produto)) {
+      // Produtos não comissionáveis
+      if (['Taxa de Matrícula', 'Estorno', 'Ajuste Contábil', 'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'].includes(vendaCorrigida.produto)) {
         classificacaoEsperada = 'NÃO COMISSIONÁVEL';
+      } 
+      // Se ehPlano é true, então a função ehPlanoAposCorrecao já validou que é um plano válido
+      else if (ehPlano) {
+        classificacaoEsperada = 'PLANO';
+      } 
+      // Caso contrário, é produto
+      else {
+        classificacaoEsperada = 'PRODUTO';
       }
       
       const classificacaoAtual = ehPlano ? 'PLANO' : (comissao > 0 ? 'PRODUTO' : 'NÃO COMISSIONÁVEL');

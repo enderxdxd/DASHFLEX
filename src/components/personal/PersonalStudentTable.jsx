@@ -97,7 +97,8 @@ export default function PersonalStudentTable({ data }) {
     const colors = {
       'alphaville': '#10b981',
       'buenavista': '#3b82f6', 
-      'marista': '#f59e0b'
+      'marista': '#f59e0b',
+      'palmas': '#ec4899'
     };
     return colors[unidade] || '#6366f1';
   };

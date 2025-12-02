@@ -82,7 +82,8 @@ export default function UnifiedPersonalTable({ data, loading }) {
     const colors = {
       'alphaville': '#3b82f6',
       'buenavista': '#10b981',
-      'marista': '#f59e0b'
+      'marista': '#f59e0b',
+      'palmas': '#ec4899'
     };
     return colors[unidade] || '#6b7280';
   };
@@ -91,7 +92,8 @@ export default function UnifiedPersonalTable({ data, loading }) {
     const names = {
       'alphaville': 'Alphaville',
       'buenavista': 'Buena Vista',
-      'marista': 'Marista'
+      'marista': 'Marista',
+      'palmas': 'Palmas'
     };
     return names[unidade] || unidade;
   };

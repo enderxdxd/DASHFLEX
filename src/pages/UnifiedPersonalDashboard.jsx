@@ -70,21 +70,23 @@ export default function UnifiedPersonalDashboard() {
   const alphaville = usePersonals('alphaville');
   const buenavista = usePersonals('buenavista'); 
   const marista = usePersonals('marista');
+  const palmas = usePersonals('palmas');
 
   // Dados unificados - otimizado
   const allPersonalsData = useMemo(() => {
     // Só recalcula se algum dos arrays mudou de tamanho ou referência
-    if (!alphaville.personals.length && !buenavista.personals.length && !marista.personals.length) {
+    if (!alphaville.personals.length && !buenavista.personals.length && !marista.personals.length && !palmas.personals.length) {
       return [];
     }
     
     const data = [
       ...alphaville.personals.map(p => ({ ...p, unidade: 'alphaville' })),
       ...buenavista.personals.map(p => ({ ...p, unidade: 'buenavista' })),
-      ...marista.personals.map(p => ({ ...p, unidade: 'marista' }))
+      ...marista.personals.map(p => ({ ...p, unidade: 'marista' })),
+      ...palmas.personals.map(p => ({ ...p, unidade: 'palmas' }))
     ];
     return data;
-  }, [alphaville.personals, buenavista.personals, marista.personals]);
+  }, [alphaville.personals, buenavista.personals, marista.personals, palmas.personals]);
 
   // Função para buscar aluno e encontrar seu personal trainer
   const searchStudentPersonal = useCallback((searchTerm) => {
@@ -585,7 +587,7 @@ export default function UnifiedPersonalDashboard() {
       let operationCount = 0;
       let currentBatch = writeBatch(db);
       
-      const unidades = ['alphaville', 'buenavista', 'marista'];
+      const unidades = ['alphaville', 'buenavista', 'marista', 'palmas'];
       
       for (const unidade of unidades) {
         console.log(`Processando ${unidade}...`);

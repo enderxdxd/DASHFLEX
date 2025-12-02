@@ -37,7 +37,7 @@ export default function AdminProdutoConfig() {
         const produtosSet = new Set();
         
         // Busca produtos de todas as unidades
-        const unidades = ['alphaville', 'buenavista', 'marista'];
+        const unidades = ['alphaville', 'buenavista', 'marista', 'palmas'];
         
         for (const unidade of unidades) {
           try {

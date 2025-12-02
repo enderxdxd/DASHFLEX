@@ -19,6 +19,7 @@ export default function UnifiedPersonalUploader() {
   const alphaville = usePersonals('alphaville');
   const buenavista = usePersonals('buenavista'); 
   const marista = usePersonals('marista');
+  const palmas = usePersonals('palmas');
 
   const unidades = [
     { 
@@ -41,6 +42,13 @@ export default function UnifiedPersonalUploader() {
       color: '#f59e0b',
       gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
       hook: marista
+    },
+    { 
+      id: 'palmas', 
+      name: 'Palmas', 
+      color: '#ec4899',
+      gradient: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
+      hook: palmas
     }
   ];
 

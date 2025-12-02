@@ -18,7 +18,8 @@ export default function PersonalStudentCards({ personalStats, selectedUnidade })
     const colors = {
       'alphaville': '#3b82f6',
       'buenavista': '#10b981', 
-      'marista': '#f59e0b'
+      'marista': '#f59e0b',
+      'palmas': '#ec4899'
     };
     return colors[unidade] || '#6366f1';
   };

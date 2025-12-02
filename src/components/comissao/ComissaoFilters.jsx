@@ -35,7 +35,7 @@ const ComissaoFilters = ({
   progressoPDF = { porcentagem: 0, mensagem: '' }
 }) => {
   const [theme] = useDarkMode();
-  const unidades = ['alphaville', 'buenavista', 'marista'];
+  const unidades = ['alphaville', 'buenavista', 'marista', 'palmas'];
   
   const tiposFiltro = [
     { value: 'todos', label: 'Todos os Resultados', count: null },

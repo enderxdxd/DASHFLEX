@@ -45,7 +45,7 @@ export default function NavBar() {
   }, [location.pathname]);
   
   const isValidUnidade = useMemo(() => {
-    return ['alphaville', 'buenavista', 'marista'].includes(unidade?.toLowerCase());
+    return ['alphaville', 'buenavista', 'marista', 'palmas'].includes(unidade?.toLowerCase());
   }, [unidade]);
   
   const currentUnidade = isValidUnidade ? unidade : null;

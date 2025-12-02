@@ -30,6 +30,14 @@ export default function PersonalUnidadeSelector() {
       gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
       icon: FiUsers,
       description: "Administração de alunos"
+    },
+    { 
+      id: "palmas", 
+      name: "Palmas", 
+      color: "#EC4899",
+      gradient: "linear-gradient(135deg, #ec4899 0%, #f472b6 100%)",
+      icon: FiMapPin,
+      description: "Gestão de personals e alunos"
     }
   ];
 

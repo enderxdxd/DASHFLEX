@@ -58,7 +58,7 @@ app.post("/", (req, res) => {
       if (!unidade) {
         return res.status(400).json({ success: false, error: "Unidade não especificada" });
       }
-      const unidadesValidas = ["alphaville", "buenavista", "marista"];
+      const unidadesValidas = ["alphaville", "buenavista", "marista", "palmas"];
       if (!unidadesValidas.includes(unidade)) {
         return res.status(400).json({ success: false, error: "Unidade inválida" });
       }

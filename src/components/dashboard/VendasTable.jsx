@@ -55,14 +55,24 @@ const VendasTable = ({
       return;
     }
   
+    // Firestore tem limite de 500 operações por batch
+    const BATCH_SIZE = 500;
+    const docs = snapshot.docs;
+    const totalDocs = docs.length;
+    
+    console.log(`Deletando ${totalDocs} documentos em batches de ${BATCH_SIZE}...`);
+    
+    // Processar em lotes de 500
+    for (let i = 0; i < totalDocs; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      const batchDocs = docs.slice(i, Math.min(i + BATCH_SIZE, totalDocs));
+      
+      batchDocs.forEach((doc) => batch.delete(doc.ref));
+      
+      await batch.commit();
+      console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1} concluído (${batchDocs.length} documentos)`);
+    }
   
-  
-    const batch = writeBatch(db);
-    snapshot.forEach((doc) => {
-      batch.delete(doc.ref);
-    });
-  
-    await batch.commit();
     console.log(`Todos os documentos da subcoleção "${subcollectionName}" foram excluídos.`);
   }
   
@@ -133,24 +143,39 @@ const VendasTable = ({
       return 0;
     }
     
-    const batch = writeBatch(db);
-    let count = 0;
-    
+    // Filtrar documentos que estão no intervalo
+    const docsToDelete = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
       const vendaDate = data.dataFormatada;
       
       if (vendaDate && vendaDate >= startDate && vendaDate <= endDate) {
-        batch.delete(doc.ref);
-        count++;
+        docsToDelete.push(doc);
       }
     });
     
-    if (count > 0) {
-      await batch.commit();
+    if (docsToDelete.length === 0) {
+      return 0;
     }
     
-    return count;
+    // Firestore tem limite de 500 operações por batch
+    const BATCH_SIZE = 500;
+    const totalDocs = docsToDelete.length;
+    
+    console.log(`Deletando ${totalDocs} vendas em batches de ${BATCH_SIZE}...`);
+    
+    // Processar em lotes de 500
+    for (let i = 0; i < totalDocs; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      const batchDocs = docsToDelete.slice(i, Math.min(i + BATCH_SIZE, totalDocs));
+      
+      batchDocs.forEach((doc) => batch.delete(doc.ref));
+      
+      await batch.commit();
+      console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1} concluído (${batchDocs.length} documentos)`);
+    }
+    
+    return totalDocs;
   };
   
   // Salvar alterações

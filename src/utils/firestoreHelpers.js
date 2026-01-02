@@ -30,9 +30,23 @@ export async function deleteVendasDoMes(unidade, mes) {
     return 0;
   }
 
-  const batch = writeBatch(db);
-  snapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
-  await batch.commit();
+  // Firestore tem limite de 500 operações por batch
+  const BATCH_SIZE = 500;
+  const docs = snapshot.docs;
+  const totalDocs = docs.length;
+  
+  console.log(`Deletando ${totalDocs} vendas em batches de ${BATCH_SIZE}...`);
+  
+  // Processar em lotes de 500
+  for (let i = 0; i < totalDocs; i += BATCH_SIZE) {
+    const batch = writeBatch(db);
+    const batchDocs = docs.slice(i, Math.min(i + BATCH_SIZE, totalDocs));
+    
+    batchDocs.forEach((docSnap) => batch.delete(docSnap.ref));
+    
+    await batch.commit();
+    console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1} concluído (${batchDocs.length} documentos)`);
+  }
 
-  return snapshot.size;
+  return totalDocs;
 }

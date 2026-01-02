@@ -131,21 +131,33 @@ const gerarFaixasPremiacaoLocal = (unidade) => {
   const faixas = [];
   const inicio = 35;
   const incremento = 5;
-  // Todas as unidades usam os mesmos valores de Alphaville
-  const valorBase = 200;
-  const valorMeta = 220;
-  const valorSuperacao = 320; // Valor para faixas "especiais"
+  
+  // Valores diferenciados por unidade
+  const unidadeLower = unidade.toLowerCase();
+  let valorBase, valorMeta, valorSuperacao;
+  
+  if (unidadeLower === 'alphaville') {
+    // Alphaville: 200, 220, 320
+    valorBase = 200;
+    valorMeta = 220;
+    valorSuperacao = 320;
+  } else {
+    // Marista, Buena Vista, Palmas: 180, 200, 300
+    valorBase = 180;
+    valorMeta = 200;
+    valorSuperacao = 300;
+  }
   
   for (let percentual = inicio; percentual < 100; percentual += incremento) {
     faixas.push({ percentual: percentual, premio: valorBase });
   }
   
-  faixas.push({ percentual: 100, premio: valorBase }); // Todos: Alphaville: 200, Buena Vista/Marista: 180
+  faixas.push({ percentual: 100, premio: valorBase });
   
-  // Lógica alternada para faixas acima de 100%
-  for (let percentual = 105; percentual <= 200; percentual += incremento) {
-    // 105%, 115%, 125%... = valorMeta (220/200)
-    // 110%, 120%, 130%... = valorSuperacao (320/300)
+  // Lógica alternada para faixas acima de 100% até 300%
+  for (let percentual = 105; percentual <= 300; percentual += incremento) {
+    // 105%, 115%, 125%... = valorMeta (220 para Alpha, 200 para outros)
+    // 110%, 120%, 130%... = valorSuperacao (320 para Alpha, 300 para outros)
     const faixaIndex = (percentual - 105) / incremento; // 0, 1, 2, 3, 4...
     const isEspecial = faixaIndex % 2 === 1; // 1, 3, 5... (110%, 120%, 130%...)
     
@@ -158,17 +170,15 @@ const gerarFaixasPremiacaoLocal = (unidade) => {
   return faixas;
 };
 
-// Função específica para gerar faixas de premiação do SUPERVISOR
-// Padrão: 70% → 450, 75% → 900, 80% → 1350, etc. (acumulativo de 450)
+
 const gerarFaixasPremiacaoSupervisorLocal = () => {
   const faixas = [];
   const inicio = 70;
   const incremento = 5;
   const valorIncremento = 450;
   let premioAcumulado = 0;
-  
-  // Gera faixas de 70% até 200% com incremento de 5%
-  for (let percentual = inicio; percentual <= 200; percentual += incremento) {
+ 
+  for (let percentual = inicio; percentual <= 300; percentual += incremento) {
     premioAcumulado += valorIncremento;
     faixas.push({ 
       percentual: percentual, 

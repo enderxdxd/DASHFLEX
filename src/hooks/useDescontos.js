@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { 
   collection, 
   collectionGroup,
@@ -13,6 +13,56 @@ import {
   analisarDescontosPorConsultor, 
   calcularEstatisticasGeraisDesconto 
 } from "../utils/descontosAnalysis";
+
+// ============ CONFIGURAÇÃO DE CACHE ============
+const CACHE_KEY = 'dashflex_descontos_cache';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+const descontosCacheUtils = {
+  save: (data, month) => {
+    try {
+      localStorage.setItem(`${CACHE_KEY}_${month}`, JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      if (e.name === 'QuotaExceededError') {
+        // Limpa caches antigos
+        Object.keys(localStorage)
+          .filter(k => k.startsWith(CACHE_KEY))
+          .forEach(k => localStorage.removeItem(k));
+      }
+    }
+  },
+  load: (month) => {
+    try {
+      const cached = localStorage.getItem(`${CACHE_KEY}_${month}`);
+      if (!cached) return null;
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp > CACHE_TTL) {
+        localStorage.removeItem(`${CACHE_KEY}_${month}`);
+        return null;
+      }
+      return data;
+    } catch {
+      return null;
+    }
+  },
+  clear: (month) => {
+    if (month) {
+      localStorage.removeItem(`${CACHE_KEY}_${month}`);
+    } else {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith(CACHE_KEY))
+        .forEach(k => localStorage.removeItem(k));
+    }
+  }
+};
+
+// Flag para ambiente de produção (desabilita logs)
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const debugLog = (...args) => { if (!IS_PRODUCTION) console.log(...args); };
+
 
 dayjs.extend(customParseFormat);
 
@@ -251,14 +301,8 @@ export const useDescontos = (
           return matchResponsavel(desc.responsavel, responsaveisOficiaisSet);
         });
 
-        console.log(`🔍 [${unidade}] Descontos carregados:`, {
-          total: all.length,
-          porMes: byMonth.length,
-          porResponsavel: byResp.length,
-          responsaveisOficiais: Array.from(responsaveisOficiaisSet),
-          mesAtual: selectedMonth
-        });
-        
+        // Salva no cache
+        descontosCacheUtils.save(byResp, selectedMonth);
         setDescontos(byResp);
         setLoading(false);
       },
@@ -276,7 +320,6 @@ export const useDescontos = (
   // ✅ Esta é a parte crítica que deve replicar a função analisarConsultor
   const vendasDaUnidade = useMemo(() => {
     if (!vendas?.length) {
-      console.log(`❌ [${unidade}] Vendas não carregadas ainda!`);
       return [];
     }
 
@@ -328,20 +371,12 @@ export const useDescontos = (
       return true;
     });
 
-    console.log(`📊 [${unidade}] Vendas filtradas para análise:`, {
-      totalVendas: vendas.length,
-      planosFiltrados: vendasFiltradas.length,
-      caiqueVendas: vendasFiltradas.filter(v => v.responsavel === 'CAIQUE ROBERTO VIANA QUINTINO').length,
-      caiqueValor: vendasFiltradas.filter(v => v.responsavel === 'CAIQUE ROBERTO VIANA QUINTINO').reduce((sum, v) => sum + Number(v.valor || 0), 0)
-    });
-
     return vendasFiltradas;
   }, [vendas, unidade, selectedMonth]);
 
   // ===== RECONCILIAÇÃO: VENDAS x DESCONTOS (MESMO CÓDIGO) =====
   const vendasComDesconto = useMemo(() => {
     if (!vendasDaUnidade?.length) {
-      console.log(`❌ [${unidade}] vendasDaUnidade está vazio!`);
       return [];
     }
     
@@ -480,22 +515,6 @@ export const useDescontos = (
           descontoDetalhes: []
         };
       }
-    });
-    
-    const comDesconto = vendasProcessadas.filter(v => v.temDesconto);
-    
-    console.log(`✅ [DESCONTOS-${unidade}] Reconciliação finalizada:`, {
-      totalVendas: vendasProcessadas.length,
-      comDesconto: comDesconto.length,
-      semDesconto: vendasProcessadas.length - comDesconto.length,
-      percentualComDesconto: ((comDesconto.length / vendasProcessadas.length) * 100).toFixed(1) + '%',
-      exemploComDesconto: comDesconto.slice(0, 2).map(v => ({
-        responsavel: v.responsavel,
-        matricula: v.matricula,
-        valor: v.valor,
-        valorCheio: v.valorCheio,
-        totalDesconto: v.totalDesconto
-      }))
     });
     
     return vendasProcessadas;

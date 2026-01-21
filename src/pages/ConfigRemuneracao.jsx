@@ -136,13 +136,13 @@ const gerarFaixasPremiacaoLocal = (unidade) => {
   const unidadeLower = unidade.toLowerCase();
   let valorBase, valorMeta, valorSuperacao;
   
-  if (unidadeLower === 'alphaville') {
-    // Alphaville: 200, 220, 320
+  if (unidadeLower === 'alphaville' || unidadeLower === 'palmas') {
+    // Alphaville e Palmas: 200, 220, 320
     valorBase = 200;
     valorMeta = 220;
     valorSuperacao = 320;
   } else {
-    // Marista, Buena Vista, Palmas: 180, 200, 300
+    // Marista, Buena Vista: 180, 200, 300
     valorBase = 180;
     valorMeta = 200;
     valorSuperacao = 300;
@@ -2180,43 +2180,55 @@ const ConfigRemuneracao = () => {
               </div>
             ) : (
               <div className="faixas-grid">
-                {faixas.map((faixa, index) => (
-                  <div key={index} className="faixa-card">
-                    <div className="card-header">
-                      <span className="faixa-number">#{index + 1}</span>
-                      <button 
-                        className="btn-icon danger"
-                        onClick={() => removeFaixa(index)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    
-                    <div className="card-content">
-                      <div className="input-group">
-                        <label>Percentual da Meta (%)</label>
-                        <input
-                          type="number"
-                          value={faixa.percentual}
-                          onChange={(e) => updateFaixa(index, 'percentual', e.target.value)}
-                          placeholder="0"
-                          min="0"
-                          max="500"
-                        />
+                {faixas.map((faixa, index) => {
+                  const acumulado = faixas
+                    .slice(0, index + 1)
+                    .reduce((soma, f) => soma + Number(f.premio || 0), 0);
+                  
+                  return (
+                    <div key={index} className="faixa-card">
+                      <div className="card-header">
+                        <span className="faixa-number">#{index + 1}</span>
+                        <button 
+                          className="btn-icon danger"
+                          onClick={() => removeFaixa(index)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <div className="input-group">
-                        <label>Prêmio (R$)</label>
-                        <input
-                          type="number"
-                          value={faixa.premio}
-                          onChange={(e) => updateFaixa(index, 'premio', e.target.value)}
-                          placeholder="0"
-                          min="0"
-                        />
+                      
+                      <div className="card-content">
+                        <div className="input-group">
+                          <label>Percentual da Meta (%)</label>
+                          <input
+                            type="number"
+                            value={faixa.percentual}
+                            onChange={(e) => updateFaixa(index, 'percentual', e.target.value)}
+                            placeholder="0"
+                            min="0"
+                            max="500"
+                          />
+                        </div>
+                        <div className="input-group">
+                          <label>Prêmio (R$)</label>
+                          <input
+                            type="number"
+                            value={faixa.premio}
+                            onChange={(e) => updateFaixa(index, 'premio', e.target.value)}
+                            placeholder="0"
+                            min="0"
+                          />
+                        </div>
+                        <div className="input-group acumulado-display">
+                          <label>💰 Acumulado até aqui</label>
+                          <div className="acumulado-value">
+                            {acumulado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -2256,43 +2268,55 @@ const ConfigRemuneracao = () => {
               </div>
             ) : (
               <div className="faixas-grid">
-                {faixasSupervisor.map((faixa, index) => (
-                  <div key={index} className="faixa-card supervisor">
-                    <div className="card-header">
-                      <span className="faixa-number">#{index + 1}</span>
-                      <button 
-                        className="btn-icon danger"
-                        onClick={() => removeFaixaSupervisor(index)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    
-                    <div className="card-content">
-                      <div className="input-group">
-                        <label>Percentual da Meta da Unidade (%)</label>
-                        <input
-                          type="number"
-                          value={faixa.percentual}
-                          onChange={(e) => updateFaixaSupervisor(index, 'percentual', e.target.value)}
-                          placeholder="0"
-                          min="0"
-                          max="500"
-                        />
+                {faixasSupervisor.map((faixa, index) => {
+                  const acumulado = faixasSupervisor
+                    .slice(0, index + 1)
+                    .reduce((soma, f) => soma + Number(f.premio || 0), 0);
+                  
+                  return (
+                    <div key={index} className="faixa-card supervisor">
+                      <div className="card-header">
+                        <span className="faixa-number">#{index + 1}</span>
+                        <button 
+                          className="btn-icon danger"
+                          onClick={() => removeFaixaSupervisor(index)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <div className="input-group">
-                        <label>Prêmio (R$)</label>
-                        <input
-                          type="number"
-                          value={faixa.premio}
-                          onChange={(e) => updateFaixaSupervisor(index, 'premio', e.target.value)}
-                          placeholder="0"
-                          min="0"
-                        />
+                      
+                      <div className="card-content">
+                        <div className="input-group">
+                          <label>Percentual da Meta da Unidade (%)</label>
+                          <input
+                            type="number"
+                            value={faixa.percentual}
+                            onChange={(e) => updateFaixaSupervisor(index, 'percentual', e.target.value)}
+                            placeholder="0"
+                            min="0"
+                            max="500"
+                          />
+                        </div>
+                        <div className="input-group">
+                          <label>Prêmio (R$)</label>
+                          <input
+                            type="number"
+                            value={faixa.premio}
+                            onChange={(e) => updateFaixaSupervisor(index, 'premio', e.target.value)}
+                            placeholder="0"
+                            min="0"
+                          />
+                        </div>
+                        <div className="input-group acumulado-display">
+                          <label>💰 Acumulado até aqui</label>
+                          <div className="acumulado-value">
+                            {acumulado.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

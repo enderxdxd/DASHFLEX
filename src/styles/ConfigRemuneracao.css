@@ -2728,6 +2728,42 @@
     color: var(--text-color) !important;
   }
   
+  /* Estilo para o campo de valor acumulado */
+  .acumulado-display {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px solid var(--primary-light);
+  }
+  
+  .acumulado-display label {
+    color: var(--primary-color) !important;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  
+  .acumulado-value {
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--success-light) 100%);
+    color: var(--primary-color);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-align: center;
+    margin-top: 0.5rem;
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.15);
+  }
+  
+  .dark .acumulado-display {
+    border-top-color: var(--primary-color);
+  }
+  
+  .dark .acumulado-value {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+  
   .dark .faixa-header {
     border-color: var(--border-color) !important;
   }

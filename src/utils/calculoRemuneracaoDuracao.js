@@ -334,17 +334,10 @@ function calcularPremiacao(params) {
   // Calcula o percentual de meta atingido
   const percentualMeta = metaIndividual > 0 ? (totalVendasIndividual / metaIndividual) * 100 : 0;
   
-  // ✅ CALCULA FATOR DE PROPORCIONALIDADE
-  const fatorProporcionalidade = (maiorMeta > 0 && metaIndividual > 0) 
-    ? (metaIndividual / maiorMeta) 
-    : 1;
-  
   console.log('🎯 PERCENTUAL DE META:', {
     percentual: percentualMeta.toFixed(2) + '%',
     totalVendas: totalVendasIndividual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    meta: metaIndividual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    maiorMeta: maiorMeta.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    fatorProporcionalidade: fatorProporcionalidade.toFixed(4)
+    meta: metaIndividual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
   });
 
   // Ordena as faixas por percentual crescente e filtra as atingidas
@@ -360,12 +353,10 @@ function calcularPremiacao(params) {
     detalhes: faixasAtingidas.map(f => `${f.percentual}% → R$ ${f.premio}`)
   });
 
-  // ✅ NOVA LÓGICA: Soma TODAS as faixas atingidas E APLICA PROPORCIONALIDADE
-  const premioBase = faixasAtingidas.reduce((soma, faixa) => {
+  // Soma TODAS as faixas atingidas (SEM proporcionalidade - já é baseado em % da meta individual)
+  const premioTotal = faixasAtingidas.reduce((soma, faixa) => {
     return soma + Number(faixa.premio || 0);
   }, 0);
-  
-  const premioTotal = premioBase * fatorProporcionalidade;
 
   // Determina se bateu as metas
   const bateuMetaIndividual = totalVendasIndividual >= metaIndividual;
@@ -407,8 +398,6 @@ function calcularPremiacao(params) {
   console.log('🏆 RESULTADO FINAL PREMIAÇÃO:', {
     percentualMeta: percentualMeta.toFixed(2) + '%',
     faixasAtingidas: faixasAtingidas.length,
-    premioBase: premioBase.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    fatorProporcionalidade: fatorProporcionalidade.toFixed(4),
     premioTotal: premioTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
     bateuMetaIndividual,
     bateuMetaTime

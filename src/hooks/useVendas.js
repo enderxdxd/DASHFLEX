@@ -1,5 +1,5 @@
 // File: src/hooks/useVendas.js
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   collection,
   collectionGroup,
@@ -14,13 +14,57 @@ import { db } from "../firebase";
 import dayjs from "dayjs";
 import { useGroupedVendas } from './useGroupedVendas';
 
-export const useVendas = (unidade, metas = []) => {
+// ============ CONFIGURAÇÃO DE CACHE ============
+const CACHE_KEY = 'dashflex_vendas_cache';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+const cacheUtils = {
+  save: (data) => {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
+    } catch (e) {
+      // Se localStorage cheio, limpa e tenta novamente
+      if (e.name === 'QuotaExceededError') {
+        localStorage.removeItem(CACHE_KEY);
+      }
+    }
+  },
+  load: () => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (!cached) return null;
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp > CACHE_TTL) {
+        localStorage.removeItem(CACHE_KEY);
+        return null;
+      }
+      return data;
+    } catch {
+      return null;
+    }
+  },
+  clear: () => localStorage.removeItem(CACHE_KEY)
+};
+
+export const useVendas = (unidade, metas = [], options = {}) => {
+  const { enableRealtime = true } = options; // Pode desabilitar realtime para economizar
+  
   // Estados brutos
-  const [vendas, setVendas] = useState([]);
+  const [vendas, setVendas] = useState(() => {
+    // Inicializa com cache se disponível
+    const cached = cacheUtils.load();
+    return cached || [];
+  });
   
   // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS
   const vendasAgrupadas = useGroupedVendas(vendas);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cacheUtils.load());
+  const isMountedRef = useRef(true);
+  const unsubscribeRef = useRef(null);
+  const lastFetchRef = useRef(null);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   // Upload XLS
@@ -154,36 +198,123 @@ export const useVendas = (unidade, metas = []) => {
   };
   
 
-  // ▲ Busca em tempo real
+  // ▲ Busca otimizada com cache
   useEffect(() => {
     if (!unidade) return;
-    setLoading(true);
-    const unsub = onSnapshot(
-      collectionGroup(db, "vendas"),
-      (snap) => {
-        const data = snap.docs.map((d) => ({ 
-          id: d.id, 
-          _unidadeOriginal: d.ref.parent.parent.id, // Captura a unidade original
-          ...d.data() 
-        }));
-        setVendas(data);
-        setLoading(false);
+    isMountedRef.current = true;
 
-        // preenche produtos e responsáveis
-        const ps = [...new Set(data.map((v) => v.produto?.trim()).filter(Boolean))].sort();
-        setProdutos(ps);
-        if (!localStorage.getItem("produtosSelecionados"))
-          setProdutosSelecionados(ps);
+    // Tenta carregar do cache primeiro
+    const cached = cacheUtils.load();
+    if (cached && cached.length > 0) {
+      setVendas(cached);
+      setLoading(false);
+      
+      // Preenche produtos e responsáveis do cache
+      const ps = [...new Set(cached.map((v) => v.produto?.trim()).filter(Boolean))].sort();
+      setProdutos(ps);
+      if (!localStorage.getItem("produtosSelecionados")) setProdutosSelecionados(ps);
+      const rs = [...new Set(cached.map((v) => v.responsavel?.trim()).filter(Boolean))].sort();
+      setResponsaveis(rs);
+    }
 
-        const rs = [...new Set(data.map((v) => v.responsavel?.trim()).filter(Boolean))].sort();
-        setResponsaveis(rs);
-      },
-      (err) => {
-        setError("Falha ao carregar: " + err.message);
-        setLoading(false);
+    // Função para processar dados
+    const processData = (data) => {
+      if (!isMountedRef.current) return;
+      
+      setVendas(data);
+      setLoading(false);
+      lastFetchRef.current = Date.now();
+      
+      // Salva no cache
+      cacheUtils.save(data);
+
+      // Preenche produtos e responsáveis
+      const ps = [...new Set(data.map((v) => v.produto?.trim()).filter(Boolean))].sort();
+      setProdutos(ps);
+      if (!localStorage.getItem("produtosSelecionados")) setProdutosSelecionados(ps);
+      const rs = [...new Set(data.map((v) => v.responsavel?.trim()).filter(Boolean))].sort();
+      setResponsaveis(rs);
+    };
+
+    if (enableRealtime) {
+      // Modo realtime - usa onSnapshot
+      if (!cached) setLoading(true);
+      
+      const unsub = onSnapshot(
+        collectionGroup(db, "vendas"),
+        { includeMetadataChanges: false }, // Ignora mudanças de metadata para reduzir updates
+        (snap) => {
+          const data = snap.docs.map((d) => ({ 
+            id: d.id, 
+            _unidadeOriginal: d.ref.parent.parent.id,
+            ...d.data() 
+          }));
+          processData(data);
+        },
+        (err) => {
+          if (isMountedRef.current) {
+            setError("Falha ao carregar: " + err.message);
+            setLoading(false);
+          }
+        }
+      );
+      unsubscribeRef.current = unsub;
+    } else {
+      // Modo cache-first - busca apenas se cache expirado
+      if (!cached) {
+        setLoading(true);
+        getDocs(collectionGroup(db, "vendas"))
+          .then((snap) => {
+            const data = snap.docs.map((d) => ({ 
+              id: d.id, 
+              _unidadeOriginal: d.ref.parent.parent.id,
+              ...d.data() 
+            }));
+            processData(data);
+          })
+          .catch((err) => {
+            if (isMountedRef.current) {
+              setError("Falha ao carregar: " + err.message);
+              setLoading(false);
+            }
+          });
       }
-    );
-    return () => unsub();
+    }
+
+    return () => {
+      isMountedRef.current = false;
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+  }, [unidade, enableRealtime]);
+
+  // Função para forçar refresh dos dados
+  const refreshVendas = useCallback(async () => {
+    if (!unidade) return;
+    setLoading(true);
+    cacheUtils.clear();
+    
+    try {
+      const snap = await getDocs(collectionGroup(db, "vendas"));
+      const data = snap.docs.map((d) => ({ 
+        id: d.id, 
+        _unidadeOriginal: d.ref.parent.parent.id,
+        ...d.data() 
+      }));
+      
+      setVendas(data);
+      cacheUtils.save(data);
+      
+      const ps = [...new Set(data.map((v) => v.produto?.trim()).filter(Boolean))].sort();
+      setProdutos(ps);
+      const rs = [...new Set(data.map((v) => v.responsavel?.trim()).filter(Boolean))].sort();
+      setResponsaveis(rs);
+    } catch (err) {
+      setError("Falha ao atualizar: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   }, [unidade]);
 
   // ▲ Sincroniza produtosSelecionados com localStorage
@@ -416,5 +547,7 @@ export const useVendas = (unidade, metas = []) => {
 
     updateVenda,
     deleteAllUnitData,
+    refreshVendas, // Nova função para forçar refresh
+    clearCache: cacheUtils.clear, // Limpar cache manualmente
   };
 };

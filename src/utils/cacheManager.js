@@ -6,8 +6,20 @@ const CACHE_PREFIXES = [
   'dashflex_metas_',
   'dashflex_descontos_cache',
   'dashflex_config_',
+  'dashflex_configrem_',
+  'dashflex_global_produtos',
+  'idb_',
   'produtosSelecionados'
 ];
+
+// TTL padrão por tipo de cache (em ms)
+export const CACHE_TTL = {
+  VENDAS: 15 * 60 * 1000,      // 15 minutos
+  METAS: 15 * 60 * 1000,       // 15 minutos
+  DESCONTOS: 10 * 60 * 1000,   // 10 minutos
+  CONFIG_REM: 30 * 60 * 1000,  // 30 minutos
+  PRODUTOS: 60 * 60 * 1000     // 1 hora
+};
 
 /**
  * Limpa todo o cache do DASHFLEX

@@ -108,8 +108,11 @@ app.post("/", (req, res) => {
           ""
         ).trim();
 
-        // Se o responsável for 'Administrador' e usuário optou pela conversão, usa o respVenda
-        const responsavelFinal = shouldConvert && respRecebimento === 'Administrador' && respVenda ? respVenda : respRecebimento;
+        // Se o responsável for 'Administrador' ou 'RECORRENCIA' e usuário optou pela conversão, usa o respVenda
+        const deveSubstituir = shouldConvert && 
+          (respRecebimento === 'Administrador' || respRecebimento.toUpperCase() === 'RECORRENCIA') && 
+          respVenda;
+        const responsavelFinal = deveSubstituir ? respVenda : respRecebimento;
 
         // 🔧 NOVA LÓGICA: Usar campo "Duração" da planilha diretamente
         const duracaoRaw = (row["Duração"] || "").toString().trim();

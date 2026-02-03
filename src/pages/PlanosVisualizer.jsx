@@ -132,7 +132,7 @@ const PlanosVisualizer = ({ comissaoPlanos = [], unidade }) => {
   }, [unidade, comissaoPlanos]);
 
   // 🔧 NOVA FUNÇÃO: Função corrigida para calcular remuneração
-  function calcularRemuneracaoCorrigida(metaValor, vendasArr, tipo, unidadeBatida, configRem) {
+  function calcularRemuneracaoCorrigida(metaValor, vendasArr, tipo, unidadeBatida, configRem, maiorMeta = 0) {
     // Validações iniciais
     if (!Array.isArray(vendasArr)) {
       console.warn('VendasArr não é um array válido');
@@ -200,7 +200,7 @@ const PlanosVisualizer = ({ comissaoPlanos = [], unidade }) => {
       return totalComissao;
     } 
     
-    // ===== CÁLCULO PARA PREMIAÇÃO (mantido inalterado) =====
+    // ===== CÁLCULO PARA PREMIAÇÃO COM PROPORCIONALIDADE =====
     if (tipo === 'premiacao') {
       const acumulado = vendasArr.reduce((soma, v) => soma + (Number(v?.valor) || 0), 0);
       const percentual = metaValor > 0 ? (acumulado / metaValor) * 100 : 0;
@@ -211,9 +211,13 @@ const PlanosVisualizer = ({ comissaoPlanos = [], unidade }) => {
             .sort((a, b) => (a.percentual || 0) - (b.percentual || 0))
         : [];
       
-      const premioTotal = faixasAtingidas.reduce((soma, faixa) => {
+      const premioBase = faixasAtingidas.reduce((soma, faixa) => {
         return soma + (Number(faixa.premio) || 0);
       }, 0);
+      
+      // ✅ CÁLCULO PROPORCIONAL: (metaIndividual / maiorMeta) * premioBase
+      const fatorProporcionalidade = maiorMeta > 0 ? (metaValor / maiorMeta) : 1;
+      const premioTotal = premioBase * fatorProporcionalidade;
       
       return premioTotal;
     }

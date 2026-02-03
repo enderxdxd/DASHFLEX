@@ -333,23 +333,9 @@ export default function ComissaoDetalhes() {
     const naoComissionaveis = resultados.filter(r => r.comissao <= 0);
     
     // Calcular valores totais por categoria
-    const valorTotalPlanos = planos.reduce((sum, p) => {
-      console.log('Plano valor:', p.valor, 'Venda original:', p);
-      return sum + Number(p.valor || 0);
-    }, 0);
-    const valorTotalProdutos = produtos.reduce((sum, p) => {
-      console.log('Produto valor:', p.valor, 'Venda original:', p);
-      return sum + Number(p.valor || 0);
-    }, 0);
+    const valorTotalPlanos = planos.reduce((sum, p) => sum + Number(p.valor || 0), 0);
+    const valorTotalProdutos = produtos.reduce((sum, p) => sum + Number(p.valor || 0), 0);
     const valorTotalNaoComissionaveis = naoComissionaveis.reduce((sum, p) => sum + Number(p.valor || 0), 0);
-    
-    console.log('Valores calculados:', {
-      valorTotalPlanos,
-      valorTotalProdutos,
-      valorTotalNaoComissionaveis,
-      planosCount: planos.length,
-      produtosCount: produtos.length
-    });
     
     // Calcular estatísticas
     const estatisticas = {
@@ -595,15 +581,6 @@ export default function ComissaoDetalhes() {
         });
 
         valorRemuneracao = resultado.totalPremiacao;
-        
-        console.log(`🏆 [PREMIAÇÃO] ${consultor}:`, {
-          metaIndividual,
-          totalVendas,
-          percentualMeta: percentualMeta.toFixed(1) + '%',
-          valorPremiacao: valorRemuneracao.toFixed(2),
-          configPremiacao: configRem?.premiacao || [],
-          faixasAtingidas: resultado.faixasAtingidas?.length || 0
-        });
       }
       
       return {

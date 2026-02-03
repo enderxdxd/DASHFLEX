@@ -33,29 +33,13 @@ export function corrigirClassificacaoDiarias(venda) {
   });
   
   if (temDiariaNoPlano) {
-    console.log(`🔧 CORREÇÃO DETECTADA: Diária encontrada no campo plano`, {
-      original: {
-        produto: venda.produto,
-        plano: venda.plano
-      }
-    });
-    
     // Move o conteúdo do campo "plano" para o campo "produto"
-    // E limpa o campo "plano" ou coloca valor padrão
-    vendaCorrigida.produto = venda.plano; // Move diárias para produto
-    vendaCorrigida.plano = ''; // Limpa o campo plano
+    vendaCorrigida.produto = venda.plano;
+    vendaCorrigida.plano = '';
     
     // Adiciona flag para tracking
     vendaCorrigida.correcaoAplicada = 'diaria_reclassificada';
     vendaCorrigida.motivoCorrecao = `Diária movida de "plano" para "produto": ${venda.plano}`;
-    
-    console.log(`✅ CORREÇÃO APLICADA:`, {
-      corrigido: {
-        produto: vendaCorrigida.produto,
-        plano: vendaCorrigida.plano,
-        motivo: vendaCorrigida.motivoCorrecao
-      }
-    });
   }
   
   return vendaCorrigida;
@@ -97,8 +81,6 @@ export function processarCorrecaoDiarias(vendas) {
     percentualCorrigido: vendas.length > 0 ? (corrigidas / vendas.length * 100).toFixed(2) : 0
   };
   
-  console.log(`📊 ESTATÍSTICAS DA CORREÇÃO DE DIÁRIAS:`, estatisticas);
-  
   return {
     vendasCorrigidas,
     estatisticas
@@ -118,12 +100,6 @@ export function ehPlanoAposCorrecao(venda) {
   
   // Se foi aplicada correção de diária, NUNCA é plano
   if (vendaCorrigida.correcaoAplicada === 'diaria_reclassificada') {
-    console.log(`🔍 VERIFICAÇÃO PLANO - DIÁRIA CORRIGIDA:`, {
-      matricula: venda.matricula,
-      produto: vendaCorrigida.produto,
-      motivoCorrecao: vendaCorrigida.motivoCorrecao,
-      resultado: 'PRODUTO (diária corrigida)'
-    });
     return false;
   }
   
@@ -135,11 +111,6 @@ export function ehPlanoAposCorrecao(venda) {
                    produto.includes('diarias') || produto.includes('diárias');
   
   if (ehDiaria) {
-    console.log(`🔍 VERIFICAÇÃO PLANO - DIÁRIA NO PRODUTO:`, {
-      matricula: venda.matricula,
-      produto: vendaCorrigida.produto,
-      resultado: 'PRODUTO (diária detectada)'
-    });
     return false;
   }
   
@@ -150,32 +121,11 @@ export function ehPlanoAposCorrecao(venda) {
     const diasReais = Math.ceil((fim - inicio) / (1000 * 60 * 60 * 24));
     
     // Se a duração real é menor que 25 dias, é diária/produto, não plano
-    const ehPlanoReal = diasReais >= 25;
-    
-    console.log(`🔍 VERIFICAÇÃO PLANO - DURAÇÃO REAL:`, {
-      matricula: venda.matricula,
-      produto: vendaCorrigida.produto,
-      dataInicio: vendaCorrigida.dataInicio,
-      dataFim: vendaCorrigida.dataFim,
-      diasReais,
-      ehPlanoReal,
-      resultado: ehPlanoReal ? 'PLANO' : 'PRODUTO (duração < 25 dias)'
-    });
-    
-    return ehPlanoReal;
+    return diasReais >= 25;
   }
   
   // Fallback: se não tem datas, verifica se produto é literalmente "plano"
-  const resultado = produto === 'plano';
-  
-  console.log(`🔍 VERIFICAÇÃO PLANO - FALLBACK:`, {
-    matricula: venda.matricula,
-    produto: vendaCorrigida.produto,
-    plano: vendaCorrigida.plano,
-    resultado: resultado ? 'PLANO' : 'PRODUTO'
-  });
-  
-  return resultado;
+  return produto === 'plano';
 }
 
 /**

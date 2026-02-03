@@ -5,9 +5,11 @@
  * @param {"comissao"|"premiacao"} tipo 
  * @param {boolean} unidadeBatida — se a meta da unidade foi batida
  * @param {Object} configRem — { premiacao, comissaoPlanos }
+ * @param {number} metaUnidade — meta total da unidade (opcional)
+ * @param {number} maiorMeta — maior meta entre os consultores para cálculo proporcional
  * @returns {number} soma das comissões ou valor da premiação
  */
-export function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRem) {
+export function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, configRem, metaUnidade = 0, maiorMeta = 0) {
   const { comissaoPlanos = [], premiacao = [] } = configRem || {};
   
   if (tipo === 'comissao') {
@@ -28,7 +30,7 @@ export function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, c
     }, 0);
   } 
   
-  // *** CORREÇÃO DA LÓGICA DE PREMIAÇÃO ***
+  // *** LÓGICA DE PREMIAÇÃO COM PROPORCIONALIDADE ***
   else {
     const acumulado = vendasArr.reduce((s, v) => s + Number(v.valor || 0), 0);
     const percentual = metaValor > 0 ? (acumulado / metaValor) * 100 : 0;
@@ -38,10 +40,14 @@ export function calcularRemuneracao(metaValor, vendasArr, tipo, unidadeBatida, c
       .filter(f => f.percentual <= percentual)
       .sort((a, b) => a.percentual - b.percentual);
     
-    // NOVA LÓGICA: Soma TODAS as faixas atingidas
-    const premioTotal = faixasOrdenadas.reduce((soma, faixa) => {
+    // Soma TODAS as faixas atingidas
+    const premioBase = faixasOrdenadas.reduce((soma, faixa) => {
       return soma + (faixa.premio || 0);
     }, 0);
+    
+    // ✅ CÁLCULO PROPORCIONAL: (metaIndividual / maiorMeta) * premioBase
+    const fatorProporcionalidade = maiorMeta > 0 ? (metaValor / maiorMeta) : 1;
+    const premioTotal = premioBase * fatorProporcionalidade;
     
     return premioTotal;
   }

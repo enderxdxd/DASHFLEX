@@ -50,23 +50,8 @@ function isPlano(venda) {
   // PASSO 1: Aplicar correção de diárias
   const vendaCorrigida = corrigirClassificacaoDiarias(venda);
   
-  console.log('🔍 isPlano - Verificação:', {
-    original: { produto: venda.produto, plano: venda.plano },
-    corrigida: { produto: vendaCorrigida.produto, plano: vendaCorrigida.plano },
-    correcaoAplicada: vendaCorrigida.correcaoAplicada
-  });
-  
   // PASSO 2: Usar função especializada que considera duração
-  const resultado = ehPlanoAposCorrecao(vendaCorrigida);
-  
-  console.log(`${resultado ? '✅' : '❌'} isPlano resultado:`, {
-    matricula: venda.matricula,
-    produto: venda.produto,
-    plano: venda.plano,
-    ehPlano: resultado
-  });
-  
-  return resultado;
+  return ehPlanoAposCorrecao(vendaCorrigida);
 }
 
 export function calcularDuracaoPlano(dataInicio, dataFim, duracaoMeses = null) {
@@ -144,7 +129,6 @@ export function isProdutoComissionavel(venda, produtosSelecionados = []) {
   );
   
   if (naBlacklist) {
-    console.log('❌ PRODUTO NA BLACKLIST:', { produto, plano });
     return false;
   }
   
@@ -194,14 +178,6 @@ export function calcularRemuneracaoPorDuracao(params) {
 
   const vendasDetalhadas = [];
   
-  console.log('🚀 INICIANDO CÁLCULO DE REMUNERAÇÃO:', {
-    totalVendas: vendas.length,
-    metaIndividual,
-    metaTime,
-    bateuMetaIndividual,
-    bateuMetaTime
-  });
-
   for (const venda of vendas) {
     const valor = Number(venda?.valor || 0);
     if (!(valor > 0)) continue;
@@ -209,15 +185,6 @@ export function calcularRemuneracaoPorDuracao(params) {
     // 🔧 APLICAR CORREÇÃO DE DIÁRIAS ANTES DE CLASSIFICAR
     const vendaCorrigida = corrigirClassificacaoDiarias(venda);
     const { inicio, fim } = resolveDatasPlano(vendaCorrigida);
-
-    console.log('📋 Processando venda:', {
-      matricula: vendaCorrigida.matricula,
-      produtoOriginal: venda.produto,
-      planoOriginal: venda.plano,
-      produtoCorrigido: vendaCorrigida.produto,
-      planoCorrigido: vendaCorrigida.plano,
-      correcaoAplicada: vendaCorrigida.correcaoAplicada
-    });
 
     // 🔧 USAR FUNÇÃO CORRIGIDA PARA VERIFICAR SE É PLANO
     if (isPlano(vendaCorrigida) && inicio && fim) {
@@ -240,14 +207,6 @@ export function calcularRemuneracaoPorDuracao(params) {
         valorComissao,
         detalhe: `Plano ${duracao} meses ${temDesconto ? 'COM' : 'SEM'} desconto`
       });
-      
-      console.log('✅ PLANO PROCESSADO:', {
-        matricula: vendaCorrigida.matricula,
-        duracao,
-        valor,
-        valorComissao,
-        temDesconto
-      });
 
     } else if (isProdutoComissionavel(vendaCorrigida, produtosSelecionados)) {
       // Produtos que não são planos mas são comissionáveis
@@ -262,22 +221,6 @@ export function calcularRemuneracaoPorDuracao(params) {
         tipo: 'produto',
         valorComissao,
         detalhe: `Produto comissionável - Taxa: ${((taxas[indiceProduto] || 0.012) * 100).toFixed(1)}%`
-      });
-      
-      console.log('✅ PRODUTO PROCESSADO:', {
-        matricula: vendaCorrigida.matricula,
-        produto: vendaCorrigida.produto,
-        valor,
-        valorComissao
-      });
-
-    } else {
-      console.log('❌ VENDA NÃO COMISSIONÁVEL:', {
-        matricula: vendaCorrigida.matricula,
-        produto: vendaCorrigida.produto,
-        plano: vendaCorrigida.plano,
-        motivo: vendaCorrigida.correcaoAplicada === 'diaria_reclassificada' ? 
-          'Diária reclassificada' : 'Não atende critérios'
       });
     }
   }
@@ -299,14 +242,6 @@ export function calcularRemuneracaoPorDuracao(params) {
     }
   };
 
-  console.log('📊 RESULTADO FINAL:', {
-    totalComissao: resultado.totalComissao,
-    comissaoPlanos: resultado.comissaoPlanos,
-    comissaoProdutos: resultado.comissaoProdutos,
-    qtdPlanos: resultado.qtdPlanosSemDesconto + resultado.qtdPlanosComDesconto,
-    qtdProdutos: resultado.vendasDetalhadas.filter(v => v.tipo === 'produto').length
-  });
-
   return resultado;
 }
 
@@ -323,22 +258,8 @@ function calcularPremiacao(params) {
     maiorMeta = 0 // ✅ NOVO PARÂMETRO: maior meta do grupo
   } = params;
 
-  console.log('🏆 INICIANDO CÁLCULO DE PREMIAÇÃO:', {
-    totalVendas: vendas.length,
-    metaIndividual,
-    maiorMeta,
-    totalVendasIndividual,
-    faixasPremiacao: premiacao.length
-  });
-
   // Calcula o percentual de meta atingido
   const percentualMeta = metaIndividual > 0 ? (totalVendasIndividual / metaIndividual) * 100 : 0;
-  
-  console.log('🎯 PERCENTUAL DE META:', {
-    percentual: percentualMeta.toFixed(2) + '%',
-    totalVendas: totalVendasIndividual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    meta: metaIndividual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-  });
 
   // Ordena as faixas por percentual crescente e filtra as atingidas
   const faixasAtingidas = premiacao
@@ -348,15 +269,15 @@ function calcularPremiacao(params) {
     })
     .sort((a, b) => Number(a.percentual || 0) - Number(b.percentual || 0));
 
-  console.log('🎯 FAIXAS ATINGIDAS:', {
-    total: faixasAtingidas.length,
-    detalhes: faixasAtingidas.map(f => `${f.percentual}% → R$ ${f.premio}`)
-  });
-
-  // Soma TODAS as faixas atingidas (SEM proporcionalidade - já é baseado em % da meta individual)
-  const premioTotal = faixasAtingidas.reduce((soma, faixa) => {
+  // Soma TODAS as faixas atingidas
+  const premioBase = faixasAtingidas.reduce((soma, faixa) => {
     return soma + Number(faixa.premio || 0);
   }, 0);
+  
+  // ✅ CÁLCULO PROPORCIONAL: (menorMeta / maiorMeta) * premioBase
+  // Se maiorMeta > 0, aplica proporcionalidade baseada na meta individual vs maior meta
+  const fatorProporcionalidade = maiorMeta > 0 ? (metaIndividual / maiorMeta) : 1;
+  const premioTotal = premioBase * fatorProporcionalidade;
 
   // Determina se bateu as metas
   const bateuMetaIndividual = totalVendasIndividual >= metaIndividual;
@@ -383,6 +304,11 @@ function calcularPremiacao(params) {
     percentualMeta,
     faixasAtingidas,
     premioTotal,
+    // ✅ INFORMAÇÕES DE PROPORCIONALIDADE
+    premioBase, // Valor antes da proporcionalidade
+    fatorProporcionalidade, // Fator aplicado (metaIndividual / maiorMeta)
+    maiorMeta, // Maior meta do grupo para referência
+    metaIndividual, // Meta do consultor
     qtdPlanosSemDesconto: 0,
     qtdPlanosComDesconto: 0,
     vendasDetalhadas,
@@ -391,17 +317,10 @@ function calcularPremiacao(params) {
     resumo: {
       totalPlanosProcessados: 0,
       totalProdutosProcessados: vendas.length,
-      metodo: 'Premiação por faixas de percentual'
+      metodo: 'Premiação por faixas de percentual com proporcionalidade',
+      formulaProporcional: `(${metaIndividual} / ${maiorMeta}) × ${premioBase} = ${premioTotal.toFixed(2)}`
     }
   };
-
-  console.log('🏆 RESULTADO FINAL PREMIAÇÃO:', {
-    percentualMeta: percentualMeta.toFixed(2) + '%',
-    faixasAtingidas: faixasAtingidas.length,
-    premioTotal: premioTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    bateuMetaIndividual,
-    bateuMetaTime
-  });
 
   return resultado;
 }
@@ -415,15 +334,8 @@ export function calcularPremiacaoSupervisor({
   metaUnidade,
   premiacaoSupervisor = []
 }) {
-  console.log('🏆 INICIANDO CÁLCULO PREMIAÇÃO SUPERVISOR:', {
-    totalVendasUnidade,
-    metaUnidade,
-    faixasConfiguradas: premiacaoSupervisor.length
-  });
-
   // Validações básicas
   if (!premiacaoSupervisor || premiacaoSupervisor.length === 0) {
-    console.log('⚠️ Nenhuma faixa de premiação configurada para supervisor');
     return {
       totalPremiacao: 0,
       percentualMeta: 0,
@@ -433,7 +345,6 @@ export function calcularPremiacaoSupervisor({
   }
 
   if (!metaUnidade || metaUnidade <= 0) {
-    console.log('⚠️ Meta da unidade não configurada ou inválida');
     return {
       totalPremiacao: 0,
       percentualMeta: 0,
@@ -446,13 +357,6 @@ export function calcularPremiacaoSupervisor({
   const percentualMeta = (totalVendasUnidade / metaUnidade) * 100;
   const bateuMeta = percentualMeta >= 100;
 
-  console.log('📊 ANÁLISE META UNIDADE:', {
-    totalVendas: totalVendasUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    metaUnidade: metaUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    percentual: percentualMeta.toFixed(2) + '%',
-    bateuMeta
-  });
-
   // Filtrar faixas atingidas (todas as faixas com percentual <= percentual atingido)
   const faixasAtingidas = premiacaoSupervisor
     .filter(faixa => {
@@ -460,11 +364,6 @@ export function calcularPremiacaoSupervisor({
       return percentualFaixa <= percentualMeta;
     })
     .sort((a, b) => Number(a.percentual || 0) - Number(b.percentual || 0));
-
-  console.log('🎯 FAIXAS ATINGIDAS:', faixasAtingidas.map(f => ({
-    percentual: f.percentual + '%',
-    premio: Number(f.premio || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-  })));
 
   // Somar todos os prêmios das faixas atingidas (sistema cumulativo)
   const premioTotal = faixasAtingidas.reduce((soma, faixa) => {
@@ -482,13 +381,6 @@ export function calcularPremiacaoSupervisor({
       metodo: 'Premiação supervisor por faixas de percentual da unidade'
     }
   };
-
-  console.log('🏆 RESULTADO FINAL PREMIAÇÃO SUPERVISOR:', {
-    percentualMeta: percentualMeta.toFixed(2) + '%',
-    faixasAtingidas: faixasAtingidas.length,
-    premioTotal: premioTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-    bateuMeta
-  });
 
   return resultado;
 }

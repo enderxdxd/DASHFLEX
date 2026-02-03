@@ -34,9 +34,7 @@ export default function NavBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, toggleTheme] = useDarkMode();
   const [userInfo, setUserInfo] = useState(null);
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    return localStorage.getItem('navbar-collapsed') === 'true';
-  });
+  const [isCollapsed, setIsCollapsed] = useState(false); // Sempre inicia expandida
   const [isLoading, setIsLoading] = useState(true);
 
   // Memoized values for better performance
@@ -96,10 +94,10 @@ export default function NavBar() {
     loadUserData();
   }, [auth]);
 
-  // Persist collapsed state
+  // Limpar estado colapsado antigo do localStorage na primeira carga
   useEffect(() => {
-    localStorage.setItem('navbar-collapsed', isCollapsed.toString());
-  }, [isCollapsed]);
+    localStorage.removeItem('navbar-collapsed');
+  }, []);
 
   // Memoized callbacks for better performance
   const isActive = useCallback((path) => {

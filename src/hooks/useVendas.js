@@ -14,21 +14,45 @@ import { db } from "../firebase";
 import dayjs from "dayjs";
 import { useGroupedVendas } from './useGroupedVendas';
 
-// ============ CONFIGURAÇÃO DE CACHE ============
-const CACHE_KEY = 'dashflex_vendas_cache';
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+// ============ CONFIGURAÇÃO DE CACHE OTIMIZADO ============
+const CACHE_KEY = 'dashflex_vendas_cache_v2';
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutos (aumentado para reduzir chamadas)
+const CACHE_METADATA_KEY = 'dashflex_vendas_metadata';
 
+// Cache otimizado com compressão básica e fallback
 const cacheUtils = {
   save: (data) => {
     try {
+      // Salva apenas campos essenciais para reduzir tamanho
+      const compactData = data.map(v => ({
+        id: v.id,
+        _unidadeOriginal: v._unidadeOriginal,
+        matricula: v.matricula,
+        nome: v.nome,
+        responsavel: v.responsavel,
+        produto: v.produto,
+        plano: v.plano,
+        valor: v.valor,
+        unidade: v.unidade,
+        dataFormatada: v.dataFormatada,
+        dataLancamento: v.dataLancamento,
+        dataInicio: v.dataInicio,
+        dataFim: v.dataFim,
+        duracaoMeses: v.duracaoMeses,
+        formaPagamento: v.formaPagamento
+      }));
+      
       localStorage.setItem(CACHE_KEY, JSON.stringify({
-        data,
-        timestamp: Date.now()
+        data: compactData,
+        timestamp: Date.now(),
+        count: data.length
       }));
     } catch (e) {
-      // Se localStorage cheio, limpa e tenta novamente
       if (e.name === 'QuotaExceededError') {
-        localStorage.removeItem(CACHE_KEY);
+        // Limpa caches antigos
+        Object.keys(localStorage)
+          .filter(k => k.startsWith('dashflex_'))
+          .forEach(k => localStorage.removeItem(k));
       }
     }
   },
@@ -46,11 +70,24 @@ const cacheUtils = {
       return null;
     }
   },
-  clear: () => localStorage.removeItem(CACHE_KEY)
+  clear: () => {
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(CACHE_METADATA_KEY);
+  },
+  getMetadata: () => {
+    try {
+      const meta = localStorage.getItem(CACHE_METADATA_KEY);
+      return meta ? JSON.parse(meta) : null;
+    } catch {
+      return null;
+    }
+  }
 };
 
 export const useVendas = (unidade, metas = [], options = {}) => {
-  const { enableRealtime = true } = options; // Pode desabilitar realtime para economizar
+  // OTIMIZAÇÃO: Realtime desabilitado por padrão para melhor performance
+  // Use refreshVendas() para atualizar manualmente quando necessário
+  const { enableRealtime = false } = options;
   
   // Estados brutos
   const [vendas, setVendas] = useState(() => {
@@ -198,51 +235,61 @@ export const useVendas = (unidade, metas = [], options = {}) => {
   };
   
 
-  // ▲ Busca otimizada com cache
+  // ▲ Busca OTIMIZADA com cache-first strategy
   useEffect(() => {
     if (!unidade) return;
     isMountedRef.current = true;
 
-    // Tenta carregar do cache primeiro
-    const cached = cacheUtils.load();
-    if (cached && cached.length > 0) {
-      setVendas(cached);
-      setLoading(false);
-      
-      // Preenche produtos e responsáveis do cache
-      const ps = [...new Set(cached.map((v) => v.produto?.trim()).filter(Boolean))].sort();
-      setProdutos(ps);
-      if (!localStorage.getItem("produtosSelecionados")) setProdutosSelecionados(ps);
-      const rs = [...new Set(cached.map((v) => v.responsavel?.trim()).filter(Boolean))].sort();
-      setResponsaveis(rs);
-    }
-
-    // Função para processar dados
-    const processData = (data) => {
+    // Função otimizada para processar dados
+    const processData = (data, fromCache = false) => {
       if (!isMountedRef.current) return;
       
       setVendas(data);
       setLoading(false);
       lastFetchRef.current = Date.now();
       
-      // Salva no cache
-      cacheUtils.save(data);
+      // Salva no cache apenas se não veio do cache
+      if (!fromCache) {
+        cacheUtils.save(data);
+      }
 
-      // Preenche produtos e responsáveis
-      const ps = [...new Set(data.map((v) => v.produto?.trim()).filter(Boolean))].sort();
+      // Extrai produtos e responsáveis de forma otimizada
+      const produtosSet = new Set();
+      const responsaveisSet = new Set();
+      
+      for (let i = 0; i < data.length; i++) {
+        const v = data[i];
+        if (v.produto) produtosSet.add(v.produto.trim());
+        if (v.responsavel) responsaveisSet.add(v.responsavel.trim());
+      }
+      
+      const ps = Array.from(produtosSet).sort();
+      const rs = Array.from(responsaveisSet).sort();
+      
       setProdutos(ps);
       if (!localStorage.getItem("produtosSelecionados")) setProdutosSelecionados(ps);
-      const rs = [...new Set(data.map((v) => v.responsavel?.trim()).filter(Boolean))].sort();
       setResponsaveis(rs);
     };
 
+    // ESTRATÉGIA CACHE-FIRST: Carrega do cache imediatamente
+    const cached = cacheUtils.load();
+    if (cached && cached.length > 0) {
+      processData(cached, true);
+      
+      // Se realtime desabilitado, não busca do Firebase
+      if (!enableRealtime) {
+        return;
+      }
+    }
+
+    // Se não tem cache ou realtime está habilitado, busca do Firebase
     if (enableRealtime) {
-      // Modo realtime - usa onSnapshot
+      // Modo realtime - usa onSnapshot (mais lento, mas atualiza automaticamente)
       if (!cached) setLoading(true);
       
       const unsub = onSnapshot(
         collectionGroup(db, "vendas"),
-        { includeMetadataChanges: false }, // Ignora mudanças de metadata para reduzir updates
+        { includeMetadataChanges: false },
         (snap) => {
           const data = snap.docs.map((d) => ({ 
             id: d.id, 
@@ -259,26 +306,24 @@ export const useVendas = (unidade, metas = [], options = {}) => {
         }
       );
       unsubscribeRef.current = unsub;
-    } else {
-      // Modo cache-first - busca apenas se cache expirado
-      if (!cached) {
-        setLoading(true);
-        getDocs(collectionGroup(db, "vendas"))
-          .then((snap) => {
-            const data = snap.docs.map((d) => ({ 
-              id: d.id, 
-              _unidadeOriginal: d.ref.parent.parent.id,
-              ...d.data() 
-            }));
-            processData(data);
-          })
-          .catch((err) => {
-            if (isMountedRef.current) {
-              setError("Falha ao carregar: " + err.message);
-              setLoading(false);
-            }
-          });
-      }
+    } else if (!cached) {
+      // Modo cache-first SEM cache - busca uma vez do Firebase
+      setLoading(true);
+      getDocs(collectionGroup(db, "vendas"))
+        .then((snap) => {
+          const data = snap.docs.map((d) => ({ 
+            id: d.id, 
+            _unidadeOriginal: d.ref.parent.parent.id,
+            ...d.data() 
+          }));
+          processData(data);
+        })
+        .catch((err) => {
+          if (isMountedRef.current) {
+            setError("Falha ao carregar: " + err.message);
+            setLoading(false);
+          }
+        });
     }
 
     return () => {

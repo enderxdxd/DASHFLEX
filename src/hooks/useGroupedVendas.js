@@ -1,6 +1,5 @@
 // src/hooks/useGroupedVendas.js
 import { useMemo } from 'react';
-import dayjs from 'dayjs';
 
 /**
  * Hook para agrupar vendas de planos que foram divididas em múltiplos pagamentos
@@ -18,110 +17,78 @@ import dayjs from 'dayjs';
 export const useGroupedVendas = (vendas) => {
   return useMemo(() => {
     if (!Array.isArray(vendas) || vendas.length === 0) {
-      return vendas;
+      return vendas || [];
     }
 
-    // Separar vendas de planos e outras vendas
-    const vendasPlanos = [];
+    // Usar Map para melhor performance em vez de arrays separados
+    const planosAgrupados = new Map();
     const outrasVendas = [];
+    const vendasLength = vendas.length;
     
-    vendas.forEach(venda => {
+    for (let i = 0; i < vendasLength; i++) {
+      const venda = vendas[i];
       const produto = (venda.produto || '').toUpperCase().trim();
+      
       // Verifica se é um produto do tipo PLANO
-      if (produto === 'PLANO' || produto.includes('PLANO')) {
-        vendasPlanos.push(venda);
-      } else {
+      if (produto !== 'PLANO' && !produto.includes('PLANO')) {
         outrasVendas.push(venda);
+        continue;
       }
-    });
-
-    // Se não há vendas de planos, retorna as vendas originais
-    if (vendasPlanos.length === 0) {
-      return vendas;
-    }
-
-    // Agrupar vendas de planos
-    const planosAgrupados = {};
-    
-    vendasPlanos.forEach(venda => {
-      // Criar chave única para agrupamento
+      
       const matricula = (venda.matricula || '').trim();
-      const responsavel = (venda.responsavel || '').trim().toLowerCase();
-      const unidade = (venda.unidade || '').trim().toLowerCase();
-      const mes = dayjs(venda.dataFormatada || venda.dataLancamento, 'YYYY-MM-DD').format('YYYY-MM');
-      const produto = (venda.produto || '').trim().toUpperCase();
       
-      // Chave de agrupamento: matricula + responsavel + mes + unidade + produto
-      // Só agrupa se tiver matrícula (para evitar agrupar vendas sem matrícula)
+      // Se não tem matrícula válida, não agrupa
       if (!matricula || matricula === '' || matricula === '0') {
-        // Se não tem matrícula válida, não agrupa
         outrasVendas.push(venda);
-        return;
+        continue;
       }
       
-      const chaveAgrupamento = `${matricula}_${responsavel}_${mes}_${unidade}_${produto}`;
+      const responsavel = (venda.responsavel || '').trim().toLowerCase();
+      const unidadeVenda = (venda.unidade || '').trim().toLowerCase();
+      const dataStr = venda.dataFormatada || venda.dataLancamento || '';
+      const mes = dataStr.substring(0, 7); // YYYY-MM
       
-      if (!planosAgrupados[chaveAgrupamento]) {
+      const chaveAgrupamento = `${matricula}_${responsavel}_${mes}_${unidadeVenda}_${produto}`;
+
+      const grupoExistente = planosAgrupados.get(chaveAgrupamento);
+      
+      if (!grupoExistente) {
         // Primeira ocorrência - cria o grupo com a venda base
-        planosAgrupados[chaveAgrupamento] = {
+        planosAgrupados.set(chaveAgrupamento, {
           ...venda,
-          // Adiciona campos para controle
           _isGrouped: true,
           _groupedCount: 1,
           _originalValues: [Number(venda.valor || 0)],
-          _groupedVendas: [venda], // Guarda as vendas originais para referência
-        };
+        });
       } else {
-        // Venda duplicada - soma o valor
-        const grupo = planosAgrupados[chaveAgrupamento];
+        // Venda duplicada - soma o valor (mutação direta para performance)
+        grupoExistente.valor = Number(grupoExistente.valor || 0) + Number(venda.valor || 0);
+        grupoExistente._groupedCount += 1;
+        grupoExistente._originalValues.push(Number(venda.valor || 0));
         
-        // Soma o valor
-        grupo.valor = Number(grupo.valor || 0) + Number(venda.valor || 0);
-        
-        // Atualiza contadores e arrays de controle
-        grupo._groupedCount += 1;
-        grupo._originalValues.push(Number(venda.valor || 0));
-        grupo._groupedVendas.push(venda);
-        
-        // Mantém a data mais recente
-        const dataAtual = dayjs(grupo.dataFormatada || grupo.dataLancamento, 'YYYY-MM-DD');
-        const dataVenda = dayjs(venda.dataFormatada || venda.dataLancamento, 'YYYY-MM-DD');
-        if (dataVenda.isAfter(dataAtual)) {
-          grupo.dataFormatada = venda.dataFormatada;
-          grupo.dataLancamento = venda.dataLancamento;
+        // Mantém a data mais recente (comparação simples de string funciona para YYYY-MM-DD)
+        const dataAtual = grupoExistente.dataFormatada || grupoExistente.dataLancamento || '';
+        const dataVenda = venda.dataFormatada || venda.dataLancamento || '';
+        if (dataVenda > dataAtual) {
+          grupoExistente.dataFormatada = venda.dataFormatada;
+          grupoExistente.dataLancamento = venda.dataLancamento;
         }
         
-        // Concatena informações importantes que podem ser diferentes
-        // Por exemplo, formas de pagamento diferentes
-        if (venda.formaPagamento && venda.formaPagamento !== grupo.formaPagamento) {
-          grupo.formaPagamento = grupo.formaPagamento 
-            ? `${grupo.formaPagamento} + ${venda.formaPagamento}`
-            : venda.formaPagamento;
-        }
-        
-        // Preserva o nome do cliente (deve ser o mesmo, mas garantimos)
-        if (!grupo.nome && venda.nome) {
-          grupo.nome = venda.nome;
+        // Preserva o nome do cliente
+        if (!grupoExistente.nome && venda.nome) {
+          grupoExistente.nome = venda.nome;
         }
       }
-    });
+    }
 
-    // Converter o objeto de grupos em array
-    const planosAgrupadosArray = Object.values(planosAgrupados);
-    
-    
-    
-    // Combinar planos agrupados com outras vendas
-    const vendasFinais = [...planosAgrupadosArray, ...outrasVendas];
-    
-    // Ordenar por data para manter consistência
-    vendasFinais.sort((a, b) => {
-      const dataA = dayjs(a.dataFormatada || a.dataLancamento, 'YYYY-MM-DD');
-      const dataB = dayjs(b.dataFormatada || b.dataLancamento, 'YYYY-MM-DD');
-      return dataB.diff(dataA); // Mais recentes primeiro
-    });
+    // Se não há vendas de planos agrupadas, retorna as vendas originais
+    if (planosAgrupados.size === 0) {
+      return vendas;
+    }
 
-    return vendasFinais;
+    // Combinar planos agrupados com outras vendas (sem sorting para performance)
+    // O sorting pode ser feito no componente que precisa se necessário
+    return [...planosAgrupados.values(), ...outrasVendas];
   }, [vendas]);
 };
 

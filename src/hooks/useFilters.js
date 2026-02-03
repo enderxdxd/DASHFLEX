@@ -1,5 +1,5 @@
 // File: src/hooks/useFilters.js
-import { useReducer, useState, useEffect } from "react";
+import { useReducer, useState, useEffect, useMemo } from "react";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import { useParams } from 'react-router-dom';
@@ -83,78 +83,83 @@ export const useFilters = (
     dispatchFilters({ type: 'SET_SELECTED_MONTH', payload: initialMonth });
   }, [initialMonth]);
 
-  // Filtragem conforme código antigo: sem filtro de unidade
-  const filteredVendas = vendas.filter((v) => {
-    const responsavel = (v.responsavel || "").trim().toLowerCase();
-    const produto = (v.produto || "").trim().toLowerCase();
-    const nome = (v.nome || "").trim().toLowerCase();
-    const dataVenda = v.dataFormatada || "";
+  // Pré-processar responsáveis oficiais para lookup O(1)
+  const responsaveisOficiaisSet = useMemo(() => {
+    return new Set(responsaveisOficiais.map(r => r.trim().toLowerCase()));
+  }, [responsaveisOficiais]);
 
-    const condResponsavel = filters.filtroResponsavel
-      ? responsavel.includes(filters.filtroResponsavel.toLowerCase())
-      : true;
-    const condProduto = filters.filtroProduto
-      ? produto.includes(filters.filtroProduto.toLowerCase())
-      : true;
-    const condNome = filters.filtroNome
-      ? nome.includes(filters.filtroNome.toLowerCase())
-      : true;
+  // Filtragem otimizada com useMemo
+  const filteredVendas = useMemo(() => {
+    if (!vendas?.length) return [];
+    
+    const filtroRespLower = filters.filtroResponsavel?.toLowerCase() || '';
+    const filtroProdLower = filters.filtroProduto?.toLowerCase() || '';
+    const filtroNomeLower = filters.filtroNome?.toLowerCase() || '';
+    const searchTermLower = filters.searchTerm?.toLowerCase() || '';
+    const hasDateRange = filters.startDate && filters.endDate;
+    const hasResponsaveisOficiais = responsaveisOficiaisSet.size > 0;
+    
+    return vendas.filter((v) => {
+      const responsavel = (v.responsavel || "").trim().toLowerCase();
+      const produto = (v.produto || "").trim().toLowerCase();
+      const nome = (v.nome || "").trim().toLowerCase();
+      const dataVenda = v.dataFormatada || "";
 
-    let condData = true;
-    if (filters.startDate && filters.endDate && dataVenda) {
-      const saleDate = dayjs(dataVenda, "YYYY-MM-DD");
-      condData = saleDate.isBetween(
-        dayjs(filters.startDate),
-        dayjs(filters.endDate),
-        "day",
-        "[]"
-      );
-    }
+      // Filtros de texto (otimizados)
+      if (filtroRespLower && !responsavel.includes(filtroRespLower)) return false;
+      if (filtroProdLower && !produto.includes(filtroProdLower)) return false;
+      if (filtroNomeLower && !nome.includes(filtroNomeLower)) return false;
 
-    const condSearch = filters.searchTerm
-      ? Object.values(v).some(
-          (val) =>
-            val &&
-            val.toString().toLowerCase().includes(filters.searchTerm.toLowerCase())
-        )
-      : true;
+      // Filtro de data
+      if (hasDateRange && dataVenda) {
+        const saleDate = dayjs(dataVenda, "YYYY-MM-DD");
+        if (!saleDate.isBetween(dayjs(filters.startDate), dayjs(filters.endDate), "day", "[]")) {
+          return false;
+        }
+      }
 
-    const condMeta = responsaveisOficiais.length
-      ? responsaveisOficiais
-          .map(r => r.trim().toLowerCase())
-          .includes(responsavel)
-      : true;
+      // Filtro de busca
+      if (searchTermLower) {
+        const found = Object.values(v).some(val => 
+          val && val.toString().toLowerCase().includes(searchTermLower)
+        );
+        if (!found) return false;
+      }
 
-    const condMes = filters.selectedMonth
-      ? dayjs(dataVenda, "YYYY-MM-DD").format('YYYY-MM') === filters.selectedMonth
-      : true;
+      // Filtro de responsáveis oficiais (usando Set para O(1))
+      if (hasResponsaveisOficiais && !responsaveisOficiaisSet.has(responsavel)) {
+        return false;
+      }
 
-    return (
-      condResponsavel &&
-      condProduto &&
-      condNome &&
-      condData &&
-      condSearch &&
-      condMeta &&
-      condMes
-    );
-  });
+      // Filtro de mês
+      if (filters.selectedMonth && dataVenda) {
+        const mesVenda = dataVenda.substring(0, 7); // YYYY-MM
+        if (mesVenda !== filters.selectedMonth) return false;
+      }
 
-  // Ordenação
-  const sortedVendas = filters.sortConfig.key
-    ? [...filteredVendas].sort((a, b) => {
-        const { key, direction } = filters.sortConfig;
-        if (a[key] < b[key]) return direction === 'ascending' ? -1 : 1;
-        if (a[key] > b[key]) return direction === 'ascending' ? 1 : -1;
-        return 0;
-      })
-    : filteredVendas;
+      return true;
+    });
+  }, [vendas, filters.filtroResponsavel, filters.filtroProduto, filters.filtroNome, 
+      filters.searchTerm, filters.startDate, filters.endDate, filters.selectedMonth, 
+      responsaveisOficiaisSet]);
 
-  // Paginação
-  const paginatedVendas = sortedVendas.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  // Ordenação com useMemo
+  const sortedVendas = useMemo(() => {
+    if (!filters.sortConfig.key) return filteredVendas;
+    
+    return [...filteredVendas].sort((a, b) => {
+      const { key, direction } = filters.sortConfig;
+      if (a[key] < b[key]) return direction === 'ascending' ? -1 : 1;
+      if (a[key] > b[key]) return direction === 'ascending' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredVendas, filters.sortConfig]);
+
+  // Paginação com useMemo
+  const paginatedVendas = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return sortedVendas.slice(start, start + itemsPerPage);
+  }, [sortedVendas, currentPage, itemsPerPage]);
 
   // Função para aplicar correção de diárias (mesma lógica da ComissaoDetalhes)
   const corrigirClassificacaoDiarias = (venda) => {
@@ -230,93 +235,105 @@ export const useFilters = (
     return false;
   };
 
-  // Aplicar correção e filtrar vendas corretamente
-  const vendasCorrigidas = filteredVendas.map(corrigirClassificacaoDiarias);
-  const vendasPlanos = vendasCorrigidas.filter(ehPlanoAposCorrecao);
-  
-  // CORREÇÃO: Outros produtos = TODOS que não são planos E que são comissionáveis
-  const vendasOutrosProdutos = vendasCorrigidas.filter(v => {
-    const ehPlano = ehPlanoAposCorrecao(v);
-    
-    // Produtos não comissionáveis
-    const produtosNaoComissionaveis = [
-      'Taxa de Matrícula', 
-      'Estorno', 
-      'Ajuste Contábil',
-      'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
-    ];
-    
-    const ehNaoComissionavel = produtosNaoComissionaveis.includes(v.produto);
-    
-    return !ehPlano && !ehNaoComissionavel; // Apenas produtos comissionáveis
-  });
+  // Set de produtos não comissionáveis (constante)
+  const produtosNaoComissionaveisSet = useMemo(() => new Set([
+    'Taxa de Matrícula', 
+    'Estorno', 
+    'Ajuste Contábil',
+    'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
+  ]), []);
 
-  // Soma por responsável para o gráfico
-  const somaPorResponsavel = (() => {
-    const arr = vendas.filter((v) => {
-      const respons = (v.responsavel || "").trim().toLowerCase();
-      if (!responsaveisOficiais
-        .map(r => r.trim().toLowerCase())
-        .includes(respons)) return false;
-      if (!v.dataFormatada) return false;
-      const d = dayjs(v.dataFormatada, 'YYYY-MM-DD');
-      return (
-        (chartTimeRange === 'week' && d.isSame(dayjs(), 'week')) ||
-        (chartTimeRange === 'month' && d.isSame(dayjs(), 'month')) ||
-        (chartTimeRange === 'year' && d.isSame(dayjs(), 'year'))
-      );
+  // Aplicar correção e filtrar vendas corretamente (memoizado)
+  const { vendasCorrigidas, vendasPlanos, vendasOutrosProdutos } = useMemo(() => {
+    const corrigidas = filteredVendas.map(corrigirClassificacaoDiarias);
+    const planos = corrigidas.filter(ehPlanoAposCorrecao);
+    const outros = corrigidas.filter(v => {
+      const ehPlano = ehPlanoAposCorrecao(v);
+      const ehNaoComissionavel = produtosNaoComissionaveisSet.has(v.produto);
+      return !ehPlano && !ehNaoComissionavel;
     });
-    return arr.reduce((acc, v) => {
-      const key = v.responsavel.trim().toLowerCase();
-      acc[key] = (acc[key] || 0) + (Number(v.valor) || 0);
-      return acc;
-    }, {});
-  })();
+    return { vendasCorrigidas: corrigidas, vendasPlanos: planos, vendasOutrosProdutos: outros };
+  }, [filteredVendas, produtosNaoComissionaveisSet]);
 
-  // Totais e médias (usando vendas corrigidas)
-  const totalFiltrado = vendasCorrigidas.reduce(
-    (sum, v) => sum + (Number(v.valor) || 0),
-    0
-  );
-  const mediaPorVenda =
-    vendasCorrigidas.length > 0 ? totalFiltrado / vendasCorrigidas.length : 0;
+  // Soma por responsável para o gráfico (memoizado)
+  const somaPorResponsavel = useMemo(() => {
+    const now = dayjs();
+    const acc = {};
+    
+    for (const v of vendas) {
+      const respons = (v.responsavel || "").trim().toLowerCase();
+      if (!responsaveisOficiaisSet.has(respons)) continue;
+      if (!v.dataFormatada) continue;
+      
+      const d = dayjs(v.dataFormatada, 'YYYY-MM-DD');
+      const inRange = (
+        (chartTimeRange === 'week' && d.isSame(now, 'week')) ||
+        (chartTimeRange === 'month' && d.isSame(now, 'month')) ||
+        (chartTimeRange === 'year' && d.isSame(now, 'year'))
+      );
+      
+      if (inRange) {
+        acc[respons] = (acc[respons] || 0) + (Number(v.valor) || 0);
+      }
+    }
+    return acc;
+  }, [vendas, responsaveisOficiaisSet, chartTimeRange]);
 
-  // Estatísticas para planos (após correção)
-  const estatisticasPlanos = {
-    quantidade: vendasPlanos.length,
-    valorTotal: vendasPlanos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0),
-    valorMedio: vendasPlanos.length > 0 
-      ? vendasPlanos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0) / vendasPlanos.length 
-      : 0
-  };
+  // Totais e médias (memoizado)
+  const { totalFiltrado, mediaPorVenda } = useMemo(() => {
+    const total = vendasCorrigidas.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+    const media = vendasCorrigidas.length > 0 ? total / vendasCorrigidas.length : 0;
+    return { totalFiltrado: total, mediaPorVenda: media };
+  }, [vendasCorrigidas]);
+
+  // Estatísticas para planos (memoizado)
+  const estatisticasPlanos = useMemo(() => {
+    const valorTotal = vendasPlanos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+    return {
+      quantidade: vendasPlanos.length,
+      valorTotal,
+      valorMedio: vendasPlanos.length > 0 ? valorTotal / vendasPlanos.length : 0
+    };
+  }, [vendasPlanos]);
   
-  // Estatísticas para outros produtos (após correção)
-  const estatisticasOutros = {
-    quantidade: vendasOutrosProdutos.length,
-    valorTotal: vendasOutrosProdutos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0),
-    valorMedio: vendasOutrosProdutos.length > 0 
-      ? vendasOutrosProdutos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0) / vendasOutrosProdutos.length 
-      : 0
-  };
+  // Estatísticas para outros produtos (memoizado)
+  const estatisticasOutros = useMemo(() => {
+    const valorTotal = vendasOutrosProdutos.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+    return {
+      quantidade: vendasOutrosProdutos.length,
+      valorTotal,
+      valorMedio: vendasOutrosProdutos.length > 0 ? valorTotal / vendasOutrosProdutos.length : 0
+    };
+  }, [vendasOutrosProdutos]);
 
-  // Comparativo mês anterior
-  const prevMonth = dayjs(filters.selectedMonth + '-01','YYYY-MM-DD')
-    .subtract(1,'month')
-    .format('YYYY-MM');
-  const vendasPrev = vendas.filter(v => {
-    const resp = (v.responsavel || "").trim().toLowerCase();
-    if (!responsaveisOficiais.map(r => r.trim().toLowerCase()).includes(resp)) return false;
-    return dayjs(v.dataFormatada,'YYYY-MM-DD').format('YYYY-MM') === prevMonth;
-  });
-  const countAtual = filteredVendas.length;
-  const countAnterior = vendasPrev.length;
-  const totalAnterior = vendasPrev.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
-  const pctVendas = countAnterior > 0
-    ? ((countAtual - countAnterior) / countAnterior) * 100
-    : 0;
-  const pctMedia = totalAnterior > 0
-    ? ((totalFiltrado - totalAnterior) / totalAnterior) * 100
-    : 0;
+  // Comparativo mês anterior (memoizado)
+  const { countAtual, countAnterior, totalAnterior, pctVendas, pctMedia, vendasPrev } = useMemo(() => {
+    const prevMonth = dayjs(filters.selectedMonth + '-01', 'YYYY-MM-DD')
+      .subtract(1, 'month')
+      .format('YYYY-MM');
+    
+    const prev = vendas.filter(v => {
+      const resp = (v.responsavel || "").trim().toLowerCase();
+      if (!responsaveisOficiaisSet.has(resp)) return false;
+      const mesVenda = (v.dataFormatada || '').substring(0, 7);
+      return mesVenda === prevMonth;
+    });
+    
+    const cAtual = filteredVendas.length;
+    const cAnterior = prev.length;
+    const tAnterior = prev.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+    const pVendas = cAnterior > 0 ? ((cAtual - cAnterior) / cAnterior) * 100 : 0;
+    const pMedia = tAnterior > 0 ? ((totalFiltrado - tAnterior) / tAnterior) * 100 : 0;
+    
+    return { 
+      countAtual: cAtual, 
+      countAnterior: cAnterior, 
+      totalAnterior: tAnterior, 
+      pctVendas: pVendas, 
+      pctMedia: pMedia,
+      vendasPrev: prev
+    };
+  }, [vendas, filters.selectedMonth, responsaveisOficiaisSet, filteredVendas, totalFiltrado]);
 
   return {
     filters,

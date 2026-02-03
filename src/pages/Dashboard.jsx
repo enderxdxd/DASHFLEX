@@ -57,13 +57,20 @@ const Dashboard = () => {
     updateVenda,
     responsaveis,
     produtos,
+    refreshVendas, // ← Função para atualizar dados manualmente
   } = useVendas(unidade);
 
   const {
     metas,
     loading: metasLoading,
     error: metasError,
+    refreshMetas, // ← Função para atualizar metas manualmente
   } = useMetas(unidade);
+  
+  // Função para atualizar todos os dados
+  const handleRefreshAll = async () => {
+    await Promise.all([refreshVendas(), refreshMetas()]);
+  };
 
   // Meta da unidade calculada como soma das metas dos consultores do mês
   const metaUnidade = useMemo(() => {
@@ -113,41 +120,25 @@ const Dashboard = () => {
 
   // 1. Faturamento DA UNIDADE (TODAS as vendas realizadas na unidade atual)
   const faturamentoUnidade = useMemo(() => {
-    console.log('🏢 DEBUG FATURAMENTO UNIDADE:');
-    console.log('🏢 Unidade:', unidade);
-    console.log('📅 Mês selecionado:', selectedMonth);
-    console.log('📊 Vendas filtradas total:', vendasFiltradas.length);
+    const unidadeLower = (unidade || "").toLowerCase();
     
     // TODAS as vendas da unidade (não filtra por responsáveis oficiais)
     const vendasDaUnidade = vendasFiltradas.filter(v => 
-      (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase()
+      (v.unidade || "").toLowerCase() === unidadeLower
     );
     
-    console.log('🏢 Vendas da unidade (todas):', vendasDaUnidade.length);
-    
-    const vendasMesAtual = vendasDaUnidade.filter(v => {
-      const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth;
-      if (mesCorreto) {
-        console.log(`🏢 Venda da unidade: ${v.responsavel} - R$ ${v.valor} - ${v.dataFormatada}`);
-      }
-      return mesCorreto; // Remove filtro de responsáveis oficiais
-    });
-    
-    console.log('🏢 Vendas da unidade no mês:', vendasMesAtual.length);
+    const vendasMesAtual = vendasDaUnidade.filter(v => 
+      dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth
+    );
 
-    const vendasMesAnterior = vendasDaUnidade.filter(v => {
-      const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
-      const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === prevMonth;
-      return mesCorreto; // Remove filtro de responsáveis oficiais
-    });
+    const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
+    const vendasMesAnterior = vendasDaUnidade.filter(v => 
+      dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === prevMonth
+    );
 
     const totalAtual = vendasMesAtual.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
-
-    console.log('🏢 RESULTADO FATURAMENTO UNIDADE:');
-    console.log('💰 Total atual:', totalAtual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-    console.log('🎯 Meta unidade:', metaUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 
     return { 
       totalAtual, 
@@ -159,41 +150,22 @@ const Dashboard = () => {
 
   // 2. Faturamento DOS CONSULTORES (apenas vendas dos consultores COM META)
   const faturamentoConsultores = useMemo(() => {
-    console.log('🔍 DEBUG FATURAMENTO CONSULTORES:');
-    console.log('📅 Mês selecionado:', selectedMonth);
-    console.log('👥 Responsáveis oficiais:', responsaveisOficiais);
-    console.log('📊 Total vendas filtradas:', vendasFiltradas.length);
-    
     const vendasMesAtual = vendasFiltradas.filter(v => {
       const resp = (v.responsavel || '').trim().toLowerCase();
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth;
-      const respOficial = responsaveisOficiais.includes(resp);
-      
-      if (mesCorreto && respOficial) {
-        console.log(`✅ Venda incluída: ${resp} - R$ ${v.valor} - ${v.dataFormatada}`);
-      }
-      
-      return mesCorreto && respOficial;
+      return mesCorreto && responsaveisOficiais.includes(resp);
     });
-    
-    console.log('💰 Vendas dos consultores encontradas:', vendasMesAtual.length);
 
+    const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
     const vendasMesAnterior = vendasFiltradas.filter(v => {
-      const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
       const resp = (v.responsavel || '').trim().toLowerCase();
       const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === prevMonth;
-      const respOficial = responsaveisOficiais.includes(resp);
-      
-      return mesCorreto && respOficial;
+      return mesCorreto && responsaveisOficiais.includes(resp);
     });
 
     const totalAtual = vendasMesAtual.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
-
-    console.log('👥 RESULTADO FATURAMENTO CONSULTORES:');
-    console.log('💰 Total atual:', totalAtual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-    console.log('🎯 Meta unidade:', metaUnidade.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 
     return { 
       totalAtual, 
@@ -274,18 +246,6 @@ const Dashboard = () => {
   const loading = vendasLoading || metasLoading || !produtosLoaded;
   const error = vendasError || metasError;
 
-  // Debug: Verificar filtros ativos
-  useEffect(() => {
-    
-    
-    if (vendas.length > 0) {
-      const somaTotal = vendas
-        .filter(v => (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase())
-        .filter(v => dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth)
-        .reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
-      
-    }
-  }, [vendas, vendasFiltradas, produtosSelecionados, responsaveisOficiais, unidade, selectedMonth]);
 
   // Sincroniza filtro de mês
   useEffect(() => {
@@ -336,6 +296,46 @@ const Dashboard = () => {
             <div className="badge">{unidade.toUpperCase()}</div>
           </div>
           <div className="header-actions">
+            <button 
+              onClick={handleRefreshAll}
+              disabled={loading}
+              className="refresh-btn"
+              title="Atualizar dados do Firebase"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                backgroundColor: '#3B82F6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                opacity: loading ? 0.7 : 1,
+                transition: 'all 0.2s'
+              }}
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="16" 
+                height="16" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2"
+                style={{
+                  animation: loading ? 'spin 1s linear infinite' : 'none'
+                }}
+              >
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                <path d="M16 21h5v-5"/>
+              </svg>
+              {loading ? 'Atualizando...' : 'Atualizar'}
+            </button>
             <div className="last-update">
               Última atualização: {dayjs().format('DD/MM/YYYY, HH:mm:ss')}
             </div>

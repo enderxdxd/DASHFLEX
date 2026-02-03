@@ -42,7 +42,8 @@ const cacheUtils = {
 };
 
 export const useMetas = (unidade, options = {}) => {
-  const { enableRealtime = true } = options;
+  // OTIMIZAÇÃO: Realtime desabilitado por padrão para melhor performance
+  const { enableRealtime = false } = options;
   
   const [metas, setMetas] = useState(() => {
     const cached = cacheUtils.load(unidade);

@@ -222,7 +222,14 @@ function debugRemuneracao(responsavel) {
     })
     .reduce((soma, v) => soma + Number(v.valor || 0), 0);
   
-  // ✅ USAR calcularRemuneracao em vez de calcularRemuneracaoPorDuracao
+  // ✅ CALCULAR MAIOR META DO PERÍODO
+  const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
+  const maiorMetaCalc = metasDoMes.reduce((max, m) => {
+    const metaValor = Number(m.meta || 0);
+    return metaValor > max ? metaValor : max;
+  }, 0);
+  
+  // ✅ USAR calcularRemuneracao com maiorMeta para proporcionalidade
   const resultado = calcularRemuneracao(
     Number(metaResp.meta),
     vendasResp,
@@ -230,7 +237,7 @@ function debugRemuneracao(responsavel) {
     unidadeBatida,
     configRem,
     metaUnidade,
-    0 // maiorMeta
+    maiorMetaCalc // ✅ CORRIGIDO: passa maior meta para proporcionalidade
   );
   
   console.log(`🔍 Debug ${responsavel}:`, resultado);
@@ -658,13 +665,7 @@ function debugCalculoASMIHS(vendasArr, configRem) {
   // Calcular meta da unidade automaticamente baseada na soma das metas dos consultores
   const metaUnidade = useMemo(() => {
     const metasDoMes = metas.filter(m => m.periodo === selectedMonth);
-    const somaMetasConsultores = metasDoMes.reduce((soma, meta) => {
-      const metaValue = Number(meta.meta || 0);
-      console.log(`📊 Meta ${meta.responsavel}: ${metaValue} (original: ${meta.meta}, type: ${typeof meta.meta})`);
-      return soma + metaValue;
-    }, 0);
-    console.log(`🎯 Meta da unidade calculada: ${somaMetasConsultores} (${metasDoMes.length} consultores)`);
-    return somaMetasConsultores;
+    return metasDoMes.reduce((soma, meta) => soma + Number(meta.meta || 0), 0);
   }, [metas, selectedMonth]);
   
   const unidadeBatida = totalUnidade >= metaUnidade;
@@ -803,66 +804,6 @@ function debugCalculoASMIHS(vendasArr, configRem) {
     (currentPage-1)*itemsPerPage,
     currentPage*itemsPerPage
   );
-  useEffect(() => {
-    // Expor variáveis no window para debug
-    window.DEBUG_METAS = {
-      vendas,
-      vendasParaMeta,
-      produtosSelecionados,
-      produtosLoaded,
-      selectedMonth,
-      configRem,
-      unidadeBatida,
-      metas,
-      unidade,
-      totalUnidade
-    };
-    
-    // Também expor individualmente para compatibilidade com funções de debug
-    window.vendas = vendas;
-    window.vendasParaMeta = vendasParaMeta;
-    window.produtosSelecionados = produtosSelecionados;
-    window.produtosLoaded = produtosLoaded;
-    window.selectedMonth = selectedMonth;
-    window.configRem = configRem;
-    window.unidadeBatida = unidadeBatida;
-    window.metas = metas;
-    window.unidade = unidade;
-    window.totalUnidade = totalUnidade;
-    window.descontos = descontos;
-    
-    // Expor função de debug da nova lógica
-    window.debugRemuneracao = debugRemuneracao;
-    
-    // Debug automático quando dados estão disponíveis
-    if (vendas.length > 0 && produtosLoaded) {
-      console.log("🔧 Variáveis expostas para debug:", {
-        vendas: vendas.length,
-        vendasParaMeta: vendasParaMeta.length,
-        produtosSelecionados: produtosSelecionados?.length || 0,
-        selectedMonth,
-        unidade,
-        configRem: configRem ? 'carregado' : 'não carregado',
-        unidadeBatida
-      });
-      
-      // Debug automático se houver problema com produtos selecionados
-      if (produtosSelecionados?.length === 0) {
-        console.warn("⚠️ PRODUTOS SELECIONADOS VAZIO! Isso pode causar problemas no filtro.");
-      }
-    }
-  }, [
-    vendas, 
-    vendasParaMeta, 
-    produtosSelecionados, 
-    produtosLoaded, 
-    selectedMonth, 
-    configRem, 
-    unidadeBatida, 
-    metas, 
-    unidade, 
-    totalUnidade
-  ]);
  
   if (loading || loadingDescontos) {
     return (

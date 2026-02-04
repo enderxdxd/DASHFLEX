@@ -299,35 +299,31 @@ const Dashboard = () => {
             <button 
               onClick={handleRefreshAll}
               disabled={loading}
-              className="refresh-btn"
-              title="Atualizar dados do Firebase"
+              title="Atualizar dados"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                backgroundColor: '#3B82F6',
+                gap: '0.375rem',
+                padding: '0.5rem 0.75rem',
+                background: '#3b82f6',
                 color: 'white',
                 border: 'none',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 cursor: loading ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
+                fontSize: '0.75rem',
                 fontWeight: '500',
-                opacity: loading ? 0.7 : 1,
-                transition: 'all 0.2s'
+                opacity: loading ? 0.6 : 1
               }}
             >
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
-                width="16" 
-                height="16" 
+                width="14" 
+                height="14" 
                 viewBox="0 0 24 24" 
                 fill="none" 
                 stroke="currentColor" 
                 strokeWidth="2"
-                style={{
-                  animation: loading ? 'spin 1s linear infinite' : 'none'
-                }}
+                style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }}
               >
                 <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
                 <path d="M3 3v5h5"/>
@@ -438,83 +434,70 @@ const Dashboard = () => {
         .dashboard-layout {
           display: flex;
           min-height: 100vh;
-          background-color: var(--bg-primary, #f8fafc);
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          background: #f8fafc;
         }
         .sidebar {
-          width: 250px;
-          background-color: var(--card, white);
-          border-right: 1px solid var(--border, #e2e8f0);
+          width: 260px;
+          background: white;
+          border-right: 1px solid #e5e7eb;
           position: fixed;
           height: 100vh;
           display: flex;
           flex-direction: column;
-          box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
         }
         .sidebar-header { 
-          padding: 1.5rem; 
-          border-bottom: 1px solid var(--border, #e2e8f0); 
+          padding: 1.25rem 1rem; 
+          border-bottom: 1px solid #f3f4f6; 
         }
         .sidebar-header h2 { 
-          font-size: 1.25rem; 
+          font-size: 1rem; 
           font-weight: 600; 
-          color: var(--primary, #4f46e5); 
+          color: #3b82f6; 
           margin: 0; 
         }
         .main-content { 
           flex: 1; 
-          margin-left: 250px; 
-          padding: 2rem; 
+          margin-left: 260px; 
+          padding: 1.5rem; 
         }
         .page-header { 
           display: flex; 
           justify-content: space-between; 
           align-items: center; 
-          margin-bottom: 2rem; 
-        }
-        .header-content h1 { 
-          font-size: 1.75rem; 
-          font-weight: 600; 
-          margin: 0 1rem 0 0; 
-          color: var(--text-primary, #1e293b);
+          margin-bottom: 1.5rem; 
         }
         .badge { 
-          background-color: var(--primary-light, #eef2ff); 
-          color: var(--primary, #4f46e5); 
+          background: #eff6ff; 
+          color: #2563eb; 
           padding: 0.25rem 0.75rem; 
-          border-radius: 0.25rem; 
-          font-weight: 600; 
-          font-size: 0.875rem; 
+          border-radius: 4px; 
+          font-weight: 500; 
+          font-size: 0.75rem; 
         }
         .header-actions { 
           display: flex; 
           align-items: center; 
-          gap: 1.5rem; 
+          gap: 1rem; 
         }
         .last-update { 
-          font-size: 0.875rem; 
-          color: var(--text-secondary, #64748b); 
+          font-size: 0.75rem; 
+          color: #9ca3af; 
         }
         .dashboard-section { 
-          margin-bottom: 2rem; 
-        }
-        .section-title { 
-          font-size: 1.25rem; 
-          font-weight: 600; 
-          margin-bottom: 1rem; 
-          color: var(--text-primary, #1e293b); 
+          margin-bottom: 1.5rem; 
         }
         .alert { 
           display: flex; 
           align-items: center; 
-          gap: 0.75rem; 
-          padding: 1rem; 
-          border-radius: 0.5rem; 
-          margin-bottom: 1.5rem; 
+          gap: 0.5rem; 
+          padding: 0.75rem; 
+          border-radius: 6px; 
+          margin-bottom: 1rem; 
+          font-size: 0.875rem;
         }
         .alert.error { 
-          background-color: var(--danger-light, #fee2e2); 
-          color: var(--danger, #ef4444); 
+          background: #fef2f2; 
+          color: #dc2626; 
         }
         .loading-center {
           display: flex;
@@ -522,51 +505,40 @@ const Dashboard = () => {
           justify-content: center;
           height: 100vh;
           width: 100vw;
-          flex-direction: column;
           position: fixed;
           top: 0;
           left: 0;
-          background: var(--bg-primary, #f8fafc);
+          background: #f8fafc;
           z-index: 9999;
         }
         .loading-spinner { 
-          width: 40px; 
-          height: 40px; 
-          border: 3px solid var(--border, #e2e8f0); 
+          width: 32px; 
+          height: 32px; 
+          border: 3px solid #e5e7eb; 
           border-radius: 50%; 
-          border-top-color: var(--primary, #4f46e5); 
-          animation: spin 1s linear infinite; 
+          border-top-color: #3b82f6; 
+          animation: spin 0.8s linear infinite; 
         }
         @keyframes spin { 
           to { transform: rotate(360deg); } 
         }
 
-        /* Light Mode Fallback */
-        :root {
-          --bg-primary: #f8fafc;
-          --card: white;
-          --border: #e2e8f0;
-          --text-primary: #1e293b;
-          --text-secondary: #64748b;
-          --primary: #4f46e5;
-          --primary-light: #eef2ff;
-          --danger: #ef4444;
-          --danger-light: #fee2e2;
-          --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-        }
-
-        /* Dark Mode Styles */
         .dark .dashboard-layout {
-          --bg-primary: #0f172a;
-          --card: #1e293b;
-          --border: #334155;
-          --text-primary: #f1f5f9;
-          --text-secondary: #94a3b8;
-          --primary: #6366f1;
-          --primary-light: #1e3a8a20;
-          --danger: #ef4444;
-          --danger-light: #99182020;
-          --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+          background: #111827;
+        }
+        .dark .sidebar {
+          background: #1f2937;
+          border-color: #374151;
+        }
+        .dark .sidebar-header {
+          border-color: #374151;
+        }
+        .dark .badge {
+          background: #1e3a8a;
+          color: #93c5fd;
+        }
+        .dark .last-update {
+          color: #6b7280;
         }
       `}</style>
     </div>

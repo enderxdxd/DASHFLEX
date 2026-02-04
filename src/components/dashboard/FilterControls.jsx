@@ -1307,114 +1307,97 @@ const FilterControls = ({
 
         .breakdown-card {
           background: white;
-          border-radius: 12px;
-          padding: 20px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-          border: 1px solid var(--border, #e5e7eb);
-          transition: all 0.2s ease;
+          border-radius: 8px;
+          padding: 1rem;
+          border: 1px solid #e5e7eb;
+          transition: all 0.15s ease;
           position: relative;
-          overflow: hidden;
-        }
-
-        .breakdown-card::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 3px;
-          background: linear-gradient(90deg, transparent, var(--card-accent), transparent);
-        }
-
-        .breakdown-card.planos::before {
-          --card-accent: #10b981; /* Green */
-        }
-
-        .breakdown-card.outros::before {
-          --card-accent: #3b82f6; /* Blue */
         }
 
         .breakdown-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+          border-color: #d1d5db;
         }
 
         .breakdown-header {
           display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+        }
+
+        .breakdown-content {
+          display: flex;
           align-items: center;
-          justify-content: space-between;
-          margin-bottom: 16px;
+          gap: 0.75rem;
         }
 
         .breakdown-icon {
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
+          width: 32px;
+          height: 32px;
+          border-radius: 6px;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-right: 12px;
+          flex-shrink: 0;
         }
 
         .breakdown-icon.planos-icon {
-          background: linear-gradient(135deg, #10b981, #059669);
+          background: #10b981;
           color: white;
         }
 
         .breakdown-icon.outros-icon {
-          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          background: #3b82f6;
           color: white;
         }
 
         .breakdown-label {
-          font-size: 14px;
+          font-size: 0.875rem;
           font-weight: 500;
-          color: var(--text-secondary, #6b7280);
-          flex: 1;
+          color: #374151;
         }
 
         .breakdown-badge {
-          font-size: 12px;
+          font-size: 0.875rem;
           font-weight: 600;
-          padding: 4px 8px;
-          border-radius: 6px;
+          padding: 0.375rem 0.625rem;
+          border-radius: 4px;
           color: white;
+          white-space: nowrap;
+          overflow: visible;
         }
 
         .breakdown-badge.planos-badge {
-          background: linear-gradient(135deg, #10b981, #059669);
+          background: #10b981;
         }
 
         .breakdown-badge.outros-badge {
-          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          background: #3b82f6;
         }
 
         .breakdown-stats {
           display: flex;
-          gap: 20px;
+          gap: 1.25rem;
         }
 
         .breakdown-stat {
           display: flex;
           flex-direction: column;
-          align-items: center;
-          text-align: center;
+          gap: 0.25rem;
         }
 
         .breakdown-number {
-          font-size: 18px;
-          font-weight: 700;
-          color: var(--text-primary, #1f2937);
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: #111827;
           line-height: 1;
         }
 
         .breakdown-desc {
-          font-size: 11px;
-          font-weight: 500;
-          color: var(--text-tertiary, #9ca3af);
+          font-size: 0.7rem;
+          color: #6b7280;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
-          margin-top: 4px;
+          letter-spacing: 0.025em;
         }
 
         /* Responsividade */

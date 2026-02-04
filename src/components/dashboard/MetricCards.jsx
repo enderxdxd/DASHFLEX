@@ -67,53 +67,33 @@ function MetricCards({
             </div>
           </div>
           <div className="card-content">
-            <div style={{
-              marginBottom: '12px'
-            }}>
-              <span style={{
-                fontSize: '14px',
-                color: '#1f2937',
-                fontWeight: '700',
-                letterSpacing: '0.3px'
-              }}>Meta alcançada {((faturamentoUnidade?.totalAtual || 0) / (faturamentoUnidade?.meta || 1) * 100).toFixed(1)}%</span>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                {((faturamentoUnidade?.totalAtual || 0) / (faturamentoUnidade?.meta || 1) * 100).toFixed(1)}% da meta
+              </span>
             </div>
             <div className="main-value">{formatMoney(faturamentoUnidade?.totalAtual || 0)}</div>
-            <div style={{
-              margin: '16px 0 12px 0',
-              padding: '0'
-            }}>
+            <div style={{ margin: '0.75rem 0 0.5rem 0' }}>
               <div style={{
                 width: '100%',
-                height: '8px',
-                background: 'linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%)',
-                borderRadius: '12px',
+                height: '4px',
+                background: '#e5e7eb',
+                borderRadius: '2px',
                 overflow: 'hidden',
-                marginBottom: '10px',
-                boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.1)',
-                position: 'relative'
+                marginBottom: '0.5rem'
               }}>
                 <div 
                   style={{ 
                     width: `${Math.min((faturamentoUnidade?.totalAtual || 0) / (faturamentoUnidade?.meta || 1) * 100, 100)}%`,
                     height: '100%',
-                    background: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%)',
-                    borderRadius: '12px',
-                    transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-                    position: 'relative',
-                    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+                    background: '#3b82f6',
+                    borderRadius: '2px',
+                    transition: 'width 0.3s ease'
                   }}
-                ></div>
+                />
               </div>
-              <div style={{
-                fontSize: '12px',
-                color: '#64748b',
-                fontWeight: '600',
-                margin: '0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                🎯 Meta: {formatMoney(faturamentoUnidade?.meta || 0)}
+              <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                Meta: {formatMoney(faturamentoUnidade?.meta || 0)}
               </div>
             </div>
             <div className={`comparison-badge ${(faturamentoUnidade?.percentChange || 0) >= 0 ? 'positive' : 'negative'}`}>
@@ -140,53 +120,33 @@ function MetricCards({
             </div>
           </div>
           <div className="card-content">
-            <div style={{
-              marginBottom: '12px'
-            }}>
-              <span style={{
-                fontSize: '14px',
-                color: '#1f2937',
-                fontWeight: '700',
-                letterSpacing: '0.3px'
-              }}>Meta alcançada {((faturamentoConsultores?.totalAtual || 0) / (faturamentoConsultores?.meta || 1) * 100).toFixed(1)}%</span>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                {((faturamentoConsultores?.totalAtual || 0) / (faturamentoConsultores?.meta || 1) * 100).toFixed(1)}% da meta
+              </span>
             </div>
             <div className="main-value">{formatMoney(faturamentoConsultores?.totalAtual || 0)}</div>
-            <div style={{
-              margin: '16px 0 12px 0',
-              padding: '0'
-            }}>
+            <div style={{ margin: '0.75rem 0 0.5rem 0' }}>
               <div style={{
                 width: '100%',
-                height: '8px',
-                background: 'linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%)',
-                borderRadius: '12px',
+                height: '4px',
+                background: '#e5e7eb',
+                borderRadius: '2px',
                 overflow: 'hidden',
-                marginBottom: '10px',
-                boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.1)',
-                position: 'relative'
+                marginBottom: '0.5rem'
               }}>
                 <div 
                   style={{ 
                     width: `${Math.min((faturamentoConsultores?.totalAtual || 0) / (faturamentoConsultores?.meta || 1) * 100, 100)}%`,
                     height: '100%',
-                    background: 'linear-gradient(90deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%)',
-                    borderRadius: '12px',
-                    transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-                    position: 'relative',
-                    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
+                    background: '#6366f1',
+                    borderRadius: '2px',
+                    transition: 'width 0.3s ease'
                   }}
-                ></div>
+                />
               </div>
-              <div style={{
-                fontSize: '12px',
-                color: '#64748b',
-                fontWeight: '600',
-                margin: '0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}>
-                🎯 Meta: {formatMoney(faturamentoConsultores?.meta || 0)}
+              <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                Meta: {formatMoney(faturamentoConsultores?.meta || 0)}
               </div>
             </div>
             <div className={`comparison-badge ${(faturamentoConsultores?.percentChange || 0) >= 0 ? 'positive' : 'negative'}`}>
@@ -243,207 +203,140 @@ function MetricCards({
 
       <style jsx>{`
         .metrics-container {
-          margin-bottom: 2rem;
+          margin-bottom: 1.5rem;
         }
 
         .metrics-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-          gap: 1.25rem;
-          margin-bottom: 2rem;
-          max-width: 1200px;
-          margin-left: auto;
-          margin-right: auto;
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          gap: 1rem;
         }
 
         .metric-card {
-          background: var(--card);
-          border-radius: 16px;
-          padding: 1.25rem;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-          border: 1px solid var(--border);
-          transition: all 0.3s ease;
-          position: relative;
-          overflow: hidden;
-          min-height: 140px;
+          background: white;
+          border-radius: 8px;
+          padding: 1rem;
+          border: 1px solid #e5e7eb;
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
-        }
-
-        .metric-card::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 4px;
-          border-radius: 16px 16px 0 0;
-          opacity: 0.8;
-          transition: opacity 0.3s ease;
         }
 
         .metric-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+          border-color: #d1d5db;
         }
-
-        .metric-card:hover::before {
-          opacity: 1;
-        }
-
-        .metric-card::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 3px;
-          border-radius: 12px 12px 0 0;
-        }
-
-        .primary-card::before {
-          background: var(--primary);
-        }
-
-        .secondary-card::before {
-          background: #6366f1;
-        }
-
-        .success-card::before {
-          background: var(--success);
-        }
-
-        .warning-card::before {
-          background: var(--warning);
-        }
-
-        .excluded-card::before {
-          background: var(--danger);
+        
+        .dark .metric-card {
+          background: #1f2937;
+          border-color: #374151;
         }
 
         .card-header {
           display: flex;
-          align-items: flex-start;
-          gap: 1rem;
-          margin-bottom: 1.5rem;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
         }
 
         .icon-container {
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-          transition: all 0.3s ease;
-        }
-
-        .metric-card:hover .icon-container {
-          transform: scale(1.05);
-          box-shadow: 0 8px 15px -3px rgba(0, 0, 0, 0.15);
         }
 
         .primary-icon {
-          background: linear-gradient(135deg, #4f46e5, #3730a3);
+          background: #3b82f6;
           color: white;
         }
 
         .secondary-icon {
-          background: linear-gradient(135deg, #6366f1, #4338ca);
+          background: #6366f1;
           color: white;
         }
 
         .success-icon {
-          background: linear-gradient(135deg, #10b981, #059669);
+          background: #10b981;
           color: white;
         }
 
         .warning-icon {
-          background: linear-gradient(135deg, #f59e0b, #d97706);
+          background: #f59e0b;
           color: white;
         }
 
         .excluded-icon {
-          background: linear-gradient(135deg, #ef4444, #dc2626);
+          background: #ef4444;
           color: white;
         }
 
         .card-title h3 {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: var(--text-primary);
-          margin: 0 0 0.25rem 0;
-          line-height: 1.3;
+          font-size: 0.8rem;
+          font-weight: 500;
+          color: #111827;
+          margin: 0 0 0.125rem 0;
         }
 
         .card-title p {
-          font-size: 0.75rem;
-          color: var(--text-secondary);
+          font-size: 0.7rem;
+          color: #6b7280;
           margin: 0;
-          line-height: 1.2;
         }
 
         .card-content {
-          margin-bottom: 0.75rem;
+          margin-bottom: 0.5rem;
         }
 
         .main-value {
-          font-size: clamp(1.5rem, 4vw, 2.25rem);
-          font-weight: 800;
-          color: var(--text-primary);
-          margin-bottom: 0.75rem;
-          line-height: 1;
-          letter-spacing: -0.02em;
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: #111827;
+          margin-bottom: 0.5rem;
+        }
+        
+        .dark .card-title h3,
+        .dark .main-value {
+          color: #f9fafb;
+        }
+        
+        .dark .card-title p {
+          color: #9ca3af;
         }
 
         .comparison-badge {
           display: inline-flex;
           align-items: center;
-          gap: 0.375rem;
-          padding: 0.5rem 0.75rem;
-          border-radius: 20px;
-          font-size: 0.75rem;
-          font-weight: 600;
-          letter-spacing: 0.025em;
-          backdrop-filter: blur(10px);
-          border: 1px solid transparent;
-          transition: all 0.3s ease;
-        }
-
-        .metric-card:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          gap: 0.25rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.7rem;
+          font-weight: 500;
         }
 
         .comparison-badge.positive {
-          background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.1));
-          color: var(--success);
-          border-color: rgba(16, 185, 129, 0.2);
+          background: #ecfdf5;
+          color: #059669;
         }
 
         .comparison-badge.negative {
-          background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
-          color: var(--danger);
-          border-color: rgba(239, 68, 68, 0.2);
+          background: #fef2f2;
+          color: #dc2626;
         }
 
         .comparison-badge.neutral {
-          background: linear-gradient(135deg, var(--bg-secondary), rgba(148, 163, 184, 0.1));
-          color: var(--text-secondary);
-          border-color: var(--border);
+          background: #f3f4f6;
+          color: #6b7280;
         }
 
         .trend-icon {
-          font-size: 0.8rem;
-          font-weight: 700;
+          font-size: 0.7rem;
         }
 
         .excluded-details {
-          background: var(--bg-secondary);
-          border-radius: 6px;
+          background: #f3f4f6;
+          border-radius: 4px;
           padding: 0.5rem;
           margin-bottom: 0.5rem;
         }
@@ -461,155 +354,56 @@ function MetricCards({
 
         .detail-label {
           font-size: 0.7rem;
-          color: var(--text-secondary);
-          font-weight: 500;
+          color: #6b7280;
         }
 
         .detail-value {
           font-size: 0.7rem;
-          color: var(--text-primary);
-          font-weight: 600;
+          color: #111827;
+          font-weight: 500;
         }
 
         .card-footer {
-          border-top: 1px solid var(--border);
+          border-top: 1px solid #e5e7eb;
           padding-top: 0.5rem;
           margin-top: 0.5rem;
         }
 
         .card-footer span {
           font-size: 0.65rem;
-          color: var(--text-secondary);
-          font-weight: 500;
-        }
-
-        .excluded-card {
-          animation: slideInRight 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(30px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0) scale(1);
-          }
-        }
-
-        /* Staggered animation for cards */
-        .metric-card:nth-child(1) { animation-delay: 0.1s; }
-        .metric-card:nth-child(2) { animation-delay: 0.2s; }
-        .metric-card:nth-child(3) { animation-delay: 0.3s; }
-        .metric-card:nth-child(4) { animation-delay: 0.4s; }
-        .metric-card:nth-child(5) { animation-delay: 0.5s; }
-
-        .metric-card {
-          animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        /* Responsividade melhorada */
-        @media (min-width: 1440px) {
-          .metrics-grid {
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.5rem;
-          }
-          
-          .metric-card {
-            padding: 1.5rem;
-          }
-          
-          .main-value {
-            font-size: 2rem;
-          }
-          
-          .icon-container {
-            width: 44px;
-            height: 44px;
-          }
-        }
-
-        @media (max-width: 1024px) {
-          .metrics-grid {
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1rem;
-            max-width: 800px;
-          }
+          color: #6b7280;
         }
         
+        .dark .excluded-details {
+          background: #374151;
+        }
+        
+        .dark .detail-label,
+        .dark .card-footer span {
+          color: #9ca3af;
+        }
+        
+        .dark .detail-value {
+          color: #f9fafb;
+        }
+        
+        .dark .card-footer {
+          border-color: #4b5563;
+        }
+
         @media (max-width: 768px) {
           .metrics-grid {
             grid-template-columns: 1fr;
-            gap: 1rem;
-            max-width: 100%;
-          }
-          
-          .metric-card {
-            padding: 1rem;
-            min-height: 120px;
-
-          .card-header {
-            gap: 0.5rem;
-            margin-bottom: 0.875rem;
-          }
-
-          .icon-container {
-            width: 32px;
-            height: 32px;
-          }
-
-          .card-title h3 {
-            font-size: 0.8rem;
-          }
-
-          .card-title p {
-            font-size: 0.7rem;
-          }
-
-          .main-value {
-            font-size: 1.375rem;
-            margin-bottom: 0.375rem;
-          }
-
-          .comparison-badge {
-            font-size: 0.65rem;
-            padding: 0.2rem 0.4rem;
           }
         }
 
         @media (max-width: 480px) {
-          .metrics-grid {
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-          }
-
           .metric-card {
             padding: 0.75rem;
           }
 
           .main-value {
-            font-size: 1.125rem;
-          }
-
-          .card-header {
-            margin-bottom: 0.75rem;
-          }
-
-          .comparison-badge {
-            font-size: 0.6rem;
-            gap: 0.2rem;
+            font-size: 1.25rem;
           }
         }
 

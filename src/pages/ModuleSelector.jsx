@@ -198,165 +198,103 @@ export default function ModuleSelector() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(
-            135deg,
-            #667eea 0%,
-            #764ba2 25%,
-            #11998e 50%,
-            #38ef7d 75%,
-            #667eea 100%
-          );
-          background-size: 400% 400%;
-          animation: gradientShift 15s ease infinite;
-          padding: 20px;
-          position: relative;
-          overflow: hidden;
-        }
-
-        @keyframes gradientShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-
-        .module-selector-container::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-          opacity: 0.3;
+          background: #f8fafc;
+          padding: 1.5rem;
         }
 
         .selector-wrapper {
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(20px);
-          border-radius: 24px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-          padding: 48px;
+          background: white;
+          border-radius: 12px;
+          border: 1px solid #e5e7eb;
+          padding: 2rem;
           width: 100%;
-          max-width: 900px;
-          position: relative;
-          z-index: 1;
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          max-width: 720px;
         }
 
         .logo-section {
           text-align: center;
-          margin-bottom: 32px;
+          margin-bottom: 1.5rem;
         }
 
         .logo {
           display: inline-block;
-          padding: 12px 24px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-radius: 50px;
-          margin-bottom: 16px;
+          padding: 0.5rem 1rem;
+          background: #3b82f6;
+          border-radius: 6px;
         }
 
         .logo-text {
           color: white;
-          font-weight: 700;
-          font-size: 18px;
-          letter-spacing: 1px;
+          font-weight: 600;
+          font-size: 0.875rem;
+          letter-spacing: 0.5px;
         }
 
         .selector-header {
           text-align: center;
-          margin-bottom: 40px;
+          margin-bottom: 2rem;
         }
 
         .selector-header h1 {
-          font-size: 32px;
-          font-weight: 700;
-          color: #1e293b;
-          margin: 0 0 12px;
-          background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: #111827;
+          margin: 0 0 0.5rem;
         }
 
         .subtitle {
-          font-size: 16px;
-          color: #64748b;
+          font-size: 0.875rem;
+          color: #6b7280;
           margin: 0;
-          font-weight: 400;
         }
 
         .modules-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-          gap: 24px;
-          margin-bottom: 32px;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          margin-bottom: 1.5rem;
         }
 
         .module-card {
-          position: relative;
-          background: white;
-          border-radius: 20px;
-          overflow: hidden;
+          background: #f9fafb;
+          border-radius: 8px;
           cursor: pointer;
-          transition: all 0.3s ease;
-          border: 2px solid rgba(99, 102, 241, 0.1);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+          transition: all 0.15s ease;
+          border: 1px solid #e5e7eb;
         }
 
         .module-card:hover {
           border-color: var(--accent-color);
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+          background: white;
         }
 
         .module-background {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 6px;
-          overflow: hidden;
-        }
-
-        .module-gradient {
-          height: 100%;
-          width: 100%;
+          display: none;
         }
 
         .module-content {
-          padding: 32px;
+          padding: 1.25rem;
         }
 
         .module-header {
           display: flex;
-          align-items: flex-start;
-          gap: 20px;
-          margin-bottom: 24px;
+          align-items: center;
+          gap: 1rem;
+          margin-bottom: 1rem;
         }
 
         .module-icon-wrapper {
           flex-shrink: 0;
-          width: 64px;
-          height: 64px;
-          background: rgba(99, 102, 241, 0.1);
-          border-radius: 16px;
+          width: 40px;
+          height: 40px;
+          background: var(--accent-color);
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: all 0.3s ease;
-        }
-
-        .module-card:hover .module-icon-wrapper {
-          background: var(--accent-color);
-          transform: scale(1.05);
         }
 
         .module-icon {
-          color: #6366f1;
-          transition: color 0.3s ease;
-        }
-
-        .module-card:hover .module-icon {
           color: white;
         }
 
@@ -365,142 +303,95 @@ export default function ModuleSelector() {
         }
 
         .module-name {
-          font-size: 20px;
-          font-weight: 600;
-          color: #1e293b;
-          margin: 0 0 8px;
-          transition: color 0.3s ease;
-        }
-
-        .module-card:hover .module-name {
-          color: var(--accent-color);
+          font-size: 1rem;
+          font-weight: 500;
+          color: #111827;
+          margin: 0 0 0.25rem;
         }
 
         .module-description {
-          font-size: 14px;
-          color: #64748b;
+          font-size: 0.8rem;
+          color: #6b7280;
           margin: 0;
-          font-weight: 400;
         }
 
         .module-arrow-wrapper {
-          position: relative;
-          z-index: 2;
+          display: flex;
+          align-items: center;
         }
 
         .module-arrow {
-          color: #94a3b8;
-          font-size: 24px;
-          transition: all 0.3s ease;
+          color: #9ca3af;
+          transition: transform 0.15s ease;
         }
 
         .module-card:hover .module-arrow {
           color: var(--accent-color);
-          transform: translateX(4px);
+          transform: translateX(2px);
         }
 
         .module-features {
-          border-top: 1px solid #f1f5f9;
-          padding-top: 20px;
+          border-top: 1px solid #e5e7eb;
+          padding-top: 0.75rem;
         }
 
         .features-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: #475569;
-          margin: 0 0 12px;
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: #6b7280;
+          margin: 0 0 0.5rem;
         }
 
         .features-list {
           list-style: none;
           padding: 0;
           margin: 0;
-          display: grid;
-          gap: 8px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
         }
 
         .feature-item {
           display: flex;
           align-items: center;
-          gap: 12px;
-          font-size: 13px;
-          color: #64748b;
+          gap: 0.375rem;
+          font-size: 0.75rem;
+          color: #6b7280;
+          background: white;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          border: 1px solid #e5e7eb;
         }
 
         .feature-dot {
-          width: 6px;
-          height: 6px;
-          background: #94a3b8;
+          width: 4px;
+          height: 4px;
+          background: var(--accent-color);
           border-radius: 50%;
           flex-shrink: 0;
-          transition: background 0.3s ease;
-        }
-
-        .module-card:hover .feature-dot {
-          background: var(--accent-color);
         }
 
         .footer-section {
           text-align: center;
-          margin-top: 32px;
         }
 
         .footer-note {
-          font-size: 14px;
-          color: #64748b;
+          font-size: 0.75rem;
+          color: #9ca3af;
           margin: 0;
-          padding: 16px;
-          background: rgba(248, 250, 252, 0.8);
-          border-radius: 12px;
-          border: 1px solid rgba(226, 232, 240, 0.5);
-        }
-
-        @media (max-width: 768px) {
-          .modules-grid {
-            grid-template-columns: 1fr;
-          }
-          
-          .selector-wrapper {
-            padding: 32px 24px;
-            margin: 16px;
-          }
-          
-          .selector-header h1 {
-            font-size: 28px;
-          }
-
-          .module-header {
-            flex-direction: column;
-            text-align: center;
-            gap: 16px;
-          }
-
-          .module-content {
-            padding: 24px;
-          }
-
-          .module-icon-wrapper {
-            width: 56px;
-            height: 56px;
-            align-self: center;
-          }
         }
 
         @media (max-width: 480px) {
-          .module-selector-container {
-            padding: 16px;
-          }
-
           .selector-wrapper {
-            padding: 24px 20px;
+            padding: 1.5rem;
           }
           
           .selector-header h1 {
-            font-size: 24px;
+            font-size: 1.25rem;
           }
 
-          .logo-text {
-            font-size: 16px;
+          .module-header {
+            flex-wrap: wrap;
           }
         }
       `}</style>

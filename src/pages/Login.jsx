@@ -79,8 +79,8 @@ export default function Login() {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #f8fafc;
+            color: #6b7280;
           }
 
           .auth-check-content {
@@ -92,18 +92,18 @@ export default function Login() {
           }
 
           .loading-spinner {
-            width: 60px;
-            height: 60px;
+            width: 40px;
+            height: 40px;
             position: relative;
           }
 
           .spinner {
             width: 100%;
             height: 100%;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid white;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #3b82f6;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
           }
 
           @keyframes spin {
@@ -261,95 +261,14 @@ export default function Login() {
       <style jsx>{`
         .login-container {
           min-height: 100vh;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .branding-section {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 4rem 2rem;
-          color: white;
-          position: relative;
-          overflow: hidden;
+          background: #f8fafc;
         }
 
-        .branding-section::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-          opacity: 0.3;
-        }
-
-        .branding-content {
-          position: relative;
-          z-index: 1;
-          max-width: 500px;
-        }
-
-        .logo-section {
-          margin-bottom: 3rem;
-        }
-
-        .main-logo {
-          text-align: center;
-        }
-
-        .logo-text {
-          display: block;
-          font-size: 3rem;
-          font-weight: 800;
-          letter-spacing: 2px;
-          margin-bottom: 0.5rem;
-          background: linear-gradient(45deg, #ffffff, #e2e8f0);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .logo-subtitle {
-          font-size: 1.2rem;
-          font-weight: 300;
-          opacity: 0.9;
-          letter-spacing: 1px;
-        }
-
-        .hero-title {
-          font-size: 2.5rem;
-          font-weight: 700;
-          margin-bottom: 1.5rem;
-          line-height: 1.2;
-        }
-
-        .hero-description {
-          font-size: 1.2rem;
-          opacity: 0.9;
-          margin-bottom: 2.5rem;
-          line-height: 1.6;
-        }
-
-        .features-list {
-          display: grid;
-          gap: 1rem;
-        }
-
-        .feature-item {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 0.75rem;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 12px;
-          backdrop-filter: blur(10px);
-        }
-
-        .feature-icon {
-          font-size: 1.5rem;
+        .branding-section {
+          display: none;
         }
 
         .login-section {
@@ -357,8 +276,7 @@ export default function Login() {
           align-items: center;
           justify-content: center;
           padding: 2rem;
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(20px);
+          width: 100%;
         }
 
         .login-card {
@@ -366,9 +284,8 @@ export default function Login() {
           max-width: 400px;
           padding: 2.5rem;
           background: white;
-          border-radius: 24px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 12px;
+          border: 1px solid #e5e7eb;
         }
 
         .card-header {
@@ -377,33 +294,34 @@ export default function Login() {
         }
 
         .card-header h2 {
-          font-size: 1.75rem;
-          font-weight: 700;
-          color: #1e293b;
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: #111827;
           margin-bottom: 0.5rem;
         }
 
         .card-header p {
-          color: #64748b;
+          color: #6b7280;
           margin: 0;
+          font-size: 0.875rem;
         }
 
         .login-form {
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
+          gap: 1.25rem;
         }
 
         .form-group {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.375rem;
         }
 
         .form-group label {
-          font-weight: 600;
+          font-weight: 500;
           color: #374151;
-          font-size: 0.9rem;
+          font-size: 0.875rem;
         }
 
         .input-container {
@@ -414,55 +332,49 @@ export default function Login() {
 
         .input-icon {
           position: absolute;
-          left: 1rem;
+          left: 0.875rem;
           color: #9ca3af;
           z-index: 1;
         }
 
         .form-input {
           width: 100%;
-          padding: 1rem 1rem 1rem 3rem;
-          border: 2px solid #e5e7eb;
-          border-radius: 12px;
-          font-size: 1rem;
-          transition: all 0.3s ease;
-          background: #fafafa;
+          padding: 0.75rem 0.875rem 0.75rem 2.75rem;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          font-size: 0.875rem;
+          transition: border-color 0.15s ease;
+          background: white;
         }
 
         .form-input:focus {
           outline: none;
-          border-color: #667eea;
-          background: white;
-          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+          border-color: #3b82f6;
         }
 
         .password-toggle {
           position: absolute;
-          right: 1rem;
+          right: 0.75rem;
           background: none;
           border: none;
           color: #9ca3af;
           cursor: pointer;
           padding: 0.25rem;
-          border-radius: 6px;
-          transition: all 0.2s ease;
         }
 
         .password-toggle:hover {
-          color: #667eea;
-          background: rgba(102, 126, 234, 0.1);
+          color: #6b7280;
         }
 
         .error-message {
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          padding: 0.75rem 1rem;
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.2);
+          padding: 0.75rem;
+          background: #fef2f2;
           color: #dc2626;
-          border-radius: 8px;
-          font-size: 0.9rem;
+          border-radius: 6px;
+          font-size: 0.875rem;
         }
 
         .login-button {
@@ -471,26 +383,24 @@ export default function Login() {
           justify-content: center;
           gap: 0.5rem;
           width: 100%;
-          padding: 1rem 1.5rem;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          padding: 0.75rem 1rem;
+          background: #3b82f6;
           color: white;
           border: none;
-          border-radius: 12px;
-          font-size: 1rem;
-          font-weight: 600;
+          border-radius: 8px;
+          font-size: 0.875rem;
+          font-weight: 500;
           cursor: pointer;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-
-        .login-button:disabled {
-          opacity: 0.7;
-          cursor: not-allowed;
-          transform: none !important;
+          transition: background 0.15s ease;
         }
 
         .login-button:hover:not(:disabled) {
-          box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+          background: #2563eb;
+        }
+
+        .login-button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
 
         .button-loading {
@@ -505,7 +415,7 @@ export default function Login() {
           border: 2px solid rgba(255, 255, 255, 0.3);
           border-top: 2px solid white;
           border-radius: 50%;
-          animation: spin 1s linear infinite;
+          animation: spin 0.8s linear infinite;
         }
 
         @keyframes spin {
@@ -517,62 +427,22 @@ export default function Login() {
           text-align: center;
           margin-top: 1.5rem;
           padding-top: 1.5rem;
-          border-top: 1px solid #e5e7eb;
+          border-top: 1px solid #f3f4f6;
         }
 
         .login-footer p {
-          color: #6b7280;
-          font-size: 0.9rem;
+          color: #9ca3af;
+          font-size: 0.75rem;
           margin: 0;
         }
 
-        @media (max-width: 768px) {
-          .login-container {
-            grid-template-columns: 1fr;
-            grid-template-rows: auto 1fr;
-          }
-
-          .branding-section {
-            padding: 2rem 1rem;
-            min-height: auto;
-          }
-
-          .hero-title {
-            font-size: 2rem;
-          }
-
-          .logo-text {
-            font-size: 2.5rem;
-          }
-
+        @media (max-width: 480px) {
           .login-section {
             padding: 1rem;
           }
 
           .login-card {
-            padding: 2rem;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .branding-section {
-            padding: 1.5rem 1rem;
-          }
-
-          .hero-title {
-            font-size: 1.75rem;
-          }
-
-          .hero-description {
-            font-size: 1rem;
-          }
-
-          .login-card {
             padding: 1.5rem;
-          }
-
-          .card-header h2 {
-            font-size: 1.5rem;
           }
         }
       `}</style>

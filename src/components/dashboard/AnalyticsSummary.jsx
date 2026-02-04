@@ -68,12 +68,12 @@ export default function AnalyticsSummary({
   };
 
   return (
-    <div className="analytics-summary bg-slate-50 p-6 rounded-2xl">
+    <div className="analytics-summary" style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
       {/* Cabeçalho com título e seletor de mês */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center">
-          <ChartPie className="w-6 h-6 text-indigo-500 mr-2" />
-          <h2 className="text-2xl font-semibold text-slate-800">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <ChartPie style={{ width: '20px', height: '20px', color: '#3b82f6', marginRight: '0.5rem' }} />
+          <h2 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827', margin: 0 }}>
             Dashboard {unidade.toUpperCase()}
           </h2>
         </div>
@@ -81,47 +81,58 @@ export default function AnalyticsSummary({
       </div>
 
       {/* Grade de cartões de análise */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         {/* Card de Tendência Mensal */}
-        <div className="bg-white rounded-xl shadow-md overflow-hidden transition-transform hover:scale-[1.01] duration-200">
-          <div className="p-5 pb-0">
-            <div className="flex justify-between items-center mb-3">
-              <div className="flex items-center">
-                <TrendingUp className="w-5 h-5 text-blue-500 mr-2" />
-                <h3 className="text-lg font-medium text-slate-700">Tendência Mensal</h3>
+        <div style={{ background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ padding: '1rem 1rem 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <TrendingUp style={{ width: '18px', height: '18px', color: '#3b82f6', marginRight: '0.5rem' }} />
+                <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#374151', margin: 0 }}>Tendência Mensal</h3>
               </div>
             </div>
           </div>
-          <div className="h-64 p-3">
+          <div style={{ height: '240px', padding: '0.75rem' }}>
             <LineChart 
               data={lineData} 
-              height={250} 
+              height={220} 
               theme="primary"
               smooth={true}
-              gradientFill={true}
+              gradientFill={false}
             />
           </div>
         </div>
 
         {/* Card de Projeção */}
-        <div className="transition-transform hover:scale-[1.01] duration-200">
+        <div>
           <ProjectionCard {...proj} />
         </div>
 
         {/* Card de Produtividade */}
-        <div className="lg:col-span-2 transition-transform hover:scale-[1.01] duration-200">
+        <div style={{ gridColumn: '1 / -1' }}>
           <HeatmapChart days={heatmap.days} data={heatmap.data} />
         </div>
       </div>
 
       {/* Botão para visualização detalhada */}
-      <div className="flex justify-center">
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
         <button
           onClick={() => navigate(`/analytics/${unidade}`)}
-          className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0.625rem 1.25rem',
+            background: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            fontSize: '0.875rem',
+            fontWeight: '500',
+            cursor: 'pointer'
+          }}
         >
-          <span className="mr-2 font-medium">Ver análises detalhadas</span>
-          <ArrowRight className="w-5 h-5" />
+          <span style={{ marginRight: '0.5rem' }}>Ver análises detalhadas</span>
+          <ArrowRight style={{ width: '16px', height: '16px' }} />
         </button>
       </div>
     </div>

@@ -67,32 +67,25 @@ export default function UnifiedPersonalUploader() {
 
     return [
       {
-        name: `${prefix} Taxa Personal 1 A 7 Alunos`,
+        name: `${prefix} Taxa Personal 1 A 8 Alunos`,
         minAlunos: 1,
-        maxAlunos: 7,
-        expectedTaxa: `${prefix} Taxa Personal 1 A 7 Alunos 1 Dia Util`,
-        patterns: [`${prefix} Taxa Personal 1 A 7 Alunos`, '1 A 7 Alunos', '1-7']
+        maxAlunos: 8,
+        expectedTaxa: `${prefix} Taxa Personal 1 A 8 Alunos 1 Dia Util`,
+        patterns: [`${prefix} Taxa Personal 1 A 8 Alunos`, '1 A 8 Alunos', '1-8']
       },
       {
-        name: `${prefix} Taxa Personal 8 A 12 Alunos`,
-        minAlunos: 8,
-        maxAlunos: 12,
-        expectedTaxa: `${prefix} Taxa Personal 8 A 12 Alunos 1 Dia Util`,
-        patterns: [`${prefix} Taxa Personal 8 A 12 Alunos`, '8 A 12 Alunos', '8-12']
+        name: `${prefix} Taxa Personal 9 A 15 Alunos`,
+        minAlunos: 9,
+        maxAlunos: 15,
+        expectedTaxa: `${prefix} Taxa Personal 9 A 15 Alunos 1 Dia Util`,
+        patterns: [`${prefix} Taxa Personal 9 A 15 Alunos`, '9 A 15 Alunos', '9-15']
       },
       {
-        name: `${prefix} Taxa Personal 13 A 16 Alunos`,
-        minAlunos: 13,
-        maxAlunos: 16,
-        expectedTaxa: `${prefix} Taxa Personal 13 A 16 Alunos 1 Dia Util`,
-        patterns: [`${prefix} Taxa Personal 13 A 16 Alunos`, '13 A 16 Alunos', '13-16']
-      },
-      {
-        name: `${prefix} Taxa Personal 17 Alunos Ou Mais`,
-        minAlunos: 17,
+        name: `${prefix} Taxa Personal A Partir De 16 Alunos`,
+        minAlunos: 16,
         maxAlunos: 999,
-        expectedTaxa: `${prefix} Taxa Personal 17 Alunos Ou Mais 1 Dia Util`,
-        patterns: [`${prefix} Taxa Personal 17 Alunos Ou Mais`, '17 Alunos Ou Mais', '17+', '17 Ou Mais']
+        expectedTaxa: `${prefix} Taxa Personal A Partir De 16 Alunos 1 Dia Util`,
+        patterns: [`${prefix} Taxa Personal A Partir De 16 Alunos`, 'A Partir De 16 Alunos', '16+', '16 Ou Mais', 'Partir De 16']
       }
     ];
   };

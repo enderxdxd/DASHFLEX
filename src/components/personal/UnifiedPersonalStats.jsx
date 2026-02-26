@@ -49,7 +49,7 @@ export default function UnifiedPersonalStats({ stats, selectedUnidade }) {
           </div>
           <div className="stat-content-modern">
             <div className="stat-value-modern">{stats.totalPersonals}</div>
-            <div className="stat-label-modern">Personal Trainers</div>
+            <div className="stat-label-modern">Personais</div>
             <div className="stat-subtitle-modern">
               {selectedUnidade === 'all' ? 'Todas as unidades' : getUnidadeName(selectedUnidade)}
             </div>

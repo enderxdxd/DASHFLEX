@@ -269,7 +269,7 @@ export default function UnifiedPersonalUploader() {
                     </div>
                     <div className="stat">
                       <strong>{[...new Set(currentHook.personals.map(p => p.personal))].length}</strong>
-                      <span>Personals</span>
+                      <span>Personais</span>
                     </div>
                     <div className="stat">
                       <strong>R$ {currentHook.personals.reduce((sum, p) => sum + (p.valorFinal || 0), 0).toLocaleString('pt-BR')}</strong>

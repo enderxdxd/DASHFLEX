@@ -506,7 +506,7 @@ export default function UnifiedPersonalDashboard() {
     });
   }, [personalStats.personalsData]);
 
-  // 🎯 PERSONALS COM ALUNOS EM ABERTO E CATEGORIZAÇÃO
+  // 🎯 PERSONAIS COM ALUNOS EM ABERTO E CATEGORIZAÇÃO
   const personalsWithOpenTax = useMemo(() => {
     return taxValidationData.filter(personal => personal.taxValidation.taxType === 'open');
   }, [taxValidationData]);
@@ -825,12 +825,12 @@ export default function UnifiedPersonalDashboard() {
         <div className="validation-success">
           <CheckCircle size={48} />
           <h3>Todas as taxas regulares estão corretas!</h3>
-          <p>Todos os personals com taxas regulares têm valores adequados para sua quantidade de alunos</p>
+          <p>Todos os personais com taxas regulares têm valores adequados para sua quantidade de alunos</p>
           
           {/* Informações adicionais */}
           <div className="additional-info">
             <div className="info-item">
-              <span className="info-label">Personals Isentos:</span>
+              <span className="info-label">Personais Isentos:</span>
               <span className="info-value">{stats.exemptPersonals}</span>
             </div>
             <div className="info-item">
@@ -1784,12 +1784,12 @@ export default function UnifiedPersonalDashboard() {
                         <div className="no-search-results">
                           <Search size={48} />
                           <h3>Nenhum personal encontrado</h3>
-                          <p>Não foram encontrados personals com o termo "{searchTerm}"</p>
+                          <p>Não foram encontrados personais com o termo "{searchTerm}"</p>
                           <button 
                             className="btn btn-primary"
                             onClick={() => setSearchTerm('')}
                           >
-                            Ver todos os personals
+                            Ver todos os personais
                           </button>
                         </div>
                       )}
@@ -1851,7 +1851,7 @@ export default function UnifiedPersonalDashboard() {
               <div className="data-summary">
                 <h3>Dados que serão excluídos:</h3>
                 <ul>
-                  <li>• <strong>{stats.totalPersonals}</strong> personal trainers</li>
+                  <li>• <strong>{stats.totalPersonals}</strong> personais</li>
                   <li>• <strong>{stats.totalStudents}</strong> alunos cadastrados</li>
                   <li>• Todos os dados de faturamento</li>
                   <li>• Dados de todas as unidades (Alphaville, Buena Vista, Marista)</li>

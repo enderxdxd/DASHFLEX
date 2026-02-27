@@ -144,11 +144,23 @@ export const useVendas = (unidade, metas = [], options = {}) => {
     const subcolRef = collection(db, "faturamento", unidade.toLowerCase(), subName);
     const snap = await getDocs(subcolRef);
     if (snap.empty) return;
-    const batch = writeBatch(db);
-    snap.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
+    const BATCH_SIZE = 500;
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+      const b = writeBatch(db);
+      docs.slice(i, i + BATCH_SIZE).forEach((d) => b.delete(d.ref));
+      await b.commit();
+    }
   };
-  const deleteAllUnitData = () => deleteAllDocumentsFromSubcollection("vendas");
+  const deleteAllUnitData = async () => {
+    await deleteAllDocumentsFromSubcollection("vendas");
+    // ✅ Atualizar estado local: remover vendas da unidade deletada
+    setVendas(prev => {
+      const updated = prev.filter(v => (v._unidadeOriginal || '').toLowerCase() !== unidade.toLowerCase());
+      cacheUtils.save(updated);
+      return updated;
+    });
+  };
 
   const updateVenda = async (id, dados) => {
     try {
@@ -157,15 +169,11 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       // Buscar a venda original para obter a unidade correta
       const vendaOriginal = vendas.find(v => v.id === id);
       
-  
-      
       if (!vendaOriginal) {
         throw new Error(`Venda não encontrada na lista: ${id}`);
       }
       
       const unidadeOriginal = vendaOriginal._unidadeOriginal || unidade.toLowerCase();
-      
-      console.log("✅ Unidade que será usada:", unidadeOriginal);
       
       const docRef = doc(db, "faturamento", unidadeOriginal, "vendas", id);
       
@@ -176,6 +184,15 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       }
       
       await updateDoc(docRef, dados);
+      
+      // ✅ OPTIMISTIC UPDATE: Atualizar estado local imediatamente
+      setVendas(prev => {
+        const updated = prev.map(v => v.id === id ? { ...v, ...dados } : v);
+        // Atualizar cache com dados novos
+        cacheUtils.save(updated);
+        return updated;
+      });
+      
       setSuccessMessage("Venda atualizada!");
       setTimeout(() => setSuccessMessage(""), 3000);
       return true;
@@ -226,6 +243,17 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       setSuccessMessage(`Foram processadas ${json.count} vendas!`);
   
       setFile(null);
+      
+      // ✅ Após upload, invalidar cache e recarregar dados do Firebase
+      cacheUtils.clear();
+      const snap = await getDocs(collectionGroup(db, "vendas"));
+      const freshData = snap.docs.map((d) => ({ 
+        id: d.id, 
+        _unidadeOriginal: d.ref.parent.parent.id,
+        ...d.data() 
+      }));
+      setVendas(freshData);
+      cacheUtils.save(freshData);
   
     } catch (err) {
       setError(err.message);
@@ -276,8 +304,20 @@ export const useVendas = (unidade, metas = [], options = {}) => {
     if (cached && cached.length > 0) {
       processData(cached, true);
       
-      // Se realtime desabilitado, não busca do Firebase
+      // Se realtime desabilitado, faz background revalidation silenciosa
       if (!enableRealtime) {
+        getDocs(collectionGroup(db, "vendas"))
+          .then((snap) => {
+            const data = snap.docs.map((d) => ({ 
+              id: d.id, 
+              _unidadeOriginal: d.ref.parent.parent.id,
+              ...d.data() 
+            }));
+            if (isMountedRef.current) {
+              processData(data);
+            }
+          })
+          .catch(() => {}); // Silencioso - já temos cache
         return;
       }
     }

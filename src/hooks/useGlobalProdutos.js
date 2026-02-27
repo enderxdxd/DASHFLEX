@@ -1,8 +1,8 @@
 // src/hooks/useGlobalProdutos.js
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
+import { useUserData } from "./useUserData";
 
 // ============ CONFIGURAÇÃO DE CACHE ============
 const CACHE_KEY = 'dashflex_global_produtos';
@@ -38,7 +38,11 @@ const cacheUtils = {
 
 export function useGlobalProdutos(options = {}) {
   const { enableRealtime = false } = options;
-  const auth = getAuth();
+  
+  // ✅ Usa cache singleton — elimina onAuthStateChanged + getIdTokenResult(true) redundante
+  const { userData, role } = useUserData();
+  const isAdmin = role === 'admin';
+  const userEmail = userData?.email || null;
   
   // Inicializa com cache
   const [produtosSelecionados, setProdutosSelecionados] = useState(() => {
@@ -46,53 +50,25 @@ export function useGlobalProdutos(options = {}) {
     return cached || [];
   });
   const [loaded, setLoaded] = useState(() => !!cacheUtils.load());
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [userEmail, setUserEmail] = useState(null);
   const isMountedRef = useRef(true);
   const unsubscribeRef = useRef(null);
-
-  // Verifica se usuário é admin
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setIsAdmin(false);
-        setUserEmail(null);
-        return;
-      }
-      
-      setUserEmail(user.email);
-      
-      try {
-        // Força pegar claims frescos
-        const tokenResult = await user.getIdTokenResult(true);
-        const isUserAdmin = tokenResult.claims.role === "admin" || tokenResult.claims.admin === true;
-        if (isMountedRef.current) {
-          setIsAdmin(isUserAdmin);
-        }
-      } catch (error) {
-        console.error('Erro ao verificar claims:', error);
-        if (isMountedRef.current) {
-          setIsAdmin(false);
-        }
-      }
-    });
-    
-    return () => unsub();
-  }, [auth]);
 
   // Carrega configuração global de produtos
   useEffect(() => {
     isMountedRef.current = true;
+    const _t0 = performance.now();
     const configRef = doc(db, "configuracoes", "global", "filtros", "produtos");
     
     // Tenta carregar do cache primeiro
     const cached = cacheUtils.load();
+    console.log(`[PERF] useGlobalProdutos: cache check: ${cached ? 'HIT' : 'MISS'} in +${(performance.now()-_t0).toFixed(0)}ms`);
     if (cached) {
       setProdutosSelecionados(cached);
       setLoaded(true);
       
       // Se não é realtime, não precisa buscar do Firebase
       if (!enableRealtime) {
+        console.log(`[PERF] useGlobalProdutos: using cache, done in +${(performance.now()-_t0).toFixed(0)}ms`);
         return;
       }
     }
@@ -128,6 +104,7 @@ export function useGlobalProdutos(options = {}) {
       unsubscribeRef.current = unsub;
     } else if (!cached) {
       // Modo cache-first sem cache - busca uma vez
+      console.log(`[PERF] useGlobalProdutos: fetching from Firestore...`);
       getDoc(configRef)
         .then((snap) => {
           if (snap.exists()) {

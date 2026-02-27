@@ -558,9 +558,11 @@ export const DataProvider = ({ children }) => {
   useEffect(() => {
     mountedRef.current = true;
     
-    // Carrega vendas e descontos inicialmente
-    fetchVendas();
-    fetchDescontos();
+    // ⚠️ fetchVendas/fetchDescontos DESABILITADOS no mount automático:
+    // Nenhuma página consome dados do DataContext (todas usam hooks próprios: useVendas, useMetas).
+    // Esses 2 fetches de collectionGroup("vendas") e collectionGroup("descontos") eram DUPLICADOS
+    // e competiam por bandwidth com os hooks das páginas, atrasando o carregamento.
+    // Para usar: chame fetchVendas()/fetchDescontos() manualmente quando necessário.
 
     return () => {
       mountedRef.current = false;
@@ -571,21 +573,8 @@ export const DataProvider = ({ children }) => {
     };
   }, [fetchVendas, fetchDescontos]);
 
-  // Background refresh quando dados ficam stale
-  useEffect(() => {
-    if (!CACHE_CONFIG.BACKGROUND_REFRESH) return;
-
-    const interval = setInterval(() => {
-      if (cacheInfo.vendas.isStale) {
-        fetchVendas(true);
-      }
-      if (cacheInfo.descontos.isStale) {
-        fetchDescontos(true);
-      }
-    }, 60000); // Verifica a cada minuto
-
-    return () => clearInterval(interval);
-  }, [cacheInfo, fetchVendas, fetchDescontos]);
+  // Background refresh desabilitado — DataContext não faz fetch automático
+  // (todas as páginas usam hooks próprios com seus próprios caches)
 
   // ============ GETTERS OTIMIZADOS ============
   const getMetasForUnidade = useCallback((unidade) => {

@@ -22,6 +22,8 @@ import 'dayjs/locale/pt-br';
 dayjs.locale('pt-br');
 
 const Dashboard = () => {
+  const _mountTime = performance.now();
+  console.log(`[PERF] Dashboard RENDER at ${_mountTime.toFixed(0)}ms`);
   const { unidade } = useParams();
   const navigate = useNavigate();
   const { role } = useUserRole();
@@ -121,58 +123,49 @@ const Dashboard = () => {
   // 1. Faturamento DA UNIDADE (TODAS as vendas realizadas na unidade atual)
   const faturamentoUnidade = useMemo(() => {
     const unidadeLower = (unidade || "").toLowerCase();
+    const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
     
     // TODAS as vendas da unidade (não filtra por responsáveis oficiais)
     const vendasDaUnidade = vendasFiltradas.filter(v => 
       (v.unidade || "").toLowerCase() === unidadeLower
     );
     
-    const vendasMesAtual = vendasDaUnidade.filter(v => 
-      dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth
-    );
-
-    const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
-    const vendasMesAnterior = vendasDaUnidade.filter(v => 
-      dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === prevMonth
-    );
-
-    const totalAtual = vendasMesAtual.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
-    const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
+    // Usar substring em vez de dayjs() dentro do loop — ~100x mais rápido
+    let totalAtual = 0, totalAnterior = 0;
+    for (let i = 0; i < vendasDaUnidade.length; i++) {
+      const v = vendasDaUnidade[i];
+      const mes = (v.dataFormatada || "").substring(0, 7);
+      const valor = Number(v.valor) || 0;
+      if (mes === selectedMonth) totalAtual += valor;
+      else if (mes === prevMonth) totalAnterior += valor;
+    }
+    
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
 
-    return { 
-      totalAtual, 
-      totalAnterior, 
-      percentChange,
-      meta: metaUnidade 
-    };
+    return { totalAtual, totalAnterior, percentChange, meta: metaUnidade };
   }, [vendasFiltradas, unidade, selectedMonth, metaUnidade]);
 
   // 2. Faturamento DOS CONSULTORES (apenas vendas dos consultores COM META)
   const faturamentoConsultores = useMemo(() => {
-    const vendasMesAtual = vendasFiltradas.filter(v => {
-      const resp = (v.responsavel || '').trim().toLowerCase();
-      const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth;
-      return mesCorreto && responsaveisOficiais.includes(resp);
-    });
-
     const prevMonth = dayjs(`${selectedMonth}-01`).subtract(1, 'month').format('YYYY-MM');
-    const vendasMesAnterior = vendasFiltradas.filter(v => {
+    // Usar Set para lookup O(1) em vez de .includes() O(n)
+    const responsaveisSet = new Set(responsaveisOficiais);
+    
+    let totalAtual = 0, totalAnterior = 0;
+    for (let i = 0; i < vendasFiltradas.length; i++) {
+      const v = vendasFiltradas[i];
       const resp = (v.responsavel || '').trim().toLowerCase();
-      const mesCorreto = dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === prevMonth;
-      return mesCorreto && responsaveisOficiais.includes(resp);
-    });
+      if (!responsaveisSet.has(resp)) continue;
+      
+      const mes = (v.dataFormatada || "").substring(0, 7);
+      const valor = Number(v.valor) || 0;
+      if (mes === selectedMonth) totalAtual += valor;
+      else if (mes === prevMonth) totalAnterior += valor;
+    }
 
-    const totalAtual = vendasMesAtual.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
-    const totalAnterior = vendasMesAnterior.reduce((sum, v) => sum + (Number(v.valor) || 0), 0);
     const percentChange = totalAnterior > 0 ? ((totalAtual - totalAnterior) / totalAnterior) * 100 : 0;
 
-    return { 
-      totalAtual, 
-      totalAnterior, 
-      percentChange,
-      meta: metaUnidade 
-    };
+    return { totalAtual, totalAnterior, percentChange, meta: metaUnidade };
   }, [vendasFiltradas, selectedMonth, responsaveisOficiais, metaUnidade]);
 
   // Aplica filtros usando vendas filtradas por produtos
@@ -245,6 +238,7 @@ const Dashboard = () => {
 
   const loading = vendasLoading || metasLoading || !produtosLoaded;
   const error = vendasError || metasError;
+  console.log(`[PERF] Dashboard loading=${loading} (vendas=${vendasLoading}, metas=${metasLoading}, produtos=${!produtosLoaded}) at ${performance.now().toFixed(0)}ms`);
 
 
   // Sincroniza filtro de mês

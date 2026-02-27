@@ -208,7 +208,7 @@ function MetricCards({
 
         .metrics-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+          grid-template-columns: repeat(3, 1fr);
           gap: 1rem;
         }
 
@@ -391,6 +391,12 @@ function MetricCards({
           border-color: #4b5563;
         }
 
+        @media (max-width: 1024px) {
+          .metrics-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+
         @media (max-width: 768px) {
           .metrics-grid {
             grid-template-columns: 1fr;
@@ -533,4 +539,4 @@ function MetricCards({
   );
 }
 
-export default MetricCards;
+export default React.memo(MetricCards);

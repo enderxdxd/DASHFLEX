@@ -45,7 +45,7 @@ import { processarCorrecaoDiarias } from "../utils/correcaoDiarias";
 
 // Firebase
 import { db } from "../firebase";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 
 // Estilos
 import "../styles/DescontosPage.css";
@@ -122,26 +122,21 @@ const DescontosPage = () => {
   const [deleteStartDate, setDeleteStartDate] = useState("");
   const [deleteEndDate, setDeleteEndDate] = useState("");
 
-  // Carregar metas da unidade
+  // Carregar metas da unidade (getDocs — não precisa de realtime aqui)
   useEffect(() => {
     if (!unidade) return;
+    let isMounted = true;
     
     const metasRef = collection(db, "faturamento", unidade.toLowerCase(), "metas");
-    const unsubMetas = onSnapshot(
-      metasRef,
-      snap => {
+    getDocs(metasRef)
+      .then(snap => {
+        if (!isMounted) return;
         const metasCarregadas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        console.log('🔍 Metas carregadas:', {
-          unidade,
-          totalMetas: metasCarregadas.length,
-          metas: metasCarregadas.map(m => m.responsavel)
-        });
         setMetas(metasCarregadas);
-      },
-      error => console.error("Erro ao carregar metas:", error)
-    );
+      })
+      .catch(error => console.error("Erro ao carregar metas:", error));
 
-    return () => unsubMetas();
+    return () => { isMounted = false; };
   }, [unidade]);
 
   // Função para exportar dados para Excel

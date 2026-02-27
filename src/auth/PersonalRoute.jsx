@@ -2,9 +2,10 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import Loading3D from '../components/ui/Loading3D';
+import { getCachedUserData } from '../hooks/useUserData';
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
-import Loading3D from '../components/ui/Loading3D';
 
 export default function PersonalRoute({ children }) {
   const auth = getAuth();
@@ -17,7 +18,15 @@ export default function PersonalRoute({ children }) {
       if (u) {
         setUser(u);
         
-        // Buscar role do usuário no Firestore
+        // ✅ Tenta usar cache singleton primeiro
+        const cached = getCachedUserData();
+        if (cached && cached.uid === u.uid && cached.role) {
+          setUserRole(cached.role);
+          setLoading(false);
+          return;
+        }
+        
+        // Fallback: buscar role do Firestore
         try {
           const userDoc = await getDoc(doc(db, "users", u.uid));
           if (userDoc.exists()) {

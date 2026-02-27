@@ -59,9 +59,12 @@ export const useMetas = (unidade, options = {}) => {
   useEffect(() => {
     if (!unidade) return;
     isMountedRef.current = true;
+    const _t0 = performance.now();
+    console.log(`[PERF] useMetas: start for ${unidade}`);
     
     // Tenta carregar do cache primeiro
     const cached = cacheUtils.load(unidade);
+    console.log(`[PERF] useMetas: cache check: ${cached ? cached.length + ' items' : 'MISS'} in +${(performance.now()-_t0).toFixed(0)}ms`);
     if (cached && cached.length > 0) {
       setMetas(cached);
       setLoading(false);
@@ -71,7 +74,7 @@ export const useMetas = (unidade, options = {}) => {
 
     const processData = (metasData) => {
       if (!isMountedRef.current) return;
-      
+      console.log(`[PERF] useMetas: processData ${metasData.length} metas in +${(performance.now()-_t0).toFixed(0)}ms`);
       setMetas(metasData);
       cacheUtils.save(unidade, metasData);
       

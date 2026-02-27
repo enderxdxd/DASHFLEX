@@ -1,42 +1,60 @@
 // src/auth/PrivateRoute.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import Loading3D from '../components/ui/Loading3D';
+import { getCachedUserData } from '../hooks/useUserData';
 
 export default function PrivateRoute({ children }) {
   const { unidade } = useParams();
   const auth = getAuth();
-  const [user, setUser] = useState(null);
-  const [claims, setClaims] = useState({});
-  const [firestoreRole, setFirestoreRole] = useState(null);
-  const [loading, setLoading] = useState(true);
+  
+  // ✅ Estado único para evitar múltiplos re-renders que desmontam children
+  const [authState, setAuthState] = useState({
+    user: null,
+    firestoreRole: null,
+    loading: true
+  });
+  // Claims em ref — não causa re-render (usado apenas na lógica de autorização abaixo)
+  const claimsRef = useRef({});
 
   useEffect(() => {
+    const _t0 = performance.now();
+    console.log('[PERF] PrivateRoute useEffect start');
     const unsub = onAuthStateChanged(auth, async (u) => {
+      console.log(`[PERF] onAuthStateChanged fired: +${(performance.now()-_t0).toFixed(0)}ms, user=${!!u}`);
       if (u) {
         try {
-          // Busca claims do Firebase Auth
-          const idTokenResult = await u.getIdTokenResult(true);
-          setClaims(idTokenResult.claims || {});
-          
-          // Busca role do Firestore
-          // Primeiro tenta buscar pelo UID atual
-          let userDoc = await getDoc(doc(db, "users", u.uid));
-          
-          // Se não encontrar e for tesouraria, tenta buscar pelo ID conhecido
-          if (!userDoc.exists() && u.email === "tesouraria@flexacademia.com.br") {
-            userDoc = await getDoc(doc(db, "users", "cMEb4iTvC1tt7eUl0EJ"));
+          // ✅ FAST PATH: cache singleton → desbloqueia em 1 setState
+          const cached = getCachedUserData();
+          if (cached && cached.uid === u.uid && cached.role) {
+            console.log(`[PERF] PrivateRoute FAST PATH (cache hit): +${(performance.now()-_t0).toFixed(0)}ms`);
+            // Busca claims em background (não bloqueia, não causa re-render)
+            u.getIdTokenResult(false).then(r => { claimsRef.current = r.claims || {}; }).catch(() => {});
+            setAuthState({ user: u, firestoreRole: cached.role, loading: false });
+            return;
           }
           
+          // SLOW PATH: busca claims e dados do usuário em PARALELO
+          console.log(`[PERF] PrivateRoute SLOW PATH start: +${(performance.now()-_t0).toFixed(0)}ms`);
+          const [idTokenResult, userDoc] = await Promise.all([
+            u.getIdTokenResult(false),
+            getDoc(doc(db, "users", u.uid))
+          ]);
+          console.log(`[PERF] PrivateRoute SLOW PATH done: +${(performance.now()-_t0).toFixed(0)}ms`);
+          
+          claimsRef.current = idTokenResult.claims || {};
+          let role = null;
+          
           if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setFirestoreRole(userData.role);
-          } else {
-            // Criar documento automaticamente para usuário tesouraria
-            if (u.email === "tesouraria@flexacademia.com.br") {
+            role = userDoc.data().role;
+          } else if (u.email === "tesouraria@flexacademia.com.br") {
+            const fallbackDoc = await getDoc(doc(db, "users", "cMEb4iTvC1tt7eUl0EJ"));
+            if (fallbackDoc.exists()) {
+              role = fallbackDoc.data().role;
+            } else {
               try {
                 await setDoc(doc(db, "users", u.uid), {
                   email: u.email,
@@ -44,32 +62,32 @@ export default function PrivateRoute({ children }) {
                   name: "Tesouraria",
                   createdAt: new Date()
                 });
-                setFirestoreRole("tesouraria");
+                role = "tesouraria";
               } catch (error) {
                 console.error("Erro ao criar documento:", error);
               }
             }
           }
           
-          setUser(u);
+          // ✅ Um único setState — um único re-render
+          setAuthState({ user: u, firestoreRole: role, loading: false });
         } catch (error) {
           console.error("Erro ao buscar dados do usuário:", error);
-          setUser(u);
+          setAuthState({ user: u, firestoreRole: null, loading: false });
         }
       } else {
-        setUser(null);
-        setFirestoreRole(null);
+        setAuthState({ user: null, firestoreRole: null, loading: false });
       }
-      setLoading(false);
     });
     return () => unsub();
   }, [auth]);
 
-  if (loading) return <Loading3D size={100} />;
-  if (!user) return <Navigate to="/login" replace />;
+  if (authState.loading) return <Loading3D size={100} />;
+  if (!authState.user) return <Navigate to="/login" replace />;
 
   // Usa role do Firestore como prioridade, depois claims do Firebase Auth
-  const role = firestoreRole || claims.role || "user";
+  const claims = claimsRef.current;
+  const role = authState.firestoreRole || claims.role || "user";
   const allowedUnits = Array.isArray(claims.allowedUnits)
     ? claims.allowedUnits.map(u => u.toLowerCase())
     : typeof claims.allowedUnits === "string"

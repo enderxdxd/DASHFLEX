@@ -13,74 +13,41 @@ import {
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import { useGroupedVendas } from './useGroupedVendas';
+import { idbSave, idbLoad, idbClear } from '../utils/idbCache';
 
 // ============ CONFIGURAÇÃO DE CACHE OTIMIZADO ============
-const CACHE_KEY = 'dashflex_vendas_cache_v2';
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutos (aumentado para reduzir chamadas)
-const CACHE_METADATA_KEY = 'dashflex_vendas_metadata';
+const CACHE_KEY = 'vendas_all';
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutos
 
-// Cache otimizado com compressão básica e fallback
+// Cache com IndexedDB (suporta centenas de MB vs 5MB do localStorage)
+// 39k vendas = ~10-15MB de JSON — estoura localStorage
 const cacheUtils = {
-  save: (data) => {
-    try {
-      // Salva apenas campos essenciais para reduzir tamanho
-      const compactData = data.map(v => ({
-        id: v.id,
-        _unidadeOriginal: v._unidadeOriginal,
-        matricula: v.matricula,
-        nome: v.nome,
-        responsavel: v.responsavel,
-        produto: v.produto,
-        plano: v.plano,
-        valor: v.valor,
-        unidade: v.unidade,
-        dataFormatada: v.dataFormatada,
-        dataLancamento: v.dataLancamento,
-        dataInicio: v.dataInicio,
-        dataFim: v.dataFim,
-        duracaoMeses: v.duracaoMeses,
-        formaPagamento: v.formaPagamento
-      }));
-      
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        data: compactData,
-        timestamp: Date.now(),
-        count: data.length
-      }));
-    } catch (e) {
-      if (e.name === 'QuotaExceededError') {
-        // Limpa caches antigos
-        Object.keys(localStorage)
-          .filter(k => k.startsWith('dashflex_'))
-          .forEach(k => localStorage.removeItem(k));
-      }
-    }
+  save: async (data) => {
+    const compactData = data.map(v => ({
+      id: v.id,
+      _unidadeOriginal: v._unidadeOriginal,
+      matricula: v.matricula,
+      nome: v.nome,
+      responsavel: v.responsavel,
+      produto: v.produto,
+      plano: v.plano,
+      valor: v.valor,
+      unidade: v.unidade,
+      dataFormatada: v.dataFormatada,
+      dataLancamento: v.dataLancamento,
+      dataInicio: v.dataInicio,
+      dataFim: v.dataFim,
+      duracaoMeses: v.duracaoMeses,
+      formaPagamento: v.formaPagamento
+    }));
+    await idbSave(CACHE_KEY, compactData);
   },
-  load: () => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (!cached) return null;
-      const { data, timestamp } = JSON.parse(cached);
-      if (Date.now() - timestamp > CACHE_TTL) {
-        localStorage.removeItem(CACHE_KEY);
-        return null;
-      }
-      return data;
-    } catch {
-      return null;
-    }
+  load: async () => {
+    const result = await idbLoad(CACHE_KEY, CACHE_TTL);
+    return result ? result.data : null;
   },
-  clear: () => {
-    localStorage.removeItem(CACHE_KEY);
-    localStorage.removeItem(CACHE_METADATA_KEY);
-  },
-  getMetadata: () => {
-    try {
-      const meta = localStorage.getItem(CACHE_METADATA_KEY);
-      return meta ? JSON.parse(meta) : null;
-    } catch {
-      return null;
-    }
+  clear: async () => {
+    await idbClear(CACHE_KEY);
   }
 };
 
@@ -89,16 +56,12 @@ export const useVendas = (unidade, metas = [], options = {}) => {
   // Use refreshVendas() para atualizar manualmente quando necessário
   const { enableRealtime = false } = options;
   
-  // Estados brutos
-  const [vendas, setVendas] = useState(() => {
-    // Inicializa com cache se disponível
-    const cached = cacheUtils.load();
-    return cached || [];
-  });
+  // Estados brutos — inicializa vazio, cache async (IndexedDB) carrega no useEffect
+  const [vendas, setVendas] = useState([]);
   
   // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS
   const vendasAgrupadas = useGroupedVendas(vendas);
-  const [loading, setLoading] = useState(() => !cacheUtils.load());
+  const [loading, setLoading] = useState(true);
   const isMountedRef = useRef(true);
   const unsubscribeRef = useRef(null);
   const lastFetchRef = useRef(null);
@@ -157,7 +120,8 @@ export const useVendas = (unidade, metas = [], options = {}) => {
     // ✅ Atualizar estado local: remover vendas da unidade deletada
     setVendas(prev => {
       const updated = prev.filter(v => (v._unidadeOriginal || '').toLowerCase() !== unidade.toLowerCase());
-      cacheUtils.save(updated);
+      // Save async em background (não bloqueia setState)
+      cacheUtils.save(updated).catch(() => {});
       return updated;
     });
   };
@@ -188,8 +152,8 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       // ✅ OPTIMISTIC UPDATE: Atualizar estado local imediatamente
       setVendas(prev => {
         const updated = prev.map(v => v.id === id ? { ...v, ...dados } : v);
-        // Atualizar cache com dados novos
-        cacheUtils.save(updated);
+        // Atualizar cache com dados novos (async, não bloqueia)
+        cacheUtils.save(updated).catch(() => {});
         return updated;
       });
       
@@ -245,7 +209,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       setFile(null);
       
       // ✅ Após upload, invalidar cache e recarregar dados do Firebase
-      cacheUtils.clear();
+      await cacheUtils.clear();
       const snap = await getDocs(collectionGroup(db, "vendas"));
       const freshData = snap.docs.map((d) => ({ 
         id: d.id, 
@@ -253,7 +217,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
         ...d.data() 
       }));
       setVendas(freshData);
-      cacheUtils.save(freshData);
+      cacheUtils.save(freshData).catch(() => {});
   
     } catch (err) {
       setError(err.message);
@@ -267,18 +231,20 @@ export const useVendas = (unidade, metas = [], options = {}) => {
   useEffect(() => {
     if (!unidade) return;
     isMountedRef.current = true;
+    const _t0 = performance.now();
+    console.log(`[PERF] useVendas: start for ${unidade}`);
 
     // Função otimizada para processar dados
     const processData = (data, fromCache = false) => {
       if (!isMountedRef.current) return;
-      
+      console.log(`[PERF] useVendas: processData (${fromCache ? 'CACHE' : 'FIREBASE'}) ${data.length} vendas in +${(performance.now()-_t0).toFixed(0)}ms`);
       setVendas(data);
       setLoading(false);
       lastFetchRef.current = Date.now();
       
       // Salva no cache apenas se não veio do cache
       if (!fromCache) {
-        cacheUtils.save(data);
+        cacheUtils.save(data).catch(() => {});
       }
 
       // Extrai produtos e responsáveis de forma otimizada
@@ -299,13 +265,63 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       setResponsaveis(rs);
     };
 
-    // ESTRATÉGIA CACHE-FIRST: Carrega do cache imediatamente
-    const cached = cacheUtils.load();
-    if (cached && cached.length > 0) {
-      processData(cached, true);
+    // ESTRATÉGIA CACHE-FIRST com IndexedDB (async)
+    const loadData = async () => {
+      // 1) Tenta carregar do IndexedDB
+      const cached = await cacheUtils.load();
+      console.log(`[PERF] useVendas: cache check: ${cached ? cached.length + ' items' : 'MISS'} in +${(performance.now()-_t0).toFixed(0)}ms`);
       
-      // Se realtime desabilitado, faz background revalidation silenciosa
-      if (!enableRealtime) {
+      if (!isMountedRef.current) return;
+
+      if (cached && cached.length > 0) {
+        processData(cached, true);
+        
+        // Background revalidation silenciosa (não bloqueia UI)
+        if (!enableRealtime) {
+          console.log(`[PERF] useVendas: starting background revalidation...`);
+          getDocs(collectionGroup(db, "vendas"))
+            .then((snap) => {
+              const data = snap.docs.map((d) => ({ 
+                id: d.id, 
+                _unidadeOriginal: d.ref.parent.parent.id,
+                ...d.data() 
+              }));
+              if (isMountedRef.current) {
+                processData(data);
+              }
+            })
+            .catch(() => {}); // Silencioso - já temos cache
+          return;
+        }
+      }
+
+      // Sem cache — busca do Firebase
+      if (enableRealtime) {
+        if (!cached) setLoading(true);
+        
+        const unsub = onSnapshot(
+          collectionGroup(db, "vendas"),
+          { includeMetadataChanges: false },
+          (snap) => {
+            const data = snap.docs.map((d) => ({ 
+              id: d.id, 
+              _unidadeOriginal: d.ref.parent.parent.id,
+              ...d.data() 
+            }));
+            processData(data);
+          },
+          (err) => {
+            if (isMountedRef.current) {
+              setError("Falha ao carregar: " + err.message);
+              setLoading(false);
+            }
+          }
+        );
+        unsubscribeRef.current = unsub;
+      } else {
+        // Modo cache-first SEM cache - busca uma vez do Firebase
+        setLoading(true);
+        console.log(`[PERF] useVendas: NO CACHE, fetching from Firebase...`);
         getDocs(collectionGroup(db, "vendas"))
           .then((snap) => {
             const data = snap.docs.map((d) => ({ 
@@ -313,58 +329,18 @@ export const useVendas = (unidade, metas = [], options = {}) => {
               _unidadeOriginal: d.ref.parent.parent.id,
               ...d.data() 
             }));
-            if (isMountedRef.current) {
-              processData(data);
-            }
+            processData(data);
           })
-          .catch(() => {}); // Silencioso - já temos cache
-        return;
+          .catch((err) => {
+            if (isMountedRef.current) {
+              setError("Falha ao carregar: " + err.message);
+              setLoading(false);
+            }
+          });
       }
-    }
+    };
 
-    // Se não tem cache ou realtime está habilitado, busca do Firebase
-    if (enableRealtime) {
-      // Modo realtime - usa onSnapshot (mais lento, mas atualiza automaticamente)
-      if (!cached) setLoading(true);
-      
-      const unsub = onSnapshot(
-        collectionGroup(db, "vendas"),
-        { includeMetadataChanges: false },
-        (snap) => {
-          const data = snap.docs.map((d) => ({ 
-            id: d.id, 
-            _unidadeOriginal: d.ref.parent.parent.id,
-            ...d.data() 
-          }));
-          processData(data);
-        },
-        (err) => {
-          if (isMountedRef.current) {
-            setError("Falha ao carregar: " + err.message);
-            setLoading(false);
-          }
-        }
-      );
-      unsubscribeRef.current = unsub;
-    } else if (!cached) {
-      // Modo cache-first SEM cache - busca uma vez do Firebase
-      setLoading(true);
-      getDocs(collectionGroup(db, "vendas"))
-        .then((snap) => {
-          const data = snap.docs.map((d) => ({ 
-            id: d.id, 
-            _unidadeOriginal: d.ref.parent.parent.id,
-            ...d.data() 
-          }));
-          processData(data);
-        })
-        .catch((err) => {
-          if (isMountedRef.current) {
-            setError("Falha ao carregar: " + err.message);
-            setLoading(false);
-          }
-        });
-    }
+    loadData();
 
     return () => {
       isMountedRef.current = false;
@@ -378,7 +354,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
   const refreshVendas = useCallback(async () => {
     if (!unidade) return;
     setLoading(true);
-    cacheUtils.clear();
+    await cacheUtils.clear();
     
     try {
       const snap = await getDocs(collectionGroup(db, "vendas"));
@@ -389,7 +365,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       }));
       
       setVendas(data);
-      cacheUtils.save(data);
+      cacheUtils.save(data).catch(() => {});
       
       const ps = [...new Set(data.map((v) => v.produto?.trim()).filter(Boolean))].sort();
       setProdutos(ps);

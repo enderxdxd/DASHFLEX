@@ -14,7 +14,7 @@ import {
   useProjectionFromFiltered
 } from '../../hooks/useAnalytics';
 
-export default function AnalyticsSummary({
+function AnalyticsSummary({
   vendasRaw,
   metas,
   configRem,
@@ -138,3 +138,5 @@ export default function AnalyticsSummary({
     </div>
   );
 }
+
+export default React.memo(AnalyticsSummary);

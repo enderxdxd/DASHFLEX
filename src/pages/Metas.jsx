@@ -4,6 +4,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   collection,
   collectionGroup,
+  getDocs,
   onSnapshot,
   addDoc,
   updateDoc,
@@ -600,44 +601,43 @@ function debugCalculoASMIHS(vendasArr, configRem) {
   }, [unidade]);
 
 
-  // --- Carrega metas, vendas e produtos ---
+  // --- Carrega metas (realtime) e vendas (getDocs com cache) ---
   useEffect(() => {
     if (!unidade) return;
-    // Metas
+    let isMounted = true;
+
+    // Metas - mantém onSnapshot (necessário para CRUD em tempo real)
     const metasRef = collection(db, "faturamento", unidade.toLowerCase(), "metas");
     const unsubMetas = onSnapshot(
       metasRef,
-      snap => setMetas(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      snap => {
+        if (isMounted) setMetas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      },
       e => {
         console.error(e);
-        setError("Falha ao carregar metas");
-        setLoading(false);
+        if (isMounted) { setError("Falha ao carregar metas"); setLoading(false); }
       }
     );
 
-    // Vendas
-    const vendasQuery = collectionGroup(db, "vendas");
-    const unsubVendas = onSnapshot(
-      vendasQuery,
-      snap => {
+    // Vendas - getDocs (sem listener permanente, muito mais leve)
+    getDocs(collectionGroup(db, "vendas"))
+      .then(snap => {
+        if (!isMounted) return;
         const data = snap.docs.map(d => d.data());
         setVendas(data);
-        // extrai produtos únicos das vendas originais (antes do agrupamento)
         const setProd = new Set();
         data.forEach(v => v.produto && setProd.add(v.produto.trim()));
         setProdutos(Array.from(setProd).sort());
         setLoading(false);
-      },
-      e => {
+      })
+      .catch(e => {
         console.error(e);
-        setError("Falha ao carregar vendas");
-        setLoading(false);
-      }
-    );
+        if (isMounted) { setError("Falha ao carregar vendas"); setLoading(false); }
+      });
 
     return () => {
+      isMounted = false;
       unsubMetas();
-      unsubVendas();
     };
   }, [unidade]);
 

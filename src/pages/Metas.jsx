@@ -1250,8 +1250,25 @@ function debugCalculoASMIHS(vendasArr, configRem) {
               
               {/* Grid de Cards de Performance */}
               <div className="performance-grid">
-                {responsaveisUnicos && responsaveisUnicos.length > 0 ? 
-                  responsaveisUnicos.map((consultor) => {
+                {(() => {
+                  const consultoresDoPeriodo = metas
+                    .filter(m => m.periodo === crossUnitPeriod)
+                    .map(m => m.responsavel?.trim())
+                    .filter(Boolean);
+                  const consultoresUnicos = [...new Set(consultoresDoPeriodo)].sort((a, b) =>
+                    a.localeCompare(b, "pt", { sensitivity: "base" })
+                  );
+                  return consultoresUnicos;
+                })().length > 0 ? 
+                  (() => {
+                    const consultoresDoPeriodo = metas
+                      .filter(m => m.periodo === crossUnitPeriod)
+                      .map(m => m.responsavel?.trim())
+                      .filter(Boolean);
+                    return [...new Set(consultoresDoPeriodo)].sort((a, b) =>
+                      a.localeCompare(b, "pt", { sensitivity: "base" })
+                    );
+                  })().map((consultor) => {
                     // CORREÇÃO: Calcular vendas do consultor em todas as unidades (USANDO VENDAS AGRUPADAS)
                     const vendasConsultor = vendasAgrupadas.filter(v => {
                       const responsavelNormalizado = v.responsavel?.trim().toLowerCase() || '';

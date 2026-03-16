@@ -862,7 +862,7 @@ export default function UnifiedPersonalDashboard() {
         <div className="issues-header">
           <h3>
             <AlertTriangle size={20} />
-            {invalidTaxes.length} Personal{invalidTaxes.length > 1 ? 's' : ''} com Taxa Incorreta
+            {invalidTaxes.length} Persona{invalidTaxes.length > 1 ? 'is' : ''} com Taxa Incorreta
           </h3>
         </div>
         

@@ -38,7 +38,7 @@ export default function PersonalStats({ stats }) {
   const statCards = [
     {
       id: 'personals',
-      title: 'Total de Personals',
+      title: 'Total de Personais',
       value: formatNumber(totalPersonals),
       icon: Users,
       color: 'blue',

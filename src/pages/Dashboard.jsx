@@ -22,8 +22,9 @@ import 'dayjs/locale/pt-br';
 dayjs.locale('pt-br');
 
 const Dashboard = () => {
-  const _mountTime = performance.now();
-  console.log(`[PERF] Dashboard RENDER at ${_mountTime.toFixed(0)}ms`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[PERF] Dashboard RENDER at ${performance.now().toFixed(0)}ms`);
+  }
   const { unidade } = useParams();
   const navigate = useNavigate();
   const { role } = useUserRole();
@@ -238,7 +239,9 @@ const Dashboard = () => {
 
   const loading = vendasLoading || metasLoading || !produtosLoaded;
   const error = vendasError || metasError;
-  console.log(`[PERF] Dashboard loading=${loading} (vendas=${vendasLoading}, metas=${metasLoading}, produtos=${!produtosLoaded}) at ${performance.now().toFixed(0)}ms`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[PERF] Dashboard loading=${loading} (vendas=${vendasLoading}, metas=${metasLoading}, produtos=${!produtosLoaded}) at ${performance.now().toFixed(0)}ms`);
+  }
 
 
   // Sincroniza filtro de mês
@@ -299,14 +302,15 @@ const Dashboard = () => {
                 alignItems: 'center',
                 gap: '0.375rem',
                 padding: '0.5rem 0.75rem',
-                background: '#3b82f6',
+                background: 'var(--primary)',
                 color: 'white',
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: 'var(--radius-sm)',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 fontSize: '0.75rem',
                 fontWeight: '500',
-                opacity: loading ? 0.6 : 1
+                opacity: loading ? 0.6 : 1,
+                transition: 'var(--transition-fast)'
               }}
             >
               <svg 
@@ -428,70 +432,73 @@ const Dashboard = () => {
         .dashboard-layout {
           display: flex;
           min-height: 100vh;
-          background: #f8fafc;
+          background: var(--background);
         }
         .sidebar {
           width: 260px;
-          background: white;
-          border-right: 1px solid #e5e7eb;
+          background: var(--card);
+          border-right: 1px solid var(--border);
           position: fixed;
           height: 100vh;
           display: flex;
           flex-direction: column;
         }
-        .sidebar-header { 
-          padding: 1.25rem 1rem; 
-          border-bottom: 1px solid #f3f4f6; 
+        .sidebar-header {
+          padding: 1.25rem 1rem;
+          border-bottom: 1px solid var(--border);
         }
-        .sidebar-header h2 { 
-          font-size: 1rem; 
-          font-weight: 600; 
-          color: #3b82f6; 
-          margin: 0; 
+        .sidebar-header h2 {
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--primary);
+          margin: 0;
         }
-        .main-content { 
-          flex: 1; 
-          margin-left: 260px; 
-          padding: 1.5rem; 
+        .main-content {
+          flex: 1;
+          margin-left: 260px;
+          padding: 1.5rem 2rem;
         }
-        .page-header { 
-          display: flex; 
-          justify-content: space-between; 
-          align-items: center; 
-          margin-bottom: 1.5rem; 
+        .page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
         }
-        .badge { 
-          background: #eff6ff; 
-          color: #2563eb; 
-          padding: 0.25rem 0.75rem; 
-          border-radius: 4px; 
-          font-weight: 500; 
-          font-size: 0.75rem; 
+        .badge {
+          background: var(--primary-light);
+          color: var(--primary);
+          padding: 0.375rem 0.875rem;
+          border-radius: var(--radius-sm);
+          font-weight: 600;
+          font-size: 0.75rem;
+          letter-spacing: 0.025em;
         }
-        .header-actions { 
-          display: flex; 
-          align-items: center; 
-          gap: 1rem; 
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
         }
-        .last-update { 
-          font-size: 0.75rem; 
-          color: #9ca3af; 
+        .last-update {
+          font-size: 0.75rem;
+          color: var(--text-secondary);
         }
-        .dashboard-section { 
-          margin-bottom: 1.5rem; 
+        .dashboard-section {
+          margin-bottom: 1.5rem;
         }
-        .alert { 
-          display: flex; 
-          align-items: center; 
-          gap: 0.5rem; 
-          padding: 0.75rem; 
-          border-radius: 6px; 
-          margin-bottom: 1rem; 
+        .alert {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.75rem 1rem;
+          border-radius: var(--radius-sm);
+          margin-bottom: 1rem;
           font-size: 0.875rem;
         }
-        .alert.error { 
-          background: #fef2f2; 
-          color: #dc2626; 
+        .alert.error {
+          background: var(--error-light);
+          color: var(--danger);
+          border: 1px solid var(--danger);
+          border-opacity: 0.2;
         }
         .loading-center {
           display: flex;
@@ -502,37 +509,33 @@ const Dashboard = () => {
           position: fixed;
           top: 0;
           left: 0;
-          background: #f8fafc;
+          background: var(--background);
           z-index: 9999;
         }
-        .loading-spinner { 
-          width: 32px; 
-          height: 32px; 
-          border: 3px solid #e5e7eb; 
-          border-radius: 50%; 
-          border-top-color: #3b82f6; 
-          animation: spin 0.8s linear infinite; 
+        .loading-spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid var(--border);
+          border-radius: 50%;
+          border-top-color: var(--primary);
+          animation: spin 0.8s linear infinite;
         }
-        @keyframes spin { 
-          to { transform: rotate(360deg); } 
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
-
-        .dark .dashboard-layout {
-          background: #111827;
-        }
-        .dark .sidebar {
-          background: #1f2937;
-          border-color: #374151;
-        }
-        .dark .sidebar-header {
-          border-color: #374151;
-        }
-        .dark .badge {
-          background: #1e3a8a;
-          color: #93c5fd;
-        }
-        .dark .last-update {
-          color: #6b7280;
+        @media (max-width: 768px) {
+          .main-content {
+            margin-left: 0;
+            padding: 1rem;
+          }
+          .sidebar {
+            display: none;
+          }
+          .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+          }
         }
       `}</style>
     </div>

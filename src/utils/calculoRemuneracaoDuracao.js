@@ -2,7 +2,10 @@
 // VERSÃO CORRIGIDA - Aplica correção de diárias ANTES de classificar
 
 import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { corrigirClassificacaoDiarias, ehPlanoAposCorrecao } from './correcaoDiarias';
+
+dayjs.extend(customParseFormat);
 
 const DEFAULT_OUTROS_BLACKLIST = [
   'taxa de matricula',
@@ -29,12 +32,19 @@ export function resolveDatasPlano(venda) {
 }
 
 function parseDateFlexible(d) {
-  if (!d) return dayjs.invalid();
-  const s = String(d);
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return dayjs(s);
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return dayjs(s, 'DD/MM/YYYY');
-  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return dayjs(s, 'DD-MM-YYYY');
-  return dayjs(s);
+  if (!d) return null;
+
+  const s = String(d).trim();
+  if (!s) return null;
+
+  let parsed = null;
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) parsed = dayjs(s);
+  else if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) parsed = dayjs(s, 'DD/MM/YYYY', true);
+  else if (/^\d{2}-\d{2}-\d{4}$/.test(s)) parsed = dayjs(s, 'DD-MM-YYYY', true);
+  else parsed = dayjs(s);
+
+  return parsed.isValid() ? parsed : null;
 }
 
 function norm(str) {
@@ -63,7 +73,7 @@ export function calcularDuracaoPlano(dataInicio, dataFim, duracaoMeses = null) {
   // Fallback: calcular por datas (lógica antiga)
   const inicio = parseDateFlexible(dataInicio);
   const fim = parseDateFlexible(dataFim);
-  if (!inicio.isValid() || !fim.isValid()) return 0;
+  if (!inicio || !fim) return 0;
 
   const diffDays = fim.diff(inicio, 'day');
   if (diffDays <= 31) return 1;

@@ -21,7 +21,8 @@ import {
   Percent,
   Zap,
   Bell,
-  Sparkles
+  Sparkles,
+  Repeat
 } from "lucide-react";
 import useDarkMode from "../hooks/useDarkMode";
 import { useUserData, clearUserDataCache } from "../hooks/useUserData";
@@ -106,6 +107,7 @@ export default function NavBar() {
     '/config-remuneracao': () => import('../pages/ConfigRemuneracao'),
     '/admin/produtos': () => import('../components/admin/AdminProdutoConfig'),
     '/personal/dashboard': () => import('../pages/UnifiedPersonalDashboard'),
+    '/ciclo-aluno': () => import('../pages/CicloAluno'),
   }), []);
 
   const handlePrefetch = useCallback((matchPath) => {
@@ -180,6 +182,13 @@ export default function NavBar() {
           label: "Comissões",
           description: "Análises de comissão",
           matchPath: "/comissao"
+        },
+        {
+          path: `/ciclo-aluno/${unidade}`,
+          icon: Repeat,
+          label: "Ciclo do Aluno",
+          description: "Matrículas e renovações",
+          matchPath: "/ciclo-aluno"
         }
       ];
 

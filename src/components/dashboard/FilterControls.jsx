@@ -1,5 +1,5 @@
 // src/components/dashboard/FilterControls.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import dayjs from 'dayjs';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -20,6 +20,8 @@ const FilterControls = ({
   estatisticasOutros,
 }) => {
   const [isDateRangeOpen, setIsDateRangeOpen] = useState(false);
+  const [localSearchTerm, setLocalSearchTerm] = useState(filters.searchTerm || '');
+  const searchDebounceRef = useRef(null);
   const [localDateRange, setLocalDateRange] = useState({
     startDate: filters.startDate,
     endDate: filters.endDate
@@ -32,6 +34,27 @@ const FilterControls = ({
       endDate: filters.endDate
     });
   }, [filters.startDate, filters.endDate]);
+
+  // Sync search term from external changes (e.g. clear filters)
+  useEffect(() => {
+    setLocalSearchTerm(filters.searchTerm || '');
+  }, [filters.searchTerm]);
+
+  // Debounced search handler (300ms delay)
+  const handleSearchChange = useCallback((value) => {
+    setLocalSearchTerm(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      dispatchFilters({ type: 'SET_SEARCH_TERM', payload: value });
+    }, 300);
+  }, [dispatchFilters]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, []);
   
   // Formatação para valores monetários
   const formatMoney = (value) => {
@@ -136,11 +159,8 @@ const FilterControls = ({
                   type="text"
                   id="searchInput"
                   placeholder="Digite para pesquisar..."
-                  value={filters.searchTerm}
-                  onChange={(e) => dispatchFilters({
-                    type: 'SET_SEARCH_TERM',
-                    payload: e.target.value
-                  })}
+                  value={localSearchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                 />
                 <button className="search-btn" type="button">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

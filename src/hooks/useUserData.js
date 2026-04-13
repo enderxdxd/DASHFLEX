@@ -16,22 +16,22 @@ async function fetchUserData(user) {
   
   // Se já tem cache para este UID, retorna imediatamente
   if (_cachedUid === user.uid && _cachedUserData) {
-    console.log('[PERF] useUserData: cache hit (memory)');
+    if (process.env.NODE_ENV !== 'production') console.log('[PERF] useUserData: cache hit (memory)');
     return _cachedUserData;
   }
 
   // Se já tem um fetch em andamento, reutiliza a mesma promise
   if (_fetchPromise) {
-    console.log('[PERF] useUserData: reusing existing fetch promise');
+    if (process.env.NODE_ENV !== 'production') console.log('[PERF] useUserData: reusing existing fetch promise');
     return _fetchPromise;
   }
 
   const _t = performance.now();
-  console.log('[PERF] useUserData: fetching from Firestore...');
+  if (process.env.NODE_ENV !== 'production') console.log('[PERF] useUserData: fetching from Firestore...');
   _fetchPromise = (async () => {
     try {
       const userSnap = await getDoc(doc(db, "users", user.uid));
-      console.log(`[PERF] useUserData: getDoc done in ${(performance.now()-_t).toFixed(0)}ms`);
+      if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useUserData: getDoc done in ${(performance.now()-_t).toFixed(0)}ms`);
       
       const fallback = {
         name: user.displayName || user.email?.split('@')[0] || 'Usuário',
@@ -92,7 +92,7 @@ export function useUserData() {
   useEffect(() => {
     const auth = getAuth();
     const _t0 = performance.now();
-    console.log('[PERF] useUserData: useEffect start, hasCache=' + !!_cachedUserData);
+    if (process.env.NODE_ENV !== 'production') console.log('[PERF] useUserData: useEffect start, hasCache=' + !!_cachedUserData);
     
     // Se já tem cache, usa imediatamente
     if (_cachedUserData) {
@@ -101,7 +101,7 @@ export function useUserData() {
     }
 
     const unsub = onAuthStateChanged(auth, async (user) => {
-      console.log(`[PERF] useUserData: onAuthStateChanged +${(performance.now()-_t0).toFixed(0)}ms, user=${!!user}`);
+      if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useUserData: onAuthStateChanged +${(performance.now()-_t0).toFixed(0)}ms, user=${!!user}`);
       if (user) {
         const data = await fetchUserData(user);
         setUserData(data);

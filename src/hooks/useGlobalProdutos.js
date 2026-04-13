@@ -61,14 +61,14 @@ export function useGlobalProdutos(options = {}) {
     
     // Tenta carregar do cache primeiro
     const cached = cacheUtils.load();
-    console.log(`[PERF] useGlobalProdutos: cache check: ${cached ? 'HIT' : 'MISS'} in +${(performance.now()-_t0).toFixed(0)}ms`);
+    if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useGlobalProdutos: cache check: ${cached ? 'HIT' : 'MISS'} in +${(performance.now()-_t0).toFixed(0)}ms`);
     if (cached) {
       setProdutosSelecionados(cached);
       setLoaded(true);
       
       // Se não é realtime, não precisa buscar do Firebase
       if (!enableRealtime) {
-        console.log(`[PERF] useGlobalProdutos: using cache, done in +${(performance.now()-_t0).toFixed(0)}ms`);
+        if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useGlobalProdutos: using cache, done in +${(performance.now()-_t0).toFixed(0)}ms`);
         return;
       }
     }
@@ -104,7 +104,7 @@ export function useGlobalProdutos(options = {}) {
       unsubscribeRef.current = unsub;
     } else if (!cached) {
       // Modo cache-first sem cache - busca uma vez
-      console.log(`[PERF] useGlobalProdutos: fetching from Firestore...`);
+      if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useGlobalProdutos: fetching from Firestore...`);
       getDoc(configRef)
         .then((snap) => {
           if (snap.exists()) {

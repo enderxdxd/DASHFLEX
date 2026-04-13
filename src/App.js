@@ -5,35 +5,53 @@ import PrivateRoute from "./auth/PrivateRoute";
 import AdminRoute from "./auth/AdminRoute";
 import PersonalRoute from "./auth/PersonalRoute";
 import { DataProvider } from "./contexts/DataContext";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
 import Login from "./pages/Login";
 import ModuleSelector from "./pages/ModuleSelector";
 import UnidadeSelector from "./pages/UnidadeSelector";
 import "./styles/variables.css";
 
-// ============ LOADING FALLBACK COMPONENT ============
+// ============ SKELETON PAGE LOADER ============
 const PageLoader = () => (
   <div style={{
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
     height: '100vh',
-    background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-    color: '#fff'
+    background: 'var(--background, #f8fafc)',
+    overflow: 'hidden'
   }}>
-    <div style={{
-      width: '50px',
-      height: '50px',
-      border: '3px solid rgba(255,255,255,0.1)',
-      borderTop: '3px solid #10b981',
-      borderRadius: '50%',
-      animation: 'spin 1s linear infinite'
-    }} />
-    <p style={{ marginTop: '1rem', opacity: 0.7 }}>Carregando...</p>
+    {/* Skeleton sidebar */}
+    <div style={{ display: 'flex', flex: 1 }}>
+      <div style={{
+        width: '260px',
+        background: 'var(--card, #fff)',
+        borderRight: '1px solid var(--border, #e2e8f0)',
+        padding: '1.25rem 1rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem'
+      }}>
+        <div style={{ width: '140px', height: '28px', borderRadius: '8px', background: 'var(--border, #e2e8f0)', animation: 'shimmer 1.5s infinite' }} />
+        <div style={{ height: '1px', background: 'var(--border, #e2e8f0)', margin: '0.5rem 0' }} />
+        {[1,2,3,4,5].map(i => (
+          <div key={i} style={{ width: `${70 + Math.random() * 30}%`, height: '32px', borderRadius: '6px', background: 'var(--border, #e2e8f0)', opacity: 1 - i * 0.12, animation: `shimmer 1.5s infinite ${i * 0.1}s` }} />
+        ))}
+      </div>
+      {/* Skeleton content */}
+      <div style={{ flex: 1, padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div style={{ width: '200px', height: '32px', borderRadius: '8px', background: 'var(--border, #e2e8f0)', animation: 'shimmer 1.5s infinite' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+          {[1,2,3].map(i => (
+            <div key={i} style={{ height: '120px', borderRadius: '12px', background: 'var(--card, #fff)', border: '1px solid var(--border, #e2e8f0)', animation: `shimmer 1.5s infinite ${i * 0.15}s` }} />
+          ))}
+        </div>
+        <div style={{ flex: 1, borderRadius: '12px', background: 'var(--card, #fff)', border: '1px solid var(--border, #e2e8f0)', animation: 'shimmer 1.5s infinite 0.4s' }} />
+      </div>
+    </div>
     <style>{`
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+      @keyframes shimmer {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
       }
     `}</style>
   </div>
@@ -52,11 +70,13 @@ const UnifiedPersonalDashboard = lazy(() => import("./pages/UnifiedPersonalDashb
 const PersonalUnidadeSelector = lazy(() => import("./pages/PersonalUnidadeSelector"));
 const TesteClassificacao = lazy(() => import("./pages/teste-page"));
 const AdminProdutoConfig = lazy(() => import("./components/admin/AdminProdutoConfig"));
+const CicloAluno = lazy(() => import("./pages/CicloAluno"));
 
 export default function App() {
   return (
     <BrowserRouter>
       <DataProvider>
+        <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Páginas públicas */}
@@ -160,6 +180,16 @@ export default function App() {
               }
             />
 
+            {/* Ciclo do Aluno */}
+            <Route
+              path="/ciclo-aluno/:unidade"
+              element={
+                <PrivateRoute>
+                  <CicloAluno />
+                </PrivateRoute>
+              }
+            />
+
             {/* Teste de classificação */}
             <Route
               path="/teste-classificacao"
@@ -175,6 +205,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </DataProvider>
     </BrowserRouter>
   );

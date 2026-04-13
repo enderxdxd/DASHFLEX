@@ -58,7 +58,7 @@ const DescontosPage = () => {
   const [metas, setMetas] = useState([]);
   
   // USAR DADOS BRUTOS COMO COMISSAODETALHES (sem agrupamento/correção)
-  const { vendas: vendasBrutas, loading: vendasLoading } = useVendas(unidade);
+  const { vendas: vendasBrutas, loading: vendasLoading } = useVendas(unidade, [], { groupPlans: false });
   
   // Hook para produtos globalmente selecionados (com fallback)
   const { produtosSelecionados = [], produtosLoaded = true } = useGlobalProdutos() || {};

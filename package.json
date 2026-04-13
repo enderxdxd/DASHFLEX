@@ -35,6 +35,8 @@
     "react-router-dom": "^7.4.1",
     "react-scripts": "5.0.1",
     "react-select": "^5.10.1",
+    "react-window": "^2.2.7",
+    "react-window-infinite-loader": "^2.0.1",
     "recharts": "^2.15.1",
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5"

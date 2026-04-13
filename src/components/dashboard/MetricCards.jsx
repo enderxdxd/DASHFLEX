@@ -213,21 +213,18 @@ function MetricCards({
         }
 
         .metric-card {
-          background: white;
+          background: var(--card);
           border-radius: 8px;
           padding: 1rem;
-          border: 1px solid #e5e7eb;
+          border: 1px solid var(--border);
           display: flex;
           flex-direction: column;
+          transition: all var(--transition-fast);
+          box-shadow: var(--shadow-sm);
         }
 
         .metric-card:hover {
-          border-color: #d1d5db;
-        }
-        
-        .dark .metric-card {
-          background: #1f2937;
-          border-color: #374151;
+          box-shadow: var(--card-hover-shadow);
         }
 
         .card-header {
@@ -258,30 +255,30 @@ function MetricCards({
         }
 
         .success-icon {
-          background: #10b981;
+          background: var(--success);
           color: white;
         }
 
         .warning-icon {
-          background: #f59e0b;
+          background: var(--warning);
           color: white;
         }
 
         .excluded-icon {
-          background: #ef4444;
+          background: var(--danger);
           color: white;
         }
 
         .card-title h3 {
           font-size: 0.8rem;
           font-weight: 500;
-          color: #111827;
+          color: var(--text-primary);
           margin: 0 0 0.125rem 0;
         }
 
         .card-title p {
           font-size: 0.7rem;
-          color: #6b7280;
+          color: var(--text-secondary);
           margin: 0;
         }
 
@@ -292,17 +289,9 @@ function MetricCards({
         .main-value {
           font-size: 1.5rem;
           font-weight: 600;
-          color: #111827;
+          color: var(--text-primary);
           margin-bottom: 0.5rem;
-        }
-        
-        .dark .card-title h3,
-        .dark .main-value {
-          color: #f9fafb;
-        }
-        
-        .dark .card-title p {
-          color: #9ca3af;
+          font-variant-numeric: tabular-nums;
         }
 
         .comparison-badge {
@@ -316,18 +305,18 @@ function MetricCards({
         }
 
         .comparison-badge.positive {
-          background: #ecfdf5;
-          color: #059669;
+          background: var(--success-light);
+          color: var(--success);
         }
 
         .comparison-badge.negative {
-          background: #fef2f2;
-          color: #dc2626;
+          background: var(--error-light);
+          color: var(--danger);
         }
 
         .comparison-badge.neutral {
-          background: #f3f4f6;
-          color: #6b7280;
+          background: var(--background);
+          color: var(--text-secondary);
         }
 
         .trend-icon {
@@ -335,7 +324,7 @@ function MetricCards({
         }
 
         .excluded-details {
-          background: #f3f4f6;
+          background: var(--background);
           border-radius: 4px;
           padding: 0.5rem;
           margin-bottom: 0.5rem;
@@ -354,41 +343,24 @@ function MetricCards({
 
         .detail-label {
           font-size: 0.7rem;
-          color: #6b7280;
+          color: var(--text-secondary);
         }
 
         .detail-value {
           font-size: 0.7rem;
-          color: #111827;
+          color: var(--text-primary);
           font-weight: 500;
         }
 
         .card-footer {
-          border-top: 1px solid #e5e7eb;
+          border-top: 1px solid var(--border);
           padding-top: 0.5rem;
           margin-top: 0.5rem;
         }
 
         .card-footer span {
           font-size: 0.65rem;
-          color: #6b7280;
-        }
-        
-        .dark .excluded-details {
-          background: #374151;
-        }
-        
-        .dark .detail-label,
-        .dark .card-footer span {
-          color: #9ca3af;
-        }
-        
-        .dark .detail-value {
-          color: #f9fafb;
-        }
-        
-        .dark .card-footer {
-          border-color: #4b5563;
+          color: var(--text-secondary);
         }
 
         @media (max-width: 1024px) {
@@ -410,128 +382,6 @@ function MetricCards({
 
           .main-value {
             font-size: 1.25rem;
-          }
-        }
-
-        /* Sistema de cores compatível com temas existentes */
-        :root {
-          --primary: #4f46e5;
-          --success: #10b981;
-          --warning: #f59e0b;
-          --danger: #ef4444;
-          --card: #ffffff;
-          --bg-primary: #f8fafc;
-          --bg-secondary: #f1f5f9;
-          --border: #e2e8f0;
-          --text-primary: #1e293b;
-          --text-secondary: #64748b;
-        }
-
-        [data-theme="dark"],
-        .dark {
-          --primary: #6366f1;
-          --success: #34d399;
-          --warning: #fbbf24;
-          --danger: #f87171;
-          --card: #1e293b;
-          --bg-primary: #0f172a;
-          --bg-secondary: #334155;
-          --border: #475569;
-          --text-primary: #f1f5f9;
-          --text-secondary: #94a3b8;
-        }
-
-        /* Dark mode specific fixes for excluded card */
-        .dark .excluded-card,
-        [data-theme="dark"] .excluded-card {
-          background: var(--card) !important;
-          border-color: var(--border) !important;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
-        }
-        
-        .dark .excluded-card .main-value,
-        [data-theme="dark"] .excluded-card .main-value {
-          color: var(--text-primary) !important;
-        }
-        
-        .dark .excluded-card .card-title h3,
-        [data-theme="dark"] .excluded-card .card-title h3 {
-          color: var(--text-primary) !important;
-        }
-        
-        .dark .excluded-card .card-title p,
-        [data-theme="dark"] .excluded-card .card-title p {
-          color: var(--text-secondary) !important;
-        }
-        
-        .dark .excluded-card .excluded-details,
-        [data-theme="dark"] .excluded-card .excluded-details {
-          background: var(--bg-secondary) !important;
-          border: 1px solid var(--border) !important;
-        }
-        
-        .dark .excluded-details,
-        [data-theme="dark"] .excluded-details {
-          background: #334155 !important;
-          border: 1px solid #475569 !important;
-        }
-        
-        /* More aggressive dark mode fixes */
-        html.dark .excluded-details,
-        html[data-theme="dark"] .excluded-details,
-        body.dark .excluded-details,
-        body[data-theme="dark"] .excluded-details {
-          background: #334155 !important;
-          background-color: #334155 !important;
-        }
-        
-        .dark .metric-card .excluded-details,
-        [data-theme="dark"] .metric-card .excluded-details {
-          background: #334155 !important;
-          background-color: #334155 !important;
-        }
-        
-        .excluded-card .excluded-details {
-          background: var(--bg-secondary);
-        }
-        
-        .dark .excluded-card .excluded-details {
-          background: #334155 !important;
-          background-color: #334155 !important;
-        }
-        
-        .dark .excluded-card .detail-label,
-        [data-theme="dark"] .excluded-card .detail-label {
-          color: var(--text-secondary) !important;
-        }
-        
-        .dark .excluded-card .detail-value,
-        [data-theme="dark"] .excluded-card .detail-value {
-          color: var(--text-primary) !important;
-        }
-        
-        .dark .excluded-card .card-footer,
-        [data-theme="dark"] .excluded-card .card-footer {
-          border-color: var(--border) !important;
-        }
-        
-        .dark .excluded-card .card-footer span,
-        [data-theme="dark"] .excluded-card .card-footer span {
-          color: var(--text-secondary) !important;
-        }
-        
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --primary: #6366f1;
-            --success: #34d399;
-            --warning: #fbbf24;
-            --danger: #f87171;
-            --card: #1e293b;
-            --bg-primary: #0f172a;
-            --bg-secondary: #334155;
-            --border: #475569;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
           }
         }
       `}</style>

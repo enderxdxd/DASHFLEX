@@ -14,10 +14,14 @@ import { useMemo } from 'react';
  * @param {Array} vendas - Array de vendas originais
  * @returns {Array} Array de vendas com planos agrupados
  */
-export const useGroupedVendas = (vendas) => {
+export const useGroupedVendas = (vendas, enabled = true) => {
   return useMemo(() => {
     if (!Array.isArray(vendas) || vendas.length === 0) {
       return vendas || [];
+    }
+
+    if (!enabled) {
+      return vendas;
     }
 
     // Usar Map para melhor performance em vez de arrays separados
@@ -89,7 +93,7 @@ export const useGroupedVendas = (vendas) => {
     // Combinar planos agrupados com outras vendas (sem sorting para performance)
     // O sorting pode ser feito no componente que precisa se necessário
     return [...planosAgrupados.values(), ...outrasVendas];
-  }, [vendas]);
+  }, [vendas, enabled]);
 };
 
 /**

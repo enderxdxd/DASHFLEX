@@ -51,17 +51,52 @@ const cacheUtils = {
   }
 };
 
+// Cache em memória compartilhado entre páginas para navegação instantânea
+let memoryCache = null;
+let memoryCacheTimestamp = 0;
+let memoryDerivedCache = {
+  produtos: [],
+  responsaveis: [],
+};
+let sharedFetchPromise = null;
+
+const buildDerivedLists = (data) => {
+  const produtosSet = new Set();
+  const responsaveisSet = new Set();
+
+  for (let i = 0; i < data.length; i++) {
+    const v = data[i];
+    if (v.produto) produtosSet.add(v.produto.trim());
+    if (v.responsavel) responsaveisSet.add(v.responsavel.trim());
+  }
+
+  return {
+    produtos: Array.from(produtosSet).sort(),
+    responsaveis: Array.from(responsaveisSet).sort(),
+  };
+};
+
+const updateMemoryCache = (data) => {
+  memoryCache = data;
+  memoryCacheTimestamp = Date.now();
+  memoryDerivedCache = buildDerivedLists(data);
+};
+
+const hasFreshMemoryCache = () =>
+  Array.isArray(memoryCache) &&
+  Date.now() - memoryCacheTimestamp < CACHE_TTL;
+
 export const useVendas = (unidade, metas = [], options = {}) => {
   // OTIMIZAÇÃO: Realtime desabilitado por padrão para melhor performance
   // Use refreshVendas() para atualizar manualmente quando necessário
-  const { enableRealtime = false } = options;
+  const { enableRealtime = false, groupPlans = true } = options;
   
   // Estados brutos — inicializa vazio, cache async (IndexedDB) carrega no useEffect
-  const [vendas, setVendas] = useState([]);
+  const [vendas, setVendas] = useState(() => memoryCache || []);
   
   // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS
-  const vendasAgrupadas = useGroupedVendas(vendas);
-  const [loading, setLoading] = useState(true);
+  const vendasAgrupadas = useGroupedVendas(vendas, groupPlans);
+  const [loading, setLoading] = useState(() => !hasFreshMemoryCache());
   const isMountedRef = useRef(true);
   const unsubscribeRef = useRef(null);
   const lastFetchRef = useRef(null);
@@ -90,8 +125,8 @@ export const useVendas = (unidade, metas = [], options = {}) => {
   const itemsPerPage = 10;
 
   // Dados auxiliares extraídos
-  const [responsaveis, setResponsaveis] = useState([]);
-  const [produtos, setProdutos] = useState([]);
+  const [responsaveis, setResponsaveis] = useState(() => memoryDerivedCache.responsaveis || []);
+  const [produtos, setProdutos] = useState(() => memoryDerivedCache.produtos || []);
   const [produtosSelecionados, setProdutosSelecionados] = useState([]);
 
   // Comparativo mês atual x anterior
@@ -118,12 +153,12 @@ export const useVendas = (unidade, metas = [], options = {}) => {
   const deleteAllUnitData = async () => {
     await deleteAllDocumentsFromSubcollection("vendas");
     // ✅ Atualizar estado local: remover vendas da unidade deletada
-    setVendas(prev => {
-      const updated = prev.filter(v => (v._unidadeOriginal || '').toLowerCase() !== unidade.toLowerCase());
-      // Save async em background (não bloqueia setState)
-      cacheUtils.save(updated).catch(() => {});
-      return updated;
-    });
+    const updated = vendas.filter(v => (v._unidadeOriginal || '').toLowerCase() !== unidade.toLowerCase());
+    updateMemoryCache(updated);
+    setVendas(updated);
+    setProdutos(memoryDerivedCache.produtos);
+    setResponsaveis(memoryDerivedCache.responsaveis);
+    cacheUtils.save(updated).catch(() => {});
   };
 
   const updateVenda = async (id, dados) => {
@@ -150,12 +185,12 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       await updateDoc(docRef, dados);
       
       // ✅ OPTIMISTIC UPDATE: Atualizar estado local imediatamente
-      setVendas(prev => {
-        const updated = prev.map(v => v.id === id ? { ...v, ...dados } : v);
-        // Atualizar cache com dados novos (async, não bloqueia)
-        cacheUtils.save(updated).catch(() => {});
-        return updated;
-      });
+      const updated = vendas.map(v => v.id === id ? { ...v, ...dados } : v);
+      updateMemoryCache(updated);
+      setVendas(updated);
+      setProdutos(memoryDerivedCache.produtos);
+      setResponsaveis(memoryDerivedCache.responsaveis);
+      cacheUtils.save(updated).catch(() => {});
       
       setSuccessMessage("Venda atualizada!");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -216,8 +251,11 @@ export const useVendas = (unidade, metas = [], options = {}) => {
         _unidadeOriginal: d.ref.parent.parent.id,
         ...d.data() 
       }));
+      updateMemoryCache(freshData);
       setVendas(freshData);
       cacheUtils.save(freshData).catch(() => {});
+      setProdutos(memoryDerivedCache.produtos);
+      setResponsaveis(memoryDerivedCache.responsaveis);
   
     } catch (err) {
       setError(err.message);
@@ -232,62 +270,71 @@ export const useVendas = (unidade, metas = [], options = {}) => {
     if (!unidade) return;
     isMountedRef.current = true;
     const _t0 = performance.now();
-    console.log(`[PERF] useVendas: start for ${unidade}`);
+    if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useVendas: start for ${unidade}`);
 
     // Função otimizada para processar dados
-    const processData = (data, fromCache = false) => {
+    const processData = (data, source = 'firebase') => {
       if (!isMountedRef.current) return;
-      console.log(`[PERF] useVendas: processData (${fromCache ? 'CACHE' : 'FIREBASE'}) ${data.length} vendas in +${(performance.now()-_t0).toFixed(0)}ms`);
+      if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useVendas: processData (${source.toUpperCase()}) ${data.length} vendas in +${(performance.now()-_t0).toFixed(0)}ms`);
+      updateMemoryCache(data);
       setVendas(data);
+      setProdutos(memoryDerivedCache.produtos);
+      setResponsaveis(memoryDerivedCache.responsaveis);
       setLoading(false);
       lastFetchRef.current = Date.now();
       
-      // Salva no cache apenas se não veio do cache
-      if (!fromCache) {
+      // Salva no cache persistente apenas se não veio da memória/IndexedDB
+      if (source === 'firebase' || source === 'realtime') {
         cacheUtils.save(data).catch(() => {});
       }
 
-      // Extrai produtos e responsáveis de forma otimizada
-      const produtosSet = new Set();
-      const responsaveisSet = new Set();
-      
-      for (let i = 0; i < data.length; i++) {
-        const v = data[i];
-        if (v.produto) produtosSet.add(v.produto.trim());
-        if (v.responsavel) responsaveisSet.add(v.responsavel.trim());
+      if (!localStorage.getItem("produtosSelecionados")) {
+        setProdutosSelecionados(memoryDerivedCache.produtos);
       }
-      
-      const ps = Array.from(produtosSet).sort();
-      const rs = Array.from(responsaveisSet).sort();
-      
-      setProdutos(ps);
-      if (!localStorage.getItem("produtosSelecionados")) setProdutosSelecionados(ps);
-      setResponsaveis(rs);
     };
 
     // ESTRATÉGIA CACHE-FIRST com IndexedDB (async)
     const loadData = async () => {
+      if (hasFreshMemoryCache()) {
+        if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useVendas: memory cache HIT in +${(performance.now()-_t0).toFixed(0)}ms`);
+        processData(memoryCache, 'memory');
+        if (!enableRealtime) {
+          return;
+        }
+      }
+
+      if (memoryCache?.length > 0) {
+        if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useVendas: stale memory cache HIT in +${(performance.now()-_t0).toFixed(0)}ms`);
+        processData(memoryCache, 'memory');
+      }
+
       // 1) Tenta carregar do IndexedDB
       const cached = await cacheUtils.load();
-      console.log(`[PERF] useVendas: cache check: ${cached ? cached.length + ' items' : 'MISS'} in +${(performance.now()-_t0).toFixed(0)}ms`);
+      if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useVendas: cache check: ${cached ? cached.length + ' items' : 'MISS'} in +${(performance.now()-_t0).toFixed(0)}ms`);
       
       if (!isMountedRef.current) return;
 
       if (cached && cached.length > 0) {
-        processData(cached, true);
+        processData(cached, 'indexeddb');
         
         // Background revalidation silenciosa (não bloqueia UI)
         if (!enableRealtime) {
-          console.log(`[PERF] useVendas: starting background revalidation...`);
-          getDocs(collectionGroup(db, "vendas"))
-            .then((snap) => {
-              const data = snap.docs.map((d) => ({ 
+          if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useVendas: starting background revalidation...`);
+          if (!sharedFetchPromise) {
+            sharedFetchPromise = getDocs(collectionGroup(db, "vendas"))
+              .then((snap) => snap.docs.map((d) => ({ 
                 id: d.id, 
                 _unidadeOriginal: d.ref.parent.parent.id,
                 ...d.data() 
-              }));
+              })))
+              .finally(() => {
+                sharedFetchPromise = null;
+              });
+          }
+          sharedFetchPromise
+            .then((data) => {
               if (isMountedRef.current) {
-                processData(data);
+                processData(data, 'firebase');
               }
             })
             .catch(() => {}); // Silencioso - já temos cache
@@ -308,7 +355,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
               _unidadeOriginal: d.ref.parent.parent.id,
               ...d.data() 
             }));
-            processData(data);
+            processData(data, 'realtime');
           },
           (err) => {
             if (isMountedRef.current) {
@@ -320,16 +367,22 @@ export const useVendas = (unidade, metas = [], options = {}) => {
         unsubscribeRef.current = unsub;
       } else {
         // Modo cache-first SEM cache - busca uma vez do Firebase
-        setLoading(true);
-        console.log(`[PERF] useVendas: NO CACHE, fetching from Firebase...`);
-        getDocs(collectionGroup(db, "vendas"))
-          .then((snap) => {
-            const data = snap.docs.map((d) => ({ 
+        if (!cached && !memoryCache?.length) setLoading(true);
+        if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useVendas: NO CACHE, fetching from Firebase...`);
+        if (!sharedFetchPromise) {
+          sharedFetchPromise = getDocs(collectionGroup(db, "vendas"))
+            .then((snap) => snap.docs.map((d) => ({ 
               id: d.id, 
               _unidadeOriginal: d.ref.parent.parent.id,
               ...d.data() 
-            }));
-            processData(data);
+            })))
+            .finally(() => {
+              sharedFetchPromise = null;
+            });
+        }
+        sharedFetchPromise
+          .then((data) => {
+            processData(data, 'firebase');
           })
           .catch((err) => {
             if (isMountedRef.current) {
@@ -355,6 +408,9 @@ export const useVendas = (unidade, metas = [], options = {}) => {
     if (!unidade) return;
     setLoading(true);
     await cacheUtils.clear();
+    memoryCache = null;
+    memoryCacheTimestamp = 0;
+    memoryDerivedCache = { produtos: [], responsaveis: [] };
     
     try {
       const snap = await getDocs(collectionGroup(db, "vendas"));
@@ -364,13 +420,11 @@ export const useVendas = (unidade, metas = [], options = {}) => {
         ...d.data() 
       }));
       
+      updateMemoryCache(data);
       setVendas(data);
       cacheUtils.save(data).catch(() => {});
-      
-      const ps = [...new Set(data.map((v) => v.produto?.trim()).filter(Boolean))].sort();
-      setProdutos(ps);
-      const rs = [...new Set(data.map((v) => v.responsavel?.trim()).filter(Boolean))].sort();
-      setResponsaveis(rs);
+      setProdutos(memoryDerivedCache.produtos);
+      setResponsaveis(memoryDerivedCache.responsaveis);
     } catch (err) {
       setError("Falha ao atualizar: " + err.message);
     } finally {
@@ -401,9 +455,11 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       });
       return filtered.reduce((s, v) => s + Number(v.valor || 0), 0);
     };
-    setTotalCurrent(sum(cur));
-    setTotalPrevious(sum(prev));
-    setPercentChange(prev && sum(prev) > 0 ? ((sum(cur) - sum(prev)) / sum(prev)) * 100 : 0);
+    const totalCur = sum(cur);
+    const totalPrev = sum(prev);
+    setTotalCurrent(totalCur);
+    setTotalPrevious(totalPrev);
+    setPercentChange(totalPrev > 0 ? ((totalCur - totalPrev) / totalPrev) * 100 : 0);
   }, [vendasAgrupadas, selectedMonth]);
 
   // ——————————————————————————————————————————————————————————————
@@ -483,7 +539,6 @@ export const useVendas = (unidade, metas = [], options = {}) => {
     startDate,
     endDate,
     selectedMonth,
-    produtosSelecionados,
     responsaveisOficiais,
   ]);
   
@@ -609,6 +664,11 @@ export const useVendas = (unidade, metas = [], options = {}) => {
     updateVenda,
     deleteAllUnitData,
     refreshVendas, // Nova função para forçar refresh
-    clearCache: cacheUtils.clear, // Limpar cache manualmente
+    clearCache: async () => {
+      memoryCache = null;
+      memoryCacheTimestamp = 0;
+      memoryDerivedCache = { produtos: [], responsaveis: [] };
+      await cacheUtils.clear();
+    }, // Limpar cache manualmente
   };
 };

@@ -53,17 +53,17 @@
     --white: #1e293b;
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
-    --border-color: #374151;
+    --border-color: var(--border);
     --border-input: #4b5563;
     --border-hover: #6b7280;
     --border-focus: #60a5fa;
-    --bg-color: #0f172a;
+    --bg-color: var(--text-primary);
     --bg-secondary: #1e293b;
     --bg-hover: #334155;
     --card-bg: #1e293b;
     --input-bg: #334155;
     --input-focus-bg: #475569;
-    --text-color: #f1f5f9;
+    --text-color: var(--text-primary);
     --text-secondary: #e2e8f0;
     --text-light: #94a3b8;
     --text-muted: #64748b;
@@ -1486,7 +1486,7 @@
     margin-top: 2rem;
     padding: 1.5rem;
     background: linear-gradient(135deg, #fafbff 0%, #f8fafc 100%);
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border);
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   }
@@ -1518,7 +1518,7 @@
     align-items: center;
     padding: 1rem 1.25rem;
     background: var(--white);
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border);
     border-radius: 8px;
     transition: all 0.2s ease;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -1826,7 +1826,7 @@
   }
 
   .email-btn {
-    background: #3b82f6;
+    background: var(--primary);
     color: white;
   }
 

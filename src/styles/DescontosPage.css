@@ -52,13 +52,13 @@
   }
   
   .descontos-subtitle {
-    color: #64748b;
+    color: var(--text-secondary);
     font-size: 1rem;
     font-weight: 500;
   }
   
   .navbar.dark ~ .descontos-page .descontos-subtitle {
-    color: #94a3b8;
+    color: var(--text-secondary);
   }
   
   .descontos-header-controls {
@@ -93,7 +93,7 @@
       0 4px 6px -1px rgba(0, 0, 0, 0.2),
       0 2px 4px -1px rgba(0, 0, 0, 0.1),
       0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-    color: #f1f5f9;
+    color: var(--text-primary);
   }
   
   .descontos-card::before {
@@ -139,11 +139,11 @@
     margin-bottom: 1.5rem;
     font-size: 1.25rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--text-primary);
   }
   
   .navbar.dark ~ .descontos-page .upload-title {
-    color: #f1f5f9;
+    color: var(--text-primary);
   }
   
   .upload-grid {
@@ -188,7 +188,7 @@
   }
   
   .upload-dropzone:hover {
-    border-color: #3b82f6;
+    border-color: var(--primary);
     background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
     transform: scale(1.02);
   }
@@ -204,16 +204,16 @@
   
   .upload-icon {
     margin: 0 auto 1rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     transition: color 0.3s ease;
   }
   
   .navbar.dark ~ .descontos-page .upload-icon {
-    color: #64748b;
+    color: var(--text-secondary);
   }
   
   .upload-dropzone:hover .upload-icon {
-    color: #3b82f6;
+    color: var(--primary);
   }
   
   .navbar.dark ~ .descontos-page .upload-dropzone:hover .upload-icon {
@@ -252,7 +252,7 @@
   
   .navbar.dark ~ .descontos-page .file-preview {
     background: linear-gradient(135deg, #1e40af 0%, #3730a3 100%);
-    border-color: #3b82f6;
+    border-color: var(--primary);
   }
   
   .file-info {
@@ -278,7 +278,7 @@
   }
   
   .file-remove {
-    color: #3b82f6;
+    color: var(--primary);
     background: none;
     border: none;
     cursor: pointer;
@@ -306,7 +306,7 @@
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 0.75rem;
     padding: 1rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border);
   }
   
   .navbar.dark ~ .descontos-page .expected-structure {
@@ -317,12 +317,12 @@
   .structure-title {
     font-size: 1.125rem;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text-primary);
     margin-bottom: 0.75rem;
   }
   
   .navbar.dark ~ .descontos-page .structure-title {
-    color: #f1f5f9;
+    color: var(--text-primary);
   }
   
   .structure-grid {
@@ -333,21 +333,21 @@
   }
   
   .structure-label {
-    color: #64748b;
+    color: var(--text-secondary);
     font-weight: 500;
   }
   
   .navbar.dark ~ .descontos-page .structure-label {
-    color: #94a3b8;
+    color: var(--text-secondary);
   }
   
   .structure-example {
-    color: #1e293b;
+    color: var(--text-primary);
     font-weight: 600;
   }
   
   .navbar.dark ~ .descontos-page .structure-example {
-    color: #f1f5f9;
+    color: var(--text-primary);
   }
   
   .structure-note {
@@ -418,28 +418,28 @@
   }
   
   .view-button:not(.active) {
-    background: white;
-    color: #64748b;
-    border-color: #e2e8f0;
+    background: var(--card);
+    color: var(--text-secondary);
+    border-color: var(--border);
   }
   
   .navbar.dark ~ .descontos-page .view-button:not(.active) {
     background: #1e293b;
-    color: #94a3b8;
+    color: var(--text-secondary);
     border-color: #475569;
   }
   
   .view-button:not(.active):hover {
-    background: #f8fafc;
-    color: #374151;
+    background: var(--background);
+    color: var(--text-primary);
     border-color: #d1d5db;
     transform: translateY(-1px);
   }
   
   .navbar.dark ~ .descontos-page .view-button:not(.active):hover {
     background: #334155;
-    color: #e2e8f0;
-    border-color: #64748b;
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
   }
   
   /* Cards de estatísticas */
@@ -464,7 +464,7 @@
   .navbar.dark ~ .descontos-page .stat-card {
     background: rgba(30, 41, 59, 0.95);
     border-color: rgba(51, 65, 85, 0.5);
-    color: #f1f5f9;
+    color: var(--text-primary);
   }
   
   .stat-card::before {
@@ -496,14 +496,14 @@
   .stat-info h3 {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--text-secondary);
     margin-bottom: 0.5rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
   
   .navbar.dark ~ .descontos-page .stat-info h3 {
-    color: #94a3b8;
+    color: var(--text-secondary);
   }
   
   .stat-value {
@@ -515,11 +515,11 @@
   
   .stat-description {
     font-size: 0.875rem;
-    color: #64748b;
+    color: var(--text-secondary);
   }
   
   .navbar.dark ~ .descontos-page .stat-description {
-    color: #94a3b8;
+    color: var(--text-secondary);
   }
   
   .stat-icon {
@@ -535,7 +535,7 @@
   
   /* Variações de cores para stats */
   .stat-card.blue {
-    --stat-color: #3b82f6;
+    --stat-color: var(--primary);
     --stat-bg: #dbeafe;
   }
   
@@ -584,11 +584,11 @@
   .table-title {
     font-size: 1.125rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--text-primary);
   }
   
   .navbar.dark ~ .descontos-page .table-title {
-    color: #f1f5f9;
+    color: var(--text-primary);
   }
   
   .table-wrapper {
@@ -603,12 +603,12 @@
   }
   
   .descontos-table th {
-    background: #f8fafc;
+    background: var(--background);
     padding: 0.75rem 1.5rem;
     text-align: left;
     font-size: 0.75rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     border-bottom: 1px solid #e2e8f0;
@@ -619,7 +619,7 @@
   
   .navbar.dark ~ .descontos-page .descontos-table th {
     background: #1e293b;
-    color: #94a3b8;
+    color: var(--text-secondary);
     border-bottom-color: #334155;
   }
   
@@ -640,7 +640,7 @@
   
   .navbar.dark ~ .descontos-page .descontos-table td {
     border-bottom-color: #334155;
-    color: #e2e8f0;
+    color: var(--text-primary);
   }
   
   .descontos-table tr {
@@ -711,11 +711,11 @@
     margin-bottom: 1rem;
     font-size: 1.125rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--text-primary);
   }
   
   .navbar.dark ~ .descontos-page .filters-title {
-    color: #f1f5f9;
+    color: var(--text-primary);
   }
   
   .filters-grid {
@@ -729,36 +729,36 @@
     display: block;
     font-size: 0.875rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-primary);
     margin-bottom: 0.5rem;
   }
   
   .navbar.dark ~ .descontos-page .filter-group label {
-    color: #e2e8f0;
+    color: var(--text-primary);
   }
   
   .filter-input,
   .filter-select {
     width: 100%;
     padding: 0.75rem;
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--border);
     border-radius: 0.5rem;
     font-size: 0.875rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    background: white;
+    background: var(--card);
   }
   
   .navbar.dark ~ .descontos-page .filter-input,
   .navbar.dark ~ .descontos-page .filter-select {
     background: #1e293b;
     border-color: #475569;
-    color: #f1f5f9;
+    color: var(--text-primary);
   }
   
   .filter-input:focus,
   .filter-select:focus {
     outline: none;
-    border-color: #3b82f6;
+    border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     transform: translateY(-1px);
   }
@@ -772,10 +772,10 @@
   
   .filter-button {
     padding: 0.75rem 1rem;
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--border);
     border-radius: 0.5rem;
-    background: white;
-    color: #64748b;
+    background: var(--card);
+    color: var(--text-secondary);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -784,31 +784,31 @@
   .navbar.dark ~ .descontos-page .filter-button {
     background: #1e293b;
     border-color: #475569;
-    color: #94a3b8;
+    color: var(--text-secondary);
   }
   
   .filter-button:hover {
     border-color: #d1d5db;
-    background: #f9fafb;
+    background: var(--background);
     transform: translateY(-1px);
   }
   
   .navbar.dark ~ .descontos-page .filter-button:hover {
     background: #334155;
-    border-color: #64748b;
-    color: #e2e8f0;
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
   }
   
   .results-count {
     font-size: 0.875rem;
-    color: #64748b;
+    color: var(--text-secondary);
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
   
   .navbar.dark ~ .descontos-page .results-count {
-    color: #94a3b8;
+    color: var(--text-secondary);
   }
   
   /* Paginação */
@@ -828,11 +828,11 @@
   
   .pagination-info {
     font-size: 0.875rem;
-    color: #64748b;
+    color: var(--text-secondary);
   }
   
   .navbar.dark ~ .descontos-page .pagination-info {
-    color: #94a3b8;
+    color: var(--text-secondary);
   }
   
   .pagination-controls {
@@ -842,10 +842,10 @@
   
   .pagination-button {
     padding: 0.5rem 0.75rem;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border);
     border-radius: 0.375rem;
-    background: white;
-    color: #374151;
+    background: var(--card);
+    color: var(--text-primary);
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -854,17 +854,17 @@
   .navbar.dark ~ .descontos-page .pagination-button {
     background: #1e293b;
     border-color: #475569;
-    color: #e2e8f0;
+    color: var(--text-primary);
   }
   
   .pagination-button:hover:not(:disabled) {
-    background: #f9fafb;
+    background: var(--background);
     border-color: #d1d5db;
   }
   
   .navbar.dark ~ .descontos-page .pagination-button:hover:not(:disabled) {
     background: #334155;
-    border-color: #64748b;
+    border-color: var(--text-secondary);
   }
   
   .pagination-button:disabled {
@@ -1186,11 +1186,11 @@
   /* Estilos para dados específicos nas tabelas */
   .consultor-name {
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text-primary);
   }
   
   .navbar.dark ~ .descontos-page .consultor-name {
-    color: #f1f5f9;
+    color: var(--text-primary);
   }
   
   .valor-positivo {
@@ -1213,12 +1213,12 @@
   
   .meta-info {
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-secondary);
     font-weight: 500;
   }
   
   .navbar.dark ~ .descontos-page .meta-info {
-    color: #94a3b8;
+    color: var(--text-secondary);
   }
   
   /* Estados especiais para uploads */
@@ -1266,12 +1266,12 @@
   @media print {
     .descontos-page {
       margin-left: 0;
-      background: white;
+      background: var(--card);
       color: black;
     }
     
     .descontos-card {
-      background: white;
+      background: var(--card);
       border: 1px solid #000;
       box-shadow: none;
     }
@@ -1327,7 +1327,7 @@
 .navbar.dark ~ .descontos-page .consultor-card {
   background: rgba(30, 41, 59, 0.95);
   border: 1px solid rgba(51, 65, 85, 0.5);
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
 .consultor-card:hover {
@@ -1376,7 +1376,7 @@
 .consultor-details h3 {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.2;
   max-width: 200px;
@@ -1386,17 +1386,17 @@
 }
 
 .navbar.dark ~ .descontos-page .consultor-details h3 {
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
 .consultor-details p {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--text-secondary);
   margin: 0.25rem 0 0 0;
 }
 
 .navbar.dark ~ .descontos-page .consultor-details p {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .consultor-summary {
@@ -1412,25 +1412,25 @@
 
 .consultor-summary-label {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-secondary);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .navbar.dark ~ .descontos-page .consultor-summary-label {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .consultor-summary-value {
   font-size: 1.5rem;
   font-weight: 800;
-  color: #3b82f6;
+  color: var(--primary);
   line-height: 1;
 }
 
 .planos-table {
-  background: white;
+  background: var(--card);
 }
 
 .navbar.dark ~ .descontos-page .planos-table {
@@ -1442,7 +1442,7 @@
   grid-template-columns: 2fr 1fr 1fr;
   gap: 1rem;
   padding: 1rem 1.5rem;
-  background: #f8fafc;
+  background: var(--background);
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -1457,13 +1457,13 @@
   gap: 0.5rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .navbar.dark ~ .descontos-page .planos-table-header-cell {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .planos-table-header-cell.center {
@@ -1499,13 +1499,13 @@
 .plano-tipo {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
 }
 
 .navbar.dark ~ .descontos-page .plano-tipo {
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
 .plano-count {
@@ -1532,7 +1532,7 @@
 
 .plano-count.zero {
   background: #f1f5f9;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .navbar.dark ~ .descontos-page .plano-count.com-desconto {
@@ -1547,7 +1547,7 @@
 
 .navbar.dark ~ .descontos-page .plano-count.zero {
   background: #334155;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .consultor-footer {
@@ -1592,12 +1592,12 @@
   align-items: center;
   gap: 0.25rem;
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .navbar.dark ~ .descontos-page .footer-stat-label {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .footer-stat-value {
@@ -1646,12 +1646,12 @@
 
 .pagination-info {
   font-size: 0.875rem;
-  color: #64748b;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .navbar.dark ~ .descontos-page .pagination-info {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .pagination-buttons {
@@ -1661,10 +1661,10 @@
 
 .pagination-button {
   padding: 0.5rem 1rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
-  background: white;
-  color: #374151;
+  background: var(--card);
+  color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -1674,18 +1674,18 @@
 .navbar.dark ~ .descontos-page .pagination-button {
   background: #1e293b;
   border-color: #475569;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .pagination-button:hover:not(:disabled) {
-  background: #f9fafb;
+  background: var(--background);
   border-color: #d1d5db;
   transform: translateY(-1px);
 }
 
 .navbar.dark ~ .descontos-page .pagination-button:hover:not(:disabled) {
   background: #334155;
-  border-color: #64748b;
+  border-color: var(--text-secondary);
 }
 
 .pagination-button:disabled {
@@ -1703,7 +1703,7 @@
 
 .navbar.dark ~ .descontos-page .table-cell {
   border-bottom-color: #334155;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .table-row {
@@ -1720,21 +1720,21 @@
 
 .cell-primary {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-primary);
   margin-bottom: 0.25rem;
 }
 
 .navbar.dark ~ .descontos-page .cell-primary {
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
 .cell-secondary {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .navbar.dark ~ .descontos-page .cell-secondary {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .discount-value {
@@ -1745,20 +1745,20 @@
 
 .discount-details {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .navbar.dark ~ .descontos-page .discount-details {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .no-discount {
-  color: #64748b;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .navbar.dark ~ .descontos-page .no-discount {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .full-value {
@@ -1803,12 +1803,12 @@
 
 .date-cell {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .navbar.dark ~ .descontos-page .date-cell {
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 /* Shimmer animation for export button */
@@ -1897,7 +1897,7 @@
   }
   
   .descontos-subtitle {
-    color: #64748b;
+    color: var(--text-secondary);
     font-size: 1rem;
     font-weight: 500;
   }
@@ -1963,7 +1963,7 @@
     margin-bottom: 1.5rem;
     font-size: 1.25rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--text-primary);
   }
   
   .upload-grid {
@@ -2003,7 +2003,7 @@
   }
   
   .upload-dropzone:hover {
-    border-color: #3b82f6;
+    border-color: var(--primary);
     background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
     transform: scale(1.02);
   }
@@ -2014,12 +2014,12 @@
   
   .upload-icon {
     margin: 0 auto 1rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     transition: color 0.3s ease;
   }
   
   .upload-dropzone:hover .upload-icon {
-    color: #3b82f6;
+    color: var(--primary);
   }
   
   .upload-button {
@@ -2071,7 +2071,7 @@
   }
   
   .file-remove {
-    color: #3b82f6;
+    color: var(--primary);
     background: none;
     border: none;
     cursor: pointer;
@@ -2090,13 +2090,13 @@
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border-radius: 0.75rem;
     padding: 1rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border);
   }
   
   .structure-title {
     font-size: 1.125rem;
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text-primary);
     margin-bottom: 0.75rem;
   }
   
@@ -2108,12 +2108,12 @@
   }
   
   .structure-label {
-    color: #64748b;
+    color: var(--text-secondary);
     font-weight: 500;
   }
   
   .structure-example {
-    color: #1e293b;
+    color: var(--text-primary);
     font-weight: 600;
   }
   
@@ -2174,14 +2174,14 @@
   }
   
   .view-button:not(.active) {
-    background: white;
-    color: #64748b;
-    border-color: #e2e8f0;
+    background: var(--card);
+    color: var(--text-secondary);
+    border-color: var(--border);
   }
   
   .view-button:not(.active):hover {
-    background: #f8fafc;
-    color: #374151;
+    background: var(--background);
+    color: var(--text-primary);
     border-color: #d1d5db;
     transform: translateY(-1px);
   }
@@ -2230,7 +2230,7 @@
   .stat-info h3 {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--text-secondary);
     margin-bottom: 0.5rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -2245,7 +2245,7 @@
   
   .stat-description {
     font-size: 0.875rem;
-    color: #64748b;
+    color: var(--text-secondary);
   }
   
   .stat-icon {
@@ -2261,7 +2261,7 @@
   
   /* Variações de cores para stats */
   .stat-card.blue {
-    --stat-color: #3b82f6;
+    --stat-color: var(--primary);
     --stat-bg: #dbeafe;
   }
   
@@ -2313,13 +2313,13 @@
   /* Células da tabela */
   .cell-primary {
     font-weight: 600;
-    color: #1e293b;
+    color: var(--text-primary);
     margin-bottom: 0.25rem;
   }
   
   .cell-secondary {
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-secondary);
     font-weight: 400;
   }
   
@@ -2331,7 +2331,7 @@
   
   .discount-details {
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-secondary);
     font-weight: 400;
   }
   
@@ -2341,7 +2341,7 @@
   }
   
   .no-discount {
-    color: #9ca3af;
+    color: var(--text-secondary);
     font-style: italic;
   }
   
@@ -2368,7 +2368,7 @@
   
   .date-cell {
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-secondary);
     font-weight: 500;
   }
   
@@ -2388,7 +2388,7 @@
     margin-bottom: 1rem;
     font-size: 1.125rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--text-primary);
   }
   
   .filters-grid {
@@ -2402,7 +2402,7 @@
     display: block;
     font-size: 0.875rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-primary);
     margin-bottom: 0.5rem;
   }
   
@@ -2410,17 +2410,17 @@
   .filter-select {
     width: 100%;
     padding: 0.75rem;
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--border);
     border-radius: 0.5rem;
     font-size: 0.875rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    background: white;
+    background: var(--card);
   }
   
   .filter-input:focus,
   .filter-select:focus {
     outline: none;
-    border-color: #3b82f6;
+    border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     transform: translateY(-1px);
   }
@@ -2434,10 +2434,10 @@
   
   .filter-button {
     padding: 0.75rem 1rem;
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--border);
     border-radius: 0.5rem;
-    background: white;
-    color: #64748b;
+    background: var(--card);
+    color: var(--text-secondary);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2445,13 +2445,13 @@
   
   .filter-button:hover {
     border-color: #d1d5db;
-    background: #f9fafb;
+    background: var(--background);
     transform: translateY(-1px);
   }
   
   .results-count {
     font-size: 0.875rem;
-    color: #64748b;
+    color: var(--text-secondary);
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -2469,7 +2469,7 @@
   
   .pagination-info {
     font-size: 0.875rem;
-    color: #64748b;
+    color: var(--text-secondary);
   }
   
   .pagination-controls {
@@ -2479,17 +2479,17 @@
   
   .pagination-button {
     padding: 0.5rem 0.75rem;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border);
     border-radius: 0.375rem;
-    background: white;
-    color: #374151;
+    background: var(--card);
+    color: var(--text-primary);
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.2s ease;
   }
   
   .pagination-button:hover:not(:disabled) {
-    background: #f9fafb;
+    background: var(--background);
     border-color: #d1d5db;
   }
   
@@ -2656,7 +2656,7 @@
     .descontos-card {
       background: rgba(30, 41, 59, 0.95);
       border-color: rgba(51, 65, 85, 0.5);
-      color: #f1f5f9;
+      color: var(--text-primary);
     }
     
     .descontos-title {
@@ -2667,7 +2667,7 @@
     }
     
     .descontos-subtitle {
-      color: #94a3b8;
+      color: var(--text-secondary);
     }
   }
   
@@ -2805,15 +2805,15 @@
   
   /* Utilitários de cores */
   .text-gray-600 {
-    color: #4b5563;
+    color: var(--text-secondary);
   }
   
   .text-gray-700 {
-    color: #374151;
+    color: var(--text-primary);
   }
   
   .text-gray-900 {
-    color: #111827;
+    color: var(--text-primary);
   }
   
   .text-blue-600 {
@@ -2830,7 +2830,7 @@
   
   /* Dark mode versions */
   .navbar.dark ~ .descontos-page .text-gray-600 {
-    color: #9ca3af;
+    color: var(--text-secondary);
   }
   
   .navbar.dark ~ .descontos-page .text-gray-700 {
@@ -2838,16 +2838,16 @@
   }
   
   .navbar.dark ~ .descontos-page .text-gray-900 {
-    color: #f9fafb;
+    color: var(--text-primary);
   }
   
   /* Utilitários de background */
   .bg-white {
-    background-color: white;
+    background-color: var(--card);
   }
   
   .bg-gray-50 {
-    background-color: #f9fafb;
+    background-color: var(--text-primary);
   }
   
   .bg-blue-50 {
@@ -2864,11 +2864,11 @@
   
   /* Dark mode backgrounds */
   .navbar.dark ~ .descontos-page .bg-white {
-    background-color: #1e293b;
+    background-color: var(--text-primary);
   }
   
   .navbar.dark ~ .descontos-page .bg-gray-50 {
-    background-color: #0f172a;
+    background-color: var(--text-primary);
   }
   
   .navbar.dark ~ .descontos-page .bg-blue-50 {
@@ -2889,7 +2889,7 @@
   }
   
   .border-gray-200 {
-    border-color: #e5e7eb;
+    border-color: var(--border);
   }
   
   .border-gray-300 {
@@ -2906,11 +2906,11 @@
   
   /* Dark mode borders */
   .navbar.dark ~ .descontos-page .border-gray-200 {
-    border-color: #374151;
+    border-color: var(--border);
   }
   
   .navbar.dark ~ .descontos-page .border-gray-300 {
-    border-color: #4b5563;
+    border-color: var(--text-secondary);
   }
   
   /* Utilitários de shadow */
@@ -3000,8 +3000,8 @@
   .font-bold { font-weight: 700; }
   
   /* Colors */
-  .text-gray-400 { color: #9ca3af; }
-  .text-gray-600 { color: #4b5563; }
+  .text-gray-400 { color: var(--text-secondary); }
+  .text-gray-600 { color: var(--text-secondary); }
   .text-blue-600 { color: #2563eb; }
   .text-green-600 { color: #16a34a; }
   .text-orange-600 { color: #ea580c; }
@@ -3009,8 +3009,8 @@
   .text-red-600 { color: #dc2626; }
   
   /* Dark mode text colors */
-  .navbar.dark ~ .descontos-page .text-gray-400 { color: #6b7280; }
-  .navbar.dark ~ .descontos-page .text-gray-600 { color: #9ca3af; }
+  .navbar.dark ~ .descontos-page .text-gray-400 { color: var(--text-secondary); }
+  .navbar.dark ~ .descontos-page .text-gray-600 { color: var(--text-secondary); }
   
   /* Spacing utilities */
   .mt-2 { margin-top: 0.5rem; }
@@ -3022,11 +3022,11 @@
   /* Border utilities */
   .border { border-width: 1px; }
   .border-t { border-top-width: 1px; }
-  .border-gray-200 { border-color: #e5e7eb; }
+  .border-gray-200 { border-color: var(--border); }
   .border-red-200 { border-color: #fecaca; }
   
   /* Dark mode borders */
-  .navbar.dark ~ .descontos-page .border-gray-200 { border-color: #374151; }
+  .navbar.dark ~ .descontos-page .border-gray-200 { border-color: var(--border); }
   .navbar.dark ~ .descontos-page .border-red-200 { border-color: #dc2626; }
   
   /* Background utilities */
@@ -3151,15 +3151,15 @@
   
   /* Utilitários de cores */
   .text-gray-600 {
-    color: #4b5563;
+    color: var(--text-secondary);
   }
   
   .text-gray-700 {
-    color: #374151;
+    color: var(--text-primary);
   }
   
   .text-gray-900 {
-    color: #111827;
+    color: var(--text-primary);
   }
   
   .text-blue-600 {
@@ -3176,7 +3176,7 @@
   
   /* Dark mode versions */
   .navbar.dark ~ .descontos-page .text-gray-600 {
-    color: #9ca3af;
+    color: var(--text-secondary);
   }
   
   .navbar.dark ~ .descontos-page .text-gray-700 {
@@ -3184,16 +3184,16 @@
   }
   
   .navbar.dark ~ .descontos-page .text-gray-900 {
-    color: #f9fafb;
+    color: var(--text-primary);
   }
   
   /* Utilitários de background */
   .bg-white {
-    background-color: white;
+    background-color: var(--card);
   }
   
   .bg-gray-50 {
-    background-color: #f9fafb;
+    background-color: var(--text-primary);
   }
   
   .bg-blue-50 {
@@ -3210,11 +3210,11 @@
   
   /* Dark mode backgrounds */
   .navbar.dark ~ .descontos-page .bg-white {
-    background-color: #1e293b;
+    background-color: var(--text-primary);
   }
   
   .navbar.dark ~ .descontos-page .bg-gray-50 {
-    background-color: #0f172a;
+    background-color: var(--text-primary);
   }
   
   .navbar.dark ~ .descontos-page .bg-blue-50 {
@@ -3235,7 +3235,7 @@
   }
   
   .border-gray-200 {
-    border-color: #e5e7eb;
+    border-color: var(--border);
   }
   
   .border-gray-300 {
@@ -3252,11 +3252,11 @@
   
   /* Dark mode borders */
   .navbar.dark ~ .descontos-page .border-gray-200 {
-    border-color: #374151;
+    border-color: var(--border);
   }
   
   .navbar.dark ~ .descontos-page .border-gray-300 {
-    border-color: #4b5563;
+    border-color: var(--text-secondary);
   }
   
   /* Utilitários de shadow */

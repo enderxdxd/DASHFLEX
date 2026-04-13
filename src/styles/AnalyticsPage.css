@@ -1359,12 +1359,12 @@
 /* Print styles */
 @media print {
   .dashboard-container {
-    background: white;
+    background: var(--card);
     height: auto;
   }
   
   .header {
-    background: white;
+    background: var(--card);
     border-bottom: 1px solid #ccc;
     box-shadow: none;
     position: static;
@@ -1380,7 +1380,7 @@
   .kpi-card,
   .chart-container,
   .details-container {
-    background: white;
+    background: var(--card);
     border: 1px solid #ccc;
     box-shadow: none;
     page-break-inside: avoid;

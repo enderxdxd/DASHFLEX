@@ -41,15 +41,38 @@ const cacheUtils = {
   clear: (unidade) => localStorage.removeItem(cacheUtils.getKey(unidade))
 };
 
+const metasMemoryCache = new Map();
+
+const getFreshMemoryMetas = (unidade) => {
+  const key = unidade?.toLowerCase() || 'default';
+  const cached = metasMemoryCache.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.timestamp > CACHE_TTL) {
+    metasMemoryCache.delete(key);
+    return null;
+  }
+  return cached.data;
+};
+
+const saveMemoryMetas = (unidade, data) => {
+  const key = unidade?.toLowerCase() || 'default';
+  metasMemoryCache.set(key, {
+    data,
+    timestamp: Date.now()
+  });
+};
+
 export const useMetas = (unidade, options = {}) => {
   // OTIMIZAÇÃO: Realtime desabilitado por padrão para melhor performance
   const { enableRealtime = false } = options;
   
   const [metas, setMetas] = useState(() => {
+    const memoryCached = getFreshMemoryMetas(unidade);
+    if (memoryCached) return memoryCached;
     const cached = cacheUtils.load(unidade);
     return cached || [];
   });
-  const [loading, setLoading] = useState(() => !cacheUtils.load(unidade));
+  const [loading, setLoading] = useState(() => !getFreshMemoryMetas(unidade) && !cacheUtils.load(unidade));
   const [error, setError] = useState("");
   const [responsaveisOficiais, setResponsaveisOficiais] = useState([]);
   const isMountedRef = useRef(true);
@@ -60,11 +83,22 @@ export const useMetas = (unidade, options = {}) => {
     if (!unidade) return;
     isMountedRef.current = true;
     const _t0 = performance.now();
-    console.log(`[PERF] useMetas: start for ${unidade}`);
+    if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useMetas: start for ${unidade}`);
     
     // Tenta carregar do cache primeiro
+    const memoryCached = getFreshMemoryMetas(unidade);
+    if (memoryCached && memoryCached.length > 0) {
+      setMetas(memoryCached);
+      setLoading(false);
+      const oficiais = memoryCached.map((m) => (m.responsavel || '').trim().toLowerCase());
+      setResponsaveisOficiais(oficiais);
+      if (!enableRealtime) {
+        return;
+      }
+    }
+
     const cached = cacheUtils.load(unidade);
-    console.log(`[PERF] useMetas: cache check: ${cached ? cached.length + ' items' : 'MISS'} in +${(performance.now()-_t0).toFixed(0)}ms`);
+    if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useMetas: cache check: ${cached ? cached.length + ' items' : 'MISS'} in +${(performance.now()-_t0).toFixed(0)}ms`);
     if (cached && cached.length > 0) {
       setMetas(cached);
       setLoading(false);
@@ -74,8 +108,9 @@ export const useMetas = (unidade, options = {}) => {
 
     const processData = (metasData) => {
       if (!isMountedRef.current) return;
-      console.log(`[PERF] useMetas: processData ${metasData.length} metas in +${(performance.now()-_t0).toFixed(0)}ms`);
+      if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useMetas: processData ${metasData.length} metas in +${(performance.now()-_t0).toFixed(0)}ms`);
       setMetas(metasData);
+      saveMemoryMetas(unidade, metasData);
       cacheUtils.save(unidade, metasData);
       
       const oficiais = metasData.map((m) => (m.responsavel || '').trim().toLowerCase());
@@ -144,6 +179,7 @@ export const useMetas = (unidade, options = {}) => {
     if (!unidade) return;
     setLoading(true);
     cacheUtils.clear(unidade);
+    metasMemoryCache.delete(unidade?.toLowerCase() || 'default');
     
     try {
       const metasRef = collection(db, "faturamento", unidade.toLowerCase(), "metas");
@@ -154,6 +190,7 @@ export const useMetas = (unidade, options = {}) => {
       }));
       
       setMetas(metasData);
+      saveMemoryMetas(unidade, metasData);
       cacheUtils.save(unidade, metasData);
       
       const oficiais = metasData.map((m) => (m.responsavel || '').trim().toLowerCase());
@@ -173,7 +210,10 @@ export const useMetas = (unidade, options = {}) => {
     error,
     responsaveisOficiais,
     refreshMetas,
-    clearCache: () => cacheUtils.clear(unidade)
+    clearCache: () => {
+      metasMemoryCache.delete(unidade?.toLowerCase() || 'default');
+      cacheUtils.clear(unidade);
+    }
   };
 };
 

@@ -12,8 +12,6 @@ import {
   FileText,
   File
 } from 'lucide-react';
-import useDarkMode from '../../hooks/useDarkMode';
-
 const ComissaoFilters = ({
   unidadeSelecionada,
   setUnidadeSelecionada,
@@ -34,7 +32,6 @@ const ComissaoFilters = ({
   gerandoPDF = false,
   progressoPDF = { porcentagem: 0, mensagem: '' }
 }) => {
-  const [theme] = useDarkMode();
   const unidades = ['alphaville', 'buenavista', 'marista', 'palmas'];
   
   const tiposFiltro = [
@@ -47,7 +44,7 @@ const ComissaoFilters = ({
   ];
 
   return (
-    <div className={`comissao-filters ${theme === 'light' ? 'light-mode' : 'dark-mode'}`}>
+    <div className="comissao-filters">
       <div className="filters-header">
         <div className="filters-title">
           <Filter size={20} />

@@ -1,12 +1,9 @@
 import React from "react";
-import dayjs from "dayjs";
+import { Home, Users, XCircle, TrendingUp, TrendingDown } from "lucide-react";
 
 function MetricCards({
-  // Novos dados de faturamento separados
   faturamentoUnidade,
   faturamentoConsultores,
-  
-  // Métricas existentes
   countAtual,
   countAnterior,
   pctVendas,
@@ -15,12 +12,9 @@ function MetricCards({
   pctMedia,
   selectedMonth,
   pctConsultoresBatendoMeta,
-  
-  // Card de produtos excluídos
   metricasExcluidas,
   produtosSelecionados
 }) {
-  // Formata o valor monetário com verificação de segurança
   const formatMoney = (value) => {
     const numValue = Number(value) || 0;
     return new Intl.NumberFormat('pt-BR', {
@@ -29,359 +23,328 @@ function MetricCards({
     }).format(numValue);
   };
 
-  // Formata percentual com verificação de segurança
-  const formatPercent = (value) => {
-    const numValue = Number(value) || 0;
-    const isPositive = numValue >= 0;
-    return {
-      value: Math.abs(numValue).toFixed(1),
-      isPositive,
-      icon: isPositive ? '↗' : '↘'
-    };
+  const pctOf = (current, goal) => {
+    const c = Number(current) || 0;
+    const g = Number(goal) || 1;
+    return ((c / g) * 100).toFixed(1);
   };
 
-  // Valores seguros com fallbacks
-  const safeCountAtual = Number(countAtual) || 0;
-  const safePctVendas = Number(pctVendas) || 0;
-  const safeMediaAtual = Number(mediaAtual) || 0;
-  const safePctMedia = Number(pctMedia) || 0;
-
-  // Mostra o card de produtos excluídos se houver produtos selecionados ou valores excluídos
   const shouldShowExcludedCard = produtosSelecionados?.length > 0 || (metricasExcluidas?.valor || 0) > 0;
 
+  const cards = [
+    {
+      key: 'unidade',
+      icon: Home,
+      accent: 'var(--primary)',
+      accentBg: 'var(--primary-light)',
+      title: 'Faturamento da Unidade',
+      subtitle: 'Vendas realizadas na unidade',
+      value: faturamentoUnidade?.totalAtual || 0,
+      meta: faturamentoUnidade?.meta || 0,
+      pct: pctOf(faturamentoUnidade?.totalAtual, faturamentoUnidade?.meta),
+      change: faturamentoUnidade?.percentChange || 0,
+    },
+    {
+      key: 'consultores',
+      icon: Users,
+      accent: 'var(--secondary)',
+      accentBg: 'var(--secondary-light)',
+      title: 'Faturamento dos Consultores',
+      subtitle: 'Total vendido pelos consultores',
+      value: faturamentoConsultores?.totalAtual || 0,
+      meta: faturamentoConsultores?.meta || 0,
+      pct: pctOf(faturamentoConsultores?.totalAtual, faturamentoConsultores?.meta),
+      change: faturamentoConsultores?.percentChange || 0,
+    },
+  ];
+
   return (
-    <div className="metrics-container">
-      <div className="metrics-grid">
-        {/* Card 1: Faturamento DA UNIDADE */}
-        <div className="metric-card primary-card">
-          <div className="card-header">
-            <div className="icon-container primary-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M9 22V12H15V22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <div className="card-title">
-              <h3>Faturamento da Unidade</h3>
-              <p>Vendas realizadas na unidade</p>
-            </div>
-          </div>
-          <div className="card-content">
-            <div style={{ marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                {((faturamentoUnidade?.totalAtual || 0) / (faturamentoUnidade?.meta || 1) * 100).toFixed(1)}% da meta
-              </span>
-            </div>
-            <div className="main-value">{formatMoney(faturamentoUnidade?.totalAtual || 0)}</div>
-            <div style={{ margin: '0.75rem 0 0.5rem 0' }}>
-              <div style={{
-                width: '100%',
-                height: '4px',
-                background: '#e5e7eb',
-                borderRadius: '2px',
-                overflow: 'hidden',
-                marginBottom: '0.5rem'
-              }}>
-                <div 
-                  style={{ 
-                    width: `${Math.min((faturamentoUnidade?.totalAtual || 0) / (faturamentoUnidade?.meta || 1) * 100, 100)}%`,
-                    height: '100%',
-                    background: '#3b82f6',
-                    borderRadius: '2px',
-                    transition: 'width 0.3s ease'
-                  }}
-                />
+    <div className="mc-container">
+      <div className={`mc-grid ${shouldShowExcludedCard ? 'mc-grid--3' : 'mc-grid--2'}`}>
+        {cards.map(card => {
+          const Icon = card.icon;
+          const isPositive = card.change >= 0;
+          const TrendIcon = isPositive ? TrendingUp : TrendingDown;
+          return (
+            <div className="mc-card" key={card.key}>
+              <div className="mc-header">
+                <div className="mc-icon" style={{ background: card.accentBg, color: card.accent }}>
+                  <Icon size={20} />
+                </div>
+                <div className="mc-titles">
+                  <h3 className="mc-title">{card.title}</h3>
+                  <p className="mc-subtitle">{card.subtitle}</p>
+                </div>
               </div>
-              <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
-                Meta: {formatMoney(faturamentoUnidade?.meta || 0)}
+
+              <div className="mc-divider" />
+
+              <div className="mc-body">
+                <div className="mc-pct-label">{card.pct}% da meta</div>
+                <div className="mc-value">{formatMoney(card.value)}</div>
+
+                <div className="mc-bar-track">
+                  <div
+                    className="mc-bar-fill"
+                    style={{
+                      width: `${Math.min(Number(card.pct), 100)}%`,
+                      background: card.accent,
+                    }}
+                  />
+                </div>
+                <div className="mc-meta-label">Meta: {formatMoney(card.meta)}</div>
+              </div>
+
+              <div className={`mc-badge ${isPositive ? 'mc-badge--pos' : 'mc-badge--neg'}`}>
+                <TrendIcon size={14} />
+                <span>{Math.abs(card.change).toFixed(1)}% vs mês anterior</span>
               </div>
             </div>
-            <div className={`comparison-badge ${(faturamentoUnidade?.percentChange || 0) >= 0 ? 'positive' : 'negative'}`}>
-              <span className="trend-icon">{formatPercent(faturamentoUnidade?.percentChange || 0).icon}</span>
-              <span>{formatPercent(faturamentoUnidade?.percentChange || 0).value}% vs mês anterior</span>
-            </div>
-          </div>
-        </div>
+          );
+        })}
 
-        {/* Card 2: Faturamento DOS CONSULTORES */}
-        <div className="metric-card secondary-card">
-          <div className="card-header">
-            <div className="icon-container secondary-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M23 21V19C23 18.1645 22.7155 17.3541 22.2094 16.7012C21.7033 16.0484 20.9998 15.5902 20.2 15.4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M16 3.13C16.8003 3.35055 17.5037 3.80875 18.0098 4.46157C18.5159 5.11439 18.8004 5.92481 18.8004 6.76C18.8004 7.59519 18.5159 8.40561 18.0098 9.05843C17.5037 9.71125 16.8003 10.1695 16 10.39" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <div className="card-title">
-              <h3>Faturamento dos Consultores</h3>
-              <p>Total vendido pelos consultores</p>
-            </div>
-          </div>
-          <div className="card-content">
-            <div style={{ marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                {((faturamentoConsultores?.totalAtual || 0) / (faturamentoConsultores?.meta || 1) * 100).toFixed(1)}% da meta
-              </span>
-            </div>
-            <div className="main-value">{formatMoney(faturamentoConsultores?.totalAtual || 0)}</div>
-            <div style={{ margin: '0.75rem 0 0.5rem 0' }}>
-              <div style={{
-                width: '100%',
-                height: '4px',
-                background: '#e5e7eb',
-                borderRadius: '2px',
-                overflow: 'hidden',
-                marginBottom: '0.5rem'
-              }}>
-                <div 
-                  style={{ 
-                    width: `${Math.min((faturamentoConsultores?.totalAtual || 0) / (faturamentoConsultores?.meta || 1) * 100, 100)}%`,
-                    height: '100%',
-                    background: '#6366f1',
-                    borderRadius: '2px',
-                    transition: 'width 0.3s ease'
-                  }}
-                />
-              </div>
-              <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>
-                Meta: {formatMoney(faturamentoConsultores?.meta || 0)}
-              </div>
-            </div>
-            <div className={`comparison-badge ${(faturamentoConsultores?.percentChange || 0) >= 0 ? 'positive' : 'negative'}`}>
-              <span className="trend-icon">{formatPercent(faturamentoConsultores?.percentChange || 0).icon}</span>
-              <span>{formatPercent(faturamentoConsultores?.percentChange || 0).value}% vs mês anterior</span>
-            </div>
-          </div>
-        </div>
-
-
-
-
-
-        {/* Card 5: Produtos Excluídos */}
         {shouldShowExcludedCard && (
-          <div className="metric-card excluded-card">
-            <div className="card-header">
-              <div className="icon-container excluded-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M15 9L9 15M9 9L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
+          <div className="mc-card mc-card--excluded">
+            <div className="mc-header">
+              <div className="mc-icon" style={{ background: 'var(--error-light)', color: 'var(--danger)' }}>
+                <XCircle size={20} />
               </div>
-              <div className="card-title">
-                <h3>Valor Excluído</h3>
-                <p>Produtos filtrados</p>
+              <div className="mc-titles">
+                <h3 className="mc-title">Valor Excluído</h3>
+                <p className="mc-subtitle">Produtos filtrados</p>
               </div>
             </div>
-            <div className="card-content">
-              <div className="main-value">{formatMoney(metricasExcluidas?.valor || 0)}</div>
+
+            <div className="mc-divider" />
+
+            <div className="mc-body">
+              <div className="mc-value">{formatMoney(metricasExcluidas?.valor || 0)}</div>
               {metricasExcluidas?.quantidade > 0 ? (
-                <div className="excluded-details">
-                  <div className="detail-row">
-                    <span className="detail-label">Vendas:</span>
-                    <span className="detail-value">{metricasExcluidas.quantidade}</span>
+                <div className="mc-excluded-details">
+                  <div className="mc-detail-row">
+                    <span className="mc-detail-label">Vendas:</span>
+                    <span className="mc-detail-value">{metricasExcluidas.quantidade}</span>
                   </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Média:</span>
-                    <span className="detail-value">{formatMoney(metricasExcluidas.media)}</span>
+                  <div className="mc-detail-row">
+                    <span className="mc-detail-label">Média:</span>
+                    <span className="mc-detail-value">{formatMoney(metricasExcluidas.media)}</span>
                   </div>
                 </div>
               ) : (
-                <div className="comparison-badge neutral">
+                <div className="mc-badge mc-badge--neutral">
                   <span>{produtosSelecionados?.length || 0} produto(s) filtrado(s)</span>
                 </div>
               )}
             </div>
-            <div className="card-footer">
-              <span>Não incluídos nos cálculos principais</span>
+
+            <div className="mc-footer">
+              Não incluídos nos cálculos principais
             </div>
           </div>
         )}
       </div>
 
-      <style jsx>{`
-        .metrics-container {
+      <style>{`
+        .mc-container {
           margin-bottom: 1.5rem;
         }
 
-        .metrics-grid {
+        .mc-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
           gap: 1rem;
         }
 
-        .metric-card {
+        .mc-grid--2 {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .mc-grid--3 {
+          grid-template-columns: repeat(3, 1fr);
+        }
+
+        .mc-card {
           background: var(--card);
-          border-radius: 8px;
-          padding: 1rem;
+          border-radius: var(--radius);
           border: 1px solid var(--border);
+          padding: 1.25rem;
           display: flex;
           flex-direction: column;
-          transition: all var(--transition-fast);
+          transition: box-shadow var(--transition-fast);
           box-shadow: var(--shadow-sm);
         }
 
-        .metric-card:hover {
+        .mc-card:hover {
           box-shadow: var(--card-hover-shadow);
         }
 
-        .card-header {
+        .mc-header {
           display: flex;
           align-items: center;
           gap: 0.75rem;
-          margin-bottom: 1rem;
         }
 
-        .icon-container {
-          width: 36px;
-          height: 36px;
-          border-radius: 8px;
+        .mc-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: var(--radius-sm);
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
         }
 
-        .primary-icon {
-          background: #3b82f6;
-          color: white;
+        .mc-titles {
+          min-width: 0;
         }
 
-        .secondary-icon {
-          background: #6366f1;
-          color: white;
-        }
-
-        .success-icon {
-          background: var(--success);
-          color: white;
-        }
-
-        .warning-icon {
-          background: var(--warning);
-          color: white;
-        }
-
-        .excluded-icon {
-          background: var(--danger);
-          color: white;
-        }
-
-        .card-title h3 {
-          font-size: 0.8rem;
-          font-weight: 500;
-          color: var(--text-primary);
-          margin: 0 0 0.125rem 0;
-        }
-
-        .card-title p {
-          font-size: 0.7rem;
-          color: var(--text-secondary);
-          margin: 0;
-        }
-
-        .card-content {
-          margin-bottom: 0.5rem;
-        }
-
-        .main-value {
-          font-size: 1.5rem;
+        .mc-title {
+          font-size: 0.8125rem;
           font-weight: 600;
           color: var(--text-primary);
-          margin-bottom: 0.5rem;
-          font-variant-numeric: tabular-nums;
+          margin: 0 0 0.125rem 0;
+          line-height: 1.3;
         }
 
-        .comparison-badge {
+        .mc-subtitle {
+          font-size: 0.6875rem;
+          color: var(--text-secondary);
+          margin: 0;
+          line-height: 1.3;
+        }
+
+        .mc-divider {
+          height: 1px;
+          background: var(--border);
+          margin: 0.875rem 0;
+        }
+
+        .mc-body {
+          flex: 1;
+        }
+
+        .mc-pct-label {
+          font-size: 0.75rem;
+          color: var(--text-secondary);
+          margin-bottom: 0.25rem;
+        }
+
+        .mc-value {
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          font-variant-numeric: tabular-nums;
+          font-family: var(--font-mono);
+          line-height: 1.2;
+          margin-bottom: 0.5rem;
+        }
+
+        .mc-bar-track {
+          width: 100%;
+          height: 4px;
+          background: var(--border);
+          border-radius: 2px;
+          overflow: hidden;
+          margin-bottom: 0.375rem;
+        }
+
+        .mc-bar-fill {
+          height: 100%;
+          border-radius: 2px;
+          transition: width 0.4s ease;
+        }
+
+        .mc-meta-label {
+          font-size: 0.6875rem;
+          color: var(--text-secondary);
+          margin-bottom: 0.75rem;
+        }
+
+        .mc-badge {
           display: inline-flex;
           align-items: center;
           gap: 0.25rem;
           padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-size: 0.7rem;
+          border-radius: var(--radius-sm);
+          font-size: 0.6875rem;
           font-weight: 500;
+          margin-top: auto;
+          width: fit-content;
         }
 
-        .comparison-badge.positive {
+        .mc-badge--pos {
           background: var(--success-light);
           color: var(--success);
         }
 
-        .comparison-badge.negative {
+        .mc-badge--neg {
           background: var(--error-light);
           color: var(--danger);
         }
 
-        .comparison-badge.neutral {
+        .mc-badge--neutral {
           background: var(--background);
           color: var(--text-secondary);
         }
 
-        .trend-icon {
-          font-size: 0.7rem;
-        }
-
-        .excluded-details {
+        .mc-excluded-details {
           background: var(--background);
-          border-radius: 4px;
-          padding: 0.5rem;
+          border-radius: var(--radius-sm);
+          padding: 0.5rem 0.75rem;
           margin-bottom: 0.5rem;
         }
 
-        .detail-row {
+        .mc-detail-row {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 0.25rem;
+          padding: 0.125rem 0;
         }
 
-        .detail-row:last-child {
-          margin-bottom: 0;
-        }
-
-        .detail-label {
-          font-size: 0.7rem;
+        .mc-detail-label {
+          font-size: 0.75rem;
           color: var(--text-secondary);
         }
 
-        .detail-value {
-          font-size: 0.7rem;
+        .mc-detail-value {
+          font-size: 0.75rem;
           color: var(--text-primary);
-          font-weight: 500;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
         }
 
-        .card-footer {
+        .mc-footer {
           border-top: 1px solid var(--border);
-          padding-top: 0.5rem;
-          margin-top: 0.5rem;
-        }
-
-        .card-footer span {
-          font-size: 0.65rem;
+          padding-top: 0.625rem;
+          margin-top: 0.625rem;
+          font-size: 0.6875rem;
           color: var(--text-secondary);
         }
 
         @media (max-width: 1024px) {
-          .metrics-grid {
+          .mc-grid--3 {
             grid-template-columns: repeat(2, 1fr);
           }
         }
 
         @media (max-width: 768px) {
-          .metrics-grid {
+          .mc-grid--2,
+          .mc-grid--3 {
             grid-template-columns: 1fr;
           }
         }
 
         @media (max-width: 480px) {
-          .metric-card {
-            padding: 0.75rem;
+          .mc-card {
+            padding: 1rem;
           }
-
-          .main-value {
+          .mc-value {
             font-size: 1.25rem;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .mc-card, .mc-bar-fill {
+            transition: none;
           }
         }
       `}</style>

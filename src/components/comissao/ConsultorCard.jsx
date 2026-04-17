@@ -1,25 +1,23 @@
 // src/components/comissao/ConsultorCard.jsx
 import React from 'react';
-import { 
-  Target, 
-  TrendingUp, 
-  CheckCircle, 
-  AlertTriangle, 
+import {
+  Target,
+  TrendingUp,
+  CheckCircle,
+  AlertTriangle,
   DollarSign,
   BarChart3,
-  Calculator
+  Calculator,
+  Trophy
 } from 'lucide-react';
-import useDarkMode from '../../hooks/useDarkMode';
-
-const ConsultorCard = ({ 
-  consultor, 
-  dados, 
-  onClick, 
+const ConsultorCard = ({
+  consultor,
+  dados,
+  onClick,
   isSelected = false,
   isExpanded = false,
-  remuneracaoType = 'comissao' // Novo prop para tipo de remuneração
+  remuneracaoType = 'comissao'
 }) => {
-  const [theme] = useDarkMode();
   const {
     totalVendas,
     totalComissao,
@@ -51,7 +49,7 @@ const ConsultorCard = ({
 
   return (
     <div 
-      className={`consultor-card ${isSelected ? 'selected' : ''} ${getStatusColor()} ${theme === 'light' ? 'light-mode' : 'dark-mode'}`}
+      className={`consultor-card ${isSelected ? 'selected' : ''} ${getStatusColor()}`}
       onClick={onClick}
     >
       {/* Header do Card */}
@@ -61,7 +59,7 @@ const ConsultorCard = ({
           <div className="consultor-stats">
             <span className="vendas-count">{vendasCount} vendas</span>
             <span className="remuneracao-type">
-              {remuneracaoType === 'premiacao' ? '🏆 Premiação' : '💰 Comissão'}
+              {remuneracaoType === 'premiacao' ? <><Trophy size={14} /> Premiação</> : <><DollarSign size={14} /> Comissão</>}
             </span>
           </div>
         </div>

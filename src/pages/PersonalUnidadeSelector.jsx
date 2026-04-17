@@ -1,42 +1,37 @@
-// src/pages/PersonalUnidadeSelector.jsx
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FiChevronRight, FiMapPin, FiUsers, FiActivity, FiArrowLeft } from "react-icons/fi";
+import { ChevronRight, MapPin, Users, Activity, ArrowLeft, Building2, Info } from "lucide-react";
 
 export default function PersonalUnidadeSelector() {
   const navigate = useNavigate();
 
   const unidades = [
-    { 
-      id: "alphaville", 
-      name: "Alphaville", 
+    {
+      id: "alphaville",
+      name: "Alphaville",
       color: "#6366F1",
-      gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      icon: FiActivity,
+      icon: Activity,
       description: "Gestão de personals e alunos"
     },
-    { 
-      id: "buenavista", 
-      name: "Buena Vista", 
+    {
+      id: "buenavista",
+      name: "Buena Vista",
       color: "#10B981",
-      gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-      icon: FiMapPin,
+      icon: MapPin,
       description: "Controle de personal trainers"
     },
-    { 
-      id: "marista", 
-      name: "Marista", 
+    {
+      id: "marista",
+      name: "Marista",
       color: "#F59E0B",
-      gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-      icon: FiUsers,
+      icon: Users,
       description: "Administração de alunos"
     },
-    { 
-      id: "palmas", 
-      name: "Palmas", 
+    {
+      id: "palmas",
+      name: "Palmas",
       color: "#EC4899",
-      gradient: "linear-gradient(135deg, #ec4899 0%, #f472b6 100%)",
-      icon: FiMapPin,
+      icon: Building2,
       description: "Gestão de personals e alunos"
     }
   ];
@@ -54,398 +49,340 @@ export default function PersonalUnidadeSelector() {
     visible: {
       opacity: 1,
       transition: {
-        duration: 0.6,
-        staggerChildren: 0.1
+        duration: 0.4,
+        staggerChildren: 0.08
       }
     }
   };
 
   const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
+    hidden: { opacity: 0, y: 16 },
+    visible: {
+      opacity: 1,
       y: 0,
-      transition: { duration: 0.5 }
+      transition: { duration: 0.4, ease: "easeOut" }
     }
   };
 
   return (
-    <div className="personal-selector-container">
-      <motion.div 
+    <div className="pus-container">
+      <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="selector-wrapper"
+        className="pus-wrapper"
       >
-        {/* Botão Voltar */}
         <motion.button
           variants={cardVariants}
-          className="back-button"
+          className="pus-back"
           onClick={handleBack}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileTap={{ scale: 0.97 }}
         >
-          <FiArrowLeft size={16} />
+          <ArrowLeft size={16} />
           <span>Voltar aos Módulos</span>
         </motion.button>
 
-        <motion.div 
-          variants={cardVariants}
-          className="selector-header"
-        >
-          <div className="logo-section">
-            <div className="logo personal-logo">
-              <FiUsers size={24} />
-              <span className="logo-text">PERSONAL</span>
+        <motion.div variants={cardVariants} className="pus-header">
+          <div className="pus-logo-section">
+            <div className="pus-logo">
+              <Users size={16} />
+              <span className="pus-logo-text">PERSONAL</span>
             </div>
           </div>
-          <h1>Selecione a Unidade</h1>
-          <p className="subtitle">Escolha a unidade para gerenciar personals e alunos</p>
+          <h1 className="pus-title">Selecione a Unidade</h1>
+          <p className="pus-subtitle">Escolha a unidade para gerenciar personals e alunos</p>
         </motion.div>
 
-        <motion.div 
-          variants={containerVariants}
-          className="units-grid"
-        >
-          {unidades.map((unidade) => (
-            <motion.div
-              key={unidade.id}
-              variants={cardVariants}
-              whileHover={{ 
-                scale: 1.02,
-                y: -5,
-                transition: { duration: 0.3 }
-              }}
-              whileTap={{ scale: 0.98 }}
-              className="unit-card"
-              style={{ '--accent-color': unidade.color }}
-              onClick={() => handleUnidade(unidade.id)}
-            >
-              <div className="unit-background">
-                <div 
-                  className="unit-gradient"
-                  style={{ background: unidade.gradient }}
-                ></div>
-              </div>
-              
-              <div className="unit-content">
-                <div className="unit-icon-wrapper">
-                  <unidade.icon className="unit-icon" size={28} />
+        <motion.div variants={containerVariants} className="pus-grid">
+          {unidades.map((unidade) => {
+            const Icon = unidade.icon;
+            return (
+              <motion.button
+                key={unidade.id}
+                variants={cardVariants}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleUnidade(unidade.id)}
+                className="pus-card"
+                style={{ '--pus-accent': unidade.color }}
+              >
+                <div className="pus-card-icon">
+                  <Icon size={22} />
                 </div>
-                <div className="unit-info">
-                  <h3 className="unit-name">{unidade.name}</h3>
-                  <p className="unit-description">{unidade.description}</p>
+                <div className="pus-card-info">
+                  <span className="pus-card-name">{unidade.name}</span>
+                  <span className="pus-card-desc">{unidade.description}</span>
                 </div>
-                <div className="unit-arrow-wrapper">
-                  <FiChevronRight className="unit-arrow" />
-                </div>
-              </div>
-            </motion.div>
-          ))}
+                <ChevronRight size={18} className="pus-card-arrow" />
+              </motion.button>
+            );
+          })}
         </motion.div>
 
-        <motion.div 
-          variants={cardVariants}
-          className="footer-section"
-        >
-          <p className="footer-note">
-            💪 Gerencie seus personal trainers e acompanhe o progresso dos alunos
-          </p>
+        <motion.div variants={cardVariants} className="pus-footer">
+          <Info size={14} className="pus-footer-icon" />
+          <span>Gerencie seus personal trainers e acompanhe o progresso dos alunos</span>
         </motion.div>
       </motion.div>
 
-      <style jsx>{`
-        .personal-selector-container {
+      <style>{`
+        .pus-container {
           min-height: 100vh;
+          min-height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(
-            135deg,
-            #11998e 0%,
-            #38ef7d 25%,
-            #667eea 50%,
-            #764ba2 75%,
-            #11998e 100%
-          );
-          background-size: 400% 400%;
-          animation: gradientShift 15s ease infinite;
-          padding: 20px;
-          position: relative;
-          overflow: hidden;
+          background: var(--background);
+          padding: 24px;
         }
 
-        @keyframes gradientShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-
-        .personal-selector-container::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-          opacity: 0.3;
-        }
-
-        .selector-wrapper {
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(20px);
-          border-radius: 24px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-          padding: 48px;
+        .pus-wrapper {
+          background: var(--card);
+          border-radius: var(--radius-lg);
+          border: 1px solid var(--border);
+          box-shadow: var(--shadow-lg);
+          padding: 40px;
           width: 100%;
-          max-width: 520px;
-          position: relative;
-          z-index: 1;
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          max-width: 480px;
         }
 
-        .back-button {
-          display: flex;
+        /* ---- Back button ---- */
+        .pus-back {
+          display: inline-flex;
           align-items: center;
-          gap: 8px;
-          background: rgba(100, 116, 139, 0.1);
-          border: 1px solid rgba(100, 116, 139, 0.2);
-          color: #64748b;
-          padding: 12px 20px;
-          border-radius: 12px;
-          font-size: 14px;
+          gap: 6px;
+          background: var(--background);
+          border: 1px solid var(--border);
+          color: var(--text-secondary);
+          padding: 8px 14px;
+          border-radius: var(--radius-sm);
+          font-size: 13px;
           font-weight: 500;
           cursor: pointer;
-          transition: all 0.3s ease;
+          transition:
+            border-color var(--transition-fast),
+            color var(--transition-fast);
+          font-family: var(--font-sans);
           margin-bottom: 24px;
-          align-self: flex-start;
         }
 
-        .back-button:hover {
-          background: rgba(100, 116, 139, 0.15);
-          border-color: rgba(100, 116, 139, 0.3);
-          color: #475569;
+        .pus-back:hover {
+          border-color: var(--primary);
+          color: var(--primary);
         }
 
-        .logo-section {
+        .pus-back:focus-visible {
+          outline: 2px solid var(--primary);
+          outline-offset: 2px;
+        }
+
+        /* ---- Logo ---- */
+        .pus-logo-section {
           text-align: center;
-          margin-bottom: 32px;
+          margin-bottom: 24px;
         }
 
-        .logo {
+        .pus-logo {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 12px 24px;
-          background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-          border-radius: 50px;
-          margin-bottom: 16px;
+          padding: 8px 18px;
+          background: #10B981;
+          border-radius: var(--radius-sm);
+          color: #fff;
         }
 
-        .personal-logo {
-          background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        .pus-logo-text {
+          font-weight: 600;
+          font-size: 13px;
+          letter-spacing: 0.8px;
+          font-family: var(--font-sans);
         }
 
-        .logo-text {
-          color: white;
-          font-weight: 700;
-          font-size: 18px;
-          letter-spacing: 1px;
-        }
-
-        .selector-header {
+        /* ---- Header ---- */
+        .pus-header {
           text-align: center;
-          margin-bottom: 40px;
-        }
-
-        .selector-header h1 {
-          font-size: 32px;
-          font-weight: 700;
-          color: #1e293b;
-          margin: 0 0 12px;
-          background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        .subtitle {
-          font-size: 16px;
-          color: #64748b;
-          margin: 0;
-          font-weight: 400;
-        }
-
-        .units-grid {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
           margin-bottom: 32px;
         }
 
-        .unit-card {
-          position: relative;
-          background: white;
-          border-radius: 16px;
-          overflow: hidden;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          border: 2px solid rgba(17, 153, 142, 0.1);
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        .pus-title {
+          font-size: 22px;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0 0 6px;
+          letter-spacing: -0.3px;
+          line-height: 1.3;
+          font-family: var(--font-sans);
         }
 
-        .unit-card:hover {
-          border-color: var(--accent-color);
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-        }
-
-        .unit-background {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 4px;
-          overflow: hidden;
-        }
-
-        .unit-gradient {
-          height: 100%;
-          width: 100%;
-        }
-
-        .unit-content {
-          display: flex;
-          align-items: center;
-          gap: 20px;
-          padding: 24px;
-          position: relative;
-          z-index: 1;
-        }
-
-        .unit-icon-wrapper {
-          flex-shrink: 0;
-          width: 56px;
-          height: 56px;
-          background: rgba(17, 153, 142, 0.1);
-          border-radius: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.3s ease;
-        }
-
-        .unit-card:hover .unit-icon-wrapper {
-          background: var(--accent-color);
-          transform: scale(1.05);
-        }
-
-        .unit-icon {
-          color: #11998e;
-          transition: color 0.3s ease;
-        }
-
-        .unit-card:hover .unit-icon {
-          color: white;
-        }
-
-        .unit-info {
-          flex: 1;
-        }
-
-        .unit-name {
-          font-size: 18px;
-          font-weight: 600;
-          color: #1e293b;
-          margin: 0 0 4px;
-          transition: color 0.3s ease;
-        }
-
-        .unit-card:hover .unit-name {
-          color: var(--accent-color);
-        }
-
-        .unit-description {
+        .pus-subtitle {
           font-size: 14px;
-          color: #64748b;
+          color: var(--text-secondary);
           margin: 0;
           font-weight: 400;
         }
 
-        .unit-arrow-wrapper {
-          position: relative;
-          z-index: 2;
+        /* ---- Grid ---- */
+        .pus-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
         }
 
-        .unit-arrow {
-          color: #94a3b8;
-          font-size: 24px;
-          transition: all 0.3s ease;
+        /* ---- Card ---- */
+        .pus-card {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          width: 100%;
+          padding: 16px 18px;
+          background: var(--background);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          cursor: pointer;
+          transition:
+            border-color var(--transition-fast),
+            box-shadow var(--transition-fast),
+            background-color var(--transition-fast);
+          font-family: var(--font-sans);
+          text-align: left;
         }
 
-        .unit-card:hover .unit-arrow {
-          color: var(--accent-color);
-          transform: translateX(4px);
+        .pus-card:hover {
+          border-color: var(--pus-accent);
+          box-shadow: var(--card-hover-shadow);
+          background: var(--card);
         }
 
-        .footer-section {
-          text-align: center;
-          margin-top: 32px;
+        .pus-card:focus-visible {
+          outline: 2px solid var(--primary);
+          outline-offset: 2px;
         }
 
-        .footer-note {
-          font-size: 14px;
-          color: #64748b;
-          margin: 0;
-          padding: 16px;
-          background: rgba(248, 250, 252, 0.8);
-          border-radius: 12px;
-          border: 1px solid rgba(226, 232, 240, 0.5);
+        /* ---- Icon ---- */
+        .pus-card-icon {
+          flex-shrink: 0;
+          width: 44px;
+          height: 44px;
+          background: var(--pus-accent);
+          border-radius: var(--radius-sm);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          transition: transform var(--transition-fast);
         }
 
+        .pus-card:hover .pus-card-icon {
+          transform: scale(1.06);
+        }
+
+        /* ---- Info ---- */
+        .pus-card-info {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .pus-card-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--text-primary);
+          transition: color var(--transition-fast);
+        }
+
+        .pus-card:hover .pus-card-name {
+          color: var(--pus-accent);
+        }
+
+        .pus-card-desc {
+          font-size: 12px;
+          color: var(--text-secondary);
+          font-weight: 400;
+        }
+
+        /* ---- Arrow ---- */
+        .pus-card-arrow {
+          flex-shrink: 0;
+          color: var(--text-secondary);
+          opacity: 0.4;
+          transition:
+            opacity var(--transition-fast),
+            transform var(--transition-fast),
+            color var(--transition-fast);
+        }
+
+        .pus-card:hover .pus-card-arrow {
+          opacity: 1;
+          color: var(--pus-accent);
+          transform: translateX(3px);
+        }
+
+        /* ---- Footer ---- */
+        .pus-footer {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 24px;
+          padding: 12px 16px;
+          font-size: 12px;
+          color: var(--text-secondary);
+          background: var(--background);
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border);
+        }
+
+        .pus-footer-icon {
+          flex-shrink: 0;
+          opacity: 0.6;
+        }
+
+        /* ---- Responsive ---- */
         @media (max-width: 640px) {
-          .selector-wrapper {
+          .pus-container {
+            padding: 20px 16px;
+            align-items: flex-start;
+            padding-top: 48px;
+          }
+
+          .pus-wrapper {
             padding: 32px 24px;
-            margin: 16px;
-          }
-          
-          .selector-header h1 {
-            font-size: 28px;
           }
 
-          .unit-card {
-            padding: 20px;
-          }
-
-          .unit-content {
-            gap: 16px;
-          }
-
-          .unit-icon-wrapper {
-            width: 48px;
-            height: 48px;
-          }
-
-          .unit-name {
-            font-size: 16px;
+          .pus-title {
+            font-size: 20px;
           }
         }
 
-        @media (max-width: 480px) {
-          .personal-selector-container {
-            padding: 16px;
+        @media (max-width: 400px) {
+          .pus-wrapper {
+            padding: 24px 18px;
           }
 
-          .selector-wrapper {
-            padding: 24px 20px;
-          }
-          
-          .selector-header h1 {
-            font-size: 24px;
+          .pus-card {
+            padding: 14px 14px;
           }
 
-          .logo-text {
-            font-size: 16px;
+          .pus-card-icon {
+            width: 40px;
+            height: 40px;
+          }
+
+          .pus-card-name {
+            font-size: 14px;
+          }
+        }
+
+        /* ---- Reduced Motion ---- */
+        @media (prefers-reduced-motion: reduce) {
+          .pus-card,
+          .pus-card-icon,
+          .pus-card-arrow,
+          .pus-back {
+            transition: none;
           }
         }
       `}</style>

@@ -1,7 +1,7 @@
 // src/pages/ComissaoDetalhes.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Calculator, Users, AlertCircle, RefreshCw, Sun, Moon, FileText, Download, CheckCircle, Target, DollarSign, BarChart3 } from 'lucide-react';
+import { Calculator, Users, AlertCircle, RefreshCw, CheckCircle, Target, DollarSign, BarChart3, Trophy } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import NavBar from '../components/NavBar';
 import ConsultorCard from '../components/comissao/ConsultorCard';
@@ -16,7 +16,6 @@ import { useConfigRem } from '../hooks/useConfigRem';
 import { calcularRemuneracao } from '../utils/remuneracao';
 import { calcularRemuneracaoPorDuracao } from '../utils/calculoRemuneracaoDuracao';
 import { gerarPDFComissoes, gerarPDFResumo } from '../utils/pdfGenerator';
-import useDarkMode from '../hooks/useDarkMode';
 import '../styles/ComissaoComponents.css';
 
 // Função para aplicar correção de diárias (baseada no sistema real)
@@ -156,8 +155,7 @@ export default function ComissaoDetalhes() {
   const [progressoPDF, setProgressoPDF] = useState({ porcentagem: 0, mensagem: '' });
 
   // Hooks do sistema
-  const [theme, toggleTheme] = useDarkMode();
-  const { 
+  const {
     vendas, 
     loading: loadingVendas, 
     selectedMonth,
@@ -867,34 +865,21 @@ export default function ComissaoDetalhes() {
 
   return (
     <div className="comissao-detalhes-layout">
-      {/* Theme Toggle Button */}
-      <button 
-        className="theme-toggle" 
-        onClick={toggleTheme}
-        title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-      >
-        {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-      </button>
-
       {/* Sidebar com NavBar */}
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h2>GestãoApp</h2>
-        </div>
+      <aside className="cd-sidebar">
+        <div className="cd-sidebar-hdr"><h2>GestãoApp</h2></div>
         <NavBar />
       </aside>
 
       {/* Conteúdo Principal */}
       <main className="comissao-detalhes-main">
         {/* Header da Página */}
-        <header className="page-header">
-          <div className="header-content">
-            <div className="header-title">
-              <Calculator size={32} />
-              <div>
-                <h1>Análise de Comissões</h1>
-                <p>Classificação automática e análise detalhada por consultor - {unidadeSelecionada.toUpperCase()}</p>
-              </div>
+        <header className="cd-hdr">
+          <div className="cd-hdr-left">
+            <span className="cd-unit-tag">{(unidadeSelecionada || '').toUpperCase()}</span>
+            <div>
+              <h1 className="cd-page-title">Análise de Comissões</h1>
+              <p className="cd-page-sub">Classificação e análise detalhada por consultor</p>
             </div>
           </div>
         </header>
@@ -969,7 +954,7 @@ export default function ComissaoDetalhes() {
                   <h3 className="consultor-nome">SUPERVISOR DE VENDAS</h3>
                   <div className="consultor-stats">
                     <span className="vendas-count">{premiacaoSupervisor.consultoresCount} consultores</span>
-                    <span className="remuneracao-type">🏆 Premiação</span>
+                    <span className="remuneracao-type"><Trophy size={14} /> Premiação</span>
                   </div>
                 </div>
                 <div className="status-indicator">
@@ -1078,91 +1063,101 @@ export default function ComissaoDetalhes() {
       </main>
 
       {/* Estilos da Página */}
-      <style jsx>{`
+      <style>{`
         .comissao-detalhes-layout {
           display: flex;
           min-height: 100vh;
-          background: var(--bg-gradient);
+          background: var(--background);
         }
 
-        .sidebar {
-          width: 280px;
-          background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-          border-right: 1px solid var(--border-medium);
+        .cd-sidebar {
+          width: 260px;
+          background: var(--card);
+          border-right: 1px solid var(--border);
           position: fixed;
           top: 0;
           left: 0;
           height: 100vh;
           z-index: 100;
           overflow-y: auto;
+          display: flex;
+          flex-direction: column;
         }
 
-        .sidebar-header {
-          padding: 1.5rem 1.25rem;
-          border-bottom: 1px solid var(--border-light);
+        .cd-sidebar-hdr {
+          padding: 1.25rem 1rem;
+          border-bottom: 1px solid var(--border);
         }
 
-        .sidebar-header h2 {
+        .cd-sidebar-hdr h2 {
           margin: 0;
-          font-size: 1.25rem;
-          font-weight: 700;
-          background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          font-size: 1rem;
+          font-weight: 600;
+          color: var(--primary);
         }
 
         .comissao-detalhes-main {
           flex: 1;
-          margin-left: 280px;
-          padding: 0;
+          margin-left: 260px;
+          padding: 24px 32px;
+          max-width: 1400px;
           overflow-x: hidden;
         }
 
-        .page-header {
-          background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-          color: var(--text-inverse);
-          padding: 2rem;
-          margin-bottom: 2rem;
+        /* ===== HEADER ===== */
+        .cd-hdr {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 24px;
+          gap: 16px;
+          flex-wrap: wrap;
         }
 
-        .header-content {
-          max-width: 1200px;
-          margin: 0 auto;
-        }
-
-        .header-title {
+        .cd-hdr-left {
           display: flex;
           align-items: center;
-          gap: 1rem;
+          gap: 14px;
         }
 
-        .header-title h1 {
-          margin: 0 0 0.25rem 0;
-          font-size: 2rem;
-          font-weight: 800;
+        .cd-unit-tag {
+          background: var(--primary);
+          color: #fff;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: .65rem;
+          font-weight: 700;
+          letter-spacing: .06em;
         }
 
-        .header-title p {
+        .cd-page-title {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--text-primary);
           margin: 0;
-          font-size: 1rem;
-          opacity: 0.9;
+          line-height: 1.3;
+        }
+
+        .cd-page-sub {
+          font-size: .78rem;
+          color: var(--text-secondary);
+          margin: 0;
         }
 
         .consultores-section {
-          padding: 0 2rem 2rem;
+          padding: 0 0 24px;
         }
 
         .section-header {
-          margin-bottom: 1.5rem;
+          margin-bottom: 16px;
         }
 
         .section-header h2 {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
-          margin: 0 0 0.5rem 0;
-          font-size: 1.25rem;
+          gap: 8px;
+          margin: 0 0 4px;
+          font-size: 1rem;
           font-weight: 700;
           color: var(--text-primary);
         }
@@ -1170,17 +1165,17 @@ export default function ComissaoDetalhes() {
         .section-header p {
           margin: 0;
           color: var(--text-secondary);
-          font-size: 0.875rem;
+          font-size: .78rem;
         }
 
         .consultores-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-          gap: 1.5rem;
+          grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+          gap: 14px;
         }
 
         .loading-section {
-          padding: 4rem 2rem;
+          padding: 48px 24px;
         }
 
         .loading-content {
@@ -1190,28 +1185,28 @@ export default function ComissaoDetalhes() {
           justify-content: center;
           text-align: center;
           color: var(--text-secondary);
-          background: var(--bg-primary);
-          border-radius: 12px;
-          padding: 3rem;
-          border: 1px solid var(--border-medium);
-          box-shadow: var(--shadow-md);
+          background: var(--card);
+          border-radius: var(--radius);
+          padding: 48px;
+          border: 1px solid var(--border);
+          box-shadow: var(--shadow-sm);
         }
 
         .loading-content svg {
-          margin-bottom: 1rem;
-          color: var(--accent-blue);
+          margin-bottom: 12px;
+          color: var(--primary);
         }
 
         .loading-content h3 {
-          margin: 0 0 0.5rem 0;
+          margin: 0 0 6px;
           color: var(--text-primary);
-          font-size: 1.25rem;
-          font-weight: 700;
+          font-size: 1rem;
+          font-weight: 600;
         }
 
         .loading-content p {
           margin: 0;
-          font-size: 0.875rem;
+          font-size: .82rem;
           line-height: 1.5;
         }
 
@@ -1220,138 +1215,93 @@ export default function ComissaoDetalhes() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 4rem 2rem;
+          padding: 48px 24px;
           text-align: center;
           color: var(--text-secondary);
-          background: var(--bg-primary);
-          border-radius: 12px;
-          border: 1px solid var(--border-medium);
-          box-shadow: var(--shadow-md);
-          margin: 0 2rem 2rem;
+          background: var(--card);
+          border-radius: var(--radius);
+          border: 1px solid var(--border);
+          box-shadow: var(--shadow-sm);
+          margin: 0 0 24px;
         }
 
         .empty-state svg {
-          margin-bottom: 1rem;
-          color: var(--border-dark);
+          margin-bottom: 12px;
+          color: var(--border);
         }
 
         .empty-state h3 {
-          margin: 0 0 0.5rem 0;
+          margin: 0 0 6px;
           color: var(--text-primary);
-          font-size: 1.25rem;
-          font-weight: 700;
+          font-size: 1rem;
+          font-weight: 600;
         }
 
         .empty-state p {
-          margin: 0 0 0.5rem 0;
-          font-size: 0.875rem;
+          margin: 0 0 4px;
+          font-size: .82rem;
           line-height: 1.5;
-          max-width: 500px;
+          max-width: 420px;
         }
 
-            .spinning {
-              animation: spin 1s linear infinite;
-            }
+        .spinning {
+          animation: cd-spin .8s linear infinite;
+        }
 
-            @keyframes spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
+        @keyframes cd-spin {
+          to { transform: rotate(360deg); }
+        }
 
         /* Premiação Supervisor Section */
         .premiacao-supervisor-section {
-          padding: 0 2rem 2rem;
+          padding: 0 0 24px;
           max-width: 600px;
-          margin: 0 auto;
         }
 
-        .supervisor-card {
-          /* Usa os mesmos estilos do .consultor-card */
-        }
-
-        /* Theme Toggle Button */
-        .theme-toggle {
-          position: fixed;
-          top: 1rem;
-          right: 1rem;
-          z-index: 1000;
-          background: var(--bg-primary);
-          border: 1px solid var(--border-medium);
-          border-radius: 8px;
-          padding: 0.5rem;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: var(--shadow-md);
-        }
-
-        .theme-toggle:hover {
-          background: var(--bg-secondary);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-lg);
-        }
-
-        .theme-toggle svg {
-          width: 20px;
-          height: 20px;
-          color: var(--text-primary);
-        }
-
-        /* Responsive */
+        /* ===== RESPONSIVE ===== */
         @media (max-width: 1024px) {
           .comissao-detalhes-main {
             margin-left: 0;
+            padding: 16px;
           }
 
-          .sidebar {
-            transform: translateX(-100%);
+          .cd-sidebar {
+            display: none;
           }
 
           .consultores-grid {
             grid-template-columns: 1fr;
           }
-
-          .page-header {
-            padding: 1.5rem 1rem;
-          }
-
-          .header-title h1 {
-            font-size: 1.75rem;
-          }
-
-          .consultores-section {
-            padding: 0 1rem 2rem;
-          }
         }
 
         @media (max-width: 768px) {
-          .header-title {
+          .cd-hdr {
             flex-direction: column;
-            text-align: center;
-            gap: 0.5rem;
+            align-items: flex-start;
           }
 
           .consultores-grid {
-            gap: 1rem;
+            gap: 12px;
           }
 
           .loading-section,
           .empty-state {
-            padding: 2rem 1rem;
+            padding: 32px 16px;
           }
         }
 
         @media (max-width: 480px) {
-          .page-header {
-            padding: 1rem 0.75rem;
+          .comissao-detalhes-main {
+            padding: 12px;
           }
 
-          .header-title h1 {
-            font-size: 1.5rem;
+          .cd-page-title {
+            font-size: 1.1rem;
           }
+        }
 
-          .consultores-section {
-            padding: 0 0.75rem 1.5rem;
-          }
+        @media (prefers-reduced-motion: reduce) {
+          .spinning { animation: none; }
         }
       `}</style>
     </div>

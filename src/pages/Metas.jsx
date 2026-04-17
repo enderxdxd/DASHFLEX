@@ -5,7 +5,7 @@ import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip, Lege
 import { Bar } from "react-chartjs-2";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
-import { Filter, Pencil, RefreshCw, Save, Target, Trash2, TrendingUp, Users, Wallet, X } from "lucide-react";
+import { Pencil, RefreshCw, Save, Target, Trash2, TrendingUp, Users, Wallet, X } from "lucide-react";
 import "react-datepicker/dist/react-datepicker.css";
 import NavBar from "../components/NavBar";
 import MonthSelector from "../components/dashboard/MonthSelector";
@@ -33,7 +33,6 @@ export default function Metas() {
   const [successMessage, setSuccessMessage] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(dayjs().format("YYYY-MM"));
   const [crossUnitPeriod, setCrossUnitPeriod] = useState(dayjs().format("YYYY-MM"));
-  const [showProductFilter, setShowProductFilter] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newResponsavel, setNewResponsavel] = useState("");
   const [newMeta, setNewMeta] = useState("");
@@ -45,8 +44,8 @@ export default function Metas() {
   const [editPeriodo, setEditPeriodo] = useState("");
   const [editRemType, setEditRemType] = useState("comissao");
 
-  const { produtosSelecionados, loaded: produtosLoaded, isAdmin } = useGlobalProdutos();
-  const { vendas: vendasAgrupadas, produtos, loading: vendasLoading, error: vendasError, refreshVendas } = useVendas(unidade);
+  const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();
+  const { vendas: vendasAgrupadas, loading: vendasLoading, error: vendasError, refreshVendas } = useVendas(unidade);
   const { metas, loading: metasLoading, error: metasError, refreshMetas } = useMetas(unidade);
 
   const produtosSelecionadosSet = useMemo(() => new Set(produtosSelecionados.map((item) => item.trim())), [produtosSelecionados]);

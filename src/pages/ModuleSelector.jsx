@@ -1,14 +1,7 @@
 // src/pages/ModuleSelector.jsx
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
-  FiTrendingUp, 
-  FiUsers, 
-  FiChevronRight,
-  FiBarChart3,
-  FiTarget,
-  FiUserCheck
-} from "react-icons/fi";
+import { TrendingUp, Users, ChevronRight, Info } from "lucide-react";
 import { useUserRole } from "../hooks/useUserRole";
 
 export default function ModuleSelector() {
@@ -16,37 +9,31 @@ export default function ModuleSelector() {
   const { role, loading } = useUserRole();
 
   const allModules = [
-    { 
-      id: "vendas", 
-      name: "Dashboard de Vendas", 
+    {
+      id: "vendas",
+      name: "Dashboard de Vendas",
       color: "#6366F1",
-      gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      icon: FiTrendingUp,
+      icon: TrendingUp,
       description: "Gerencie vendas, metas e analytics",
       features: ["Importação de planilhas", "Análises em tempo real", "Gestão de metas", "Relatórios avançados"]
     },
-    { 
-      id: "personal", 
-      name: "Gerenciador de Personal", 
+    {
+      id: "personal",
+      name: "Gerenciador de Personal",
       color: "#10B981",
-      gradient: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
-      icon: FiUsers,
+      icon: Users,
       description: "Controle de personals e alunos",
       features: ["Cadastro de personals", "Gestão de alunos", "Controle de produtos", "Relatórios personalizados"]
     }
   ];
 
-  // Filtrar módulos baseado na role do usuário
   const modules = allModules.filter(module => {
     if (module.id === "personal") {
-      // Módulo de Personal só é visível para admin ou tesouraria
       return role === "admin" || role === "tesouraria";
     }
     if (module.id === "vendas") {
-      // Módulo de Vendas não é visível para tesouraria (apenas personal)
       return role !== "tesouraria";
     }
-    // Outros módulos são visíveis para todos os usuários autenticados (exceto tesouraria)
     return role !== "tesouraria";
   });
 
@@ -62,336 +49,404 @@ export default function ModuleSelector() {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        duration: 0.6,
-        staggerChildren: 0.15
-      }
+      transition: { duration: 0.4, staggerChildren: 0.1 }
     }
   };
 
   const cardVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: { 
-      opacity: 1, 
+    hidden: { opacity: 0, y: 16 },
+    visible: {
+      opacity: 1,
       y: 0,
-      transition: { duration: 0.6, ease: "easeOut" }
+      transition: { duration: 0.4, ease: "easeOut" }
     }
   };
 
-  // Mostrar loading enquanto verifica a role do usuário
   if (loading) {
     return (
-      <div className="module-selector-container">
-        <div className="selector-wrapper" style={{ textAlign: 'center', padding: '80px 48px' }}>
-          <div style={{ 
-            width: '48px', 
-            height: '48px', 
-            border: '4px solid #f3f4f6', 
-            borderTop: '4px solid #6366f1', 
-            borderRadius: '50%', 
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 24px'
-          }}></div>
-          <h2 style={{ color: '#64748b', fontSize: '18px', fontWeight: '500', margin: 0 }}>
+      <div className="ms-container">
+        <div className="ms-wrapper" style={{ textAlign: 'center', padding: '80px 48px' }}>
+          <div className="ms-spinner" />
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500, margin: '20px 0 0' }}>
             Carregando módulos...
-          </h2>
-          <style jsx>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
+          </p>
         </div>
+        <style>{`
+          .ms-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--background);
+            padding: 24px;
+          }
+          .ms-wrapper {
+            background: var(--card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            width: 100%;
+            max-width: 560px;
+          }
+          .ms-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: ms-spin 0.8s linear infinite;
+            margin: 0 auto;
+          }
+          @keyframes ms-spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="module-selector-container">
-      <motion.div 
+    <div className="ms-container">
+      <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="selector-wrapper"
+        className="ms-wrapper"
       >
-        <motion.div 
-          variants={cardVariants}
-          className="selector-header"
-        >
-          <div className="logo-section">
-            <div className="logo">
-              <span className="logo-text">FLEXAPP</span>
+        <motion.div variants={cardVariants} className="ms-header">
+          <div className="ms-logo-section">
+            <div className="ms-logo">
+              <span className="ms-logo-text">FLEXAPP</span>
             </div>
           </div>
-          <h1>Selecione o Módulo</h1>
-          <p className="subtitle">Escolha o módulo do sistema que deseja acessar</p>
+          <h1 className="ms-title">Selecione o Módulo</h1>
+          <p className="ms-subtitle">Escolha o módulo do sistema que deseja acessar</p>
         </motion.div>
 
-        <motion.div 
-          variants={containerVariants}
-          className="modules-grid"
-        >
-          {modules.map((module) => (
-            <motion.div
-              key={module.id}
-              variants={cardVariants}
-              whileHover={{ 
-                scale: 1.02,
-                y: -8,
-                transition: { duration: 0.3 }
-              }}
-              whileTap={{ scale: 0.98 }}
-              className="module-card"
-              style={{ '--accent-color': module.color }}
-              onClick={() => handleModuleSelect(module.id)}
-            >
-              <div className="module-background">
-                <div 
-                  className="module-gradient"
-                  style={{ background: module.gradient }}
-                ></div>
-              </div>
-              
-              <div className="module-content">
-                <div className="module-header">
-                  <div className="module-icon-wrapper">
-                    <module.icon className="module-icon" size={32} />
+        <motion.div variants={containerVariants} className="ms-grid">
+          {modules.map((module) => {
+            const Icon = module.icon;
+            return (
+              <motion.button
+                key={module.id}
+                variants={cardVariants}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                whileTap={{ scale: 0.98 }}
+                className="ms-card"
+                style={{ '--ms-accent': module.color }}
+                onClick={() => handleModuleSelect(module.id)}
+              >
+                <div className="ms-card-top">
+                  <div className="ms-card-icon">
+                    <Icon size={24} />
                   </div>
-                  <div className="module-info">
-                    <h3 className="module-name">{module.name}</h3>
-                    <p className="module-description">{module.description}</p>
+                  <div className="ms-card-info">
+                    <span className="ms-card-name">{module.name}</span>
+                    <span className="ms-card-desc">{module.description}</span>
                   </div>
-                  <div className="module-arrow-wrapper">
-                    <FiChevronRight className="module-arrow" />
-                  </div>
+                  <ChevronRight size={18} className="ms-card-arrow" />
                 </div>
-                
-                <div className="module-features">
-                  <h4 className="features-title">Funcionalidades:</h4>
-                  <ul className="features-list">
-                    {module.features.map((feature, index) => (
-                      <li key={index} className="feature-item">
-                        <div className="feature-dot"></div>
-                        <span>{feature}</span>
-                      </li>
+
+                <div className="ms-features">
+                  <span className="ms-features-label">Funcionalidades:</span>
+                  <div className="ms-features-list">
+                    {module.features.map((feature, i) => (
+                      <span key={i} className="ms-feature-tag">
+                        <span className="ms-feature-dot" />
+                        {feature}
+                      </span>
                     ))}
-                  </ul>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.button>
+            );
+          })}
         </motion.div>
 
-        <motion.div 
-          variants={cardVariants}
-          className="footer-section"
-        >
-          <p className="footer-note">
-            💡 Cada módulo possui suas próprias funcionalidades e configurações específicas
-          </p>
+        <motion.div variants={cardVariants} className="ms-footer">
+          <Info size={14} className="ms-footer-icon" />
+          <span>Cada módulo possui suas próprias funcionalidades e configurações</span>
         </motion.div>
       </motion.div>
 
-      <style jsx>{`
-        .module-selector-container {
+      <style>{`
+        .ms-container {
           min-height: 100vh;
+          min-height: 100dvh;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #f8fafc;
-          padding: 1.5rem;
+          background: var(--background);
+          padding: 24px;
         }
 
-        .selector-wrapper {
-          background: white;
-          border-radius: 12px;
-          border: 1px solid #e5e7eb;
-          padding: 2rem;
+        .ms-wrapper {
+          background: var(--card);
+          border-radius: var(--radius-lg);
+          border: 1px solid var(--border);
+          box-shadow: var(--shadow-lg);
+          padding: 40px;
           width: 100%;
-          max-width: 720px;
+          max-width: 560px;
         }
 
-        .logo-section {
+        /* ---- Logo ---- */
+        .ms-logo-section {
           text-align: center;
-          margin-bottom: 1.5rem;
+          margin-bottom: 24px;
         }
 
-        .logo {
+        .ms-logo {
           display: inline-block;
-          padding: 0.5rem 1rem;
-          background: #3b82f6;
-          border-radius: 6px;
+          padding: 8px 18px;
+          background: var(--primary);
+          border-radius: var(--radius-sm);
         }
 
-        .logo-text {
-          color: white;
+        .ms-logo-text {
+          color: #fff;
           font-weight: 600;
-          font-size: 0.875rem;
-          letter-spacing: 0.5px;
+          font-size: 13px;
+          letter-spacing: 0.8px;
+          font-family: var(--font-sans);
         }
 
-        .selector-header {
+        /* ---- Header ---- */
+        .ms-header {
           text-align: center;
-          margin-bottom: 2rem;
+          margin-bottom: 32px;
         }
 
-        .selector-header h1 {
-          font-size: 1.5rem;
-          font-weight: 600;
-          color: #111827;
-          margin: 0 0 0.5rem;
+        .ms-title {
+          font-size: 22px;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0 0 6px;
+          letter-spacing: -0.3px;
+          line-height: 1.3;
+          font-family: var(--font-sans);
         }
 
-        .subtitle {
-          font-size: 0.875rem;
-          color: #6b7280;
+        .ms-subtitle {
+          font-size: 14px;
+          color: var(--text-secondary);
           margin: 0;
+          font-weight: 400;
         }
 
-        .modules-grid {
+        /* ---- Grid ---- */
+        .ms-grid {
           display: flex;
           flex-direction: column;
-          gap: 1rem;
-          margin-bottom: 1.5rem;
+          gap: 12px;
         }
 
-        .module-card {
-          background: #f9fafb;
-          border-radius: 8px;
+        /* ---- Card ---- */
+        .ms-card {
+          display: flex;
+          flex-direction: column;
+          width: 100%;
+          background: var(--background);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
           cursor: pointer;
-          transition: all 0.15s ease;
-          border: 1px solid #e5e7eb;
+          transition:
+            border-color var(--transition-fast),
+            box-shadow var(--transition-fast),
+            background-color var(--transition-fast);
+          font-family: var(--font-sans);
+          text-align: left;
+          padding: 0;
+          overflow: hidden;
         }
 
-        .module-card:hover {
-          border-color: var(--accent-color);
-          background: white;
+        .ms-card:hover {
+          border-color: var(--ms-accent);
+          box-shadow: var(--card-hover-shadow);
+          background: var(--card);
         }
 
-        .module-background {
-          display: none;
+        .ms-card:focus-visible {
+          outline: 2px solid var(--primary);
+          outline-offset: 2px;
         }
 
-        .module-content {
-          padding: 1.25rem;
-        }
-
-        .module-header {
+        .ms-card-top {
           display: flex;
           align-items: center;
-          gap: 1rem;
-          margin-bottom: 1rem;
+          gap: 14px;
+          padding: 18px 18px 14px;
         }
 
-        .module-icon-wrapper {
+        /* ---- Icon ---- */
+        .ms-card-icon {
           flex-shrink: 0;
-          width: 40px;
-          height: 40px;
-          background: var(--accent-color);
-          border-radius: 8px;
+          width: 44px;
+          height: 44px;
+          background: var(--ms-accent);
+          border-radius: var(--radius-sm);
           display: flex;
           align-items: center;
           justify-content: center;
+          color: #fff;
+          transition: transform var(--transition-fast);
         }
 
-        .module-icon {
-          color: white;
+        .ms-card:hover .ms-card-icon {
+          transform: scale(1.06);
         }
 
-        .module-info {
+        /* ---- Info ---- */
+        .ms-card-info {
           flex: 1;
-        }
-
-        .module-name {
-          font-size: 1rem;
-          font-weight: 500;
-          color: #111827;
-          margin: 0 0 0.25rem;
-        }
-
-        .module-description {
-          font-size: 0.8rem;
-          color: #6b7280;
-          margin: 0;
-        }
-
-        .module-arrow-wrapper {
+          min-width: 0;
           display: flex;
-          align-items: center;
+          flex-direction: column;
+          gap: 2px;
         }
 
-        .module-arrow {
-          color: #9ca3af;
-          transition: transform 0.15s ease;
+        .ms-card-name {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--text-primary);
+          transition: color var(--transition-fast);
         }
 
-        .module-card:hover .module-arrow {
-          color: var(--accent-color);
-          transform: translateX(2px);
+        .ms-card:hover .ms-card-name {
+          color: var(--ms-accent);
         }
 
-        .module-features {
-          border-top: 1px solid #e5e7eb;
-          padding-top: 0.75rem;
+        .ms-card-desc {
+          font-size: 12px;
+          color: var(--text-secondary);
+          font-weight: 400;
         }
 
-        .features-title {
-          font-size: 0.75rem;
+        /* ---- Arrow ---- */
+        .ms-card-arrow {
+          flex-shrink: 0;
+          color: var(--text-secondary);
+          opacity: 0.4;
+          transition:
+            opacity var(--transition-fast),
+            transform var(--transition-fast),
+            color var(--transition-fast);
+        }
+
+        .ms-card:hover .ms-card-arrow {
+          opacity: 1;
+          color: var(--ms-accent);
+          transform: translateX(3px);
+        }
+
+        /* ---- Features ---- */
+        .ms-features {
+          padding: 12px 18px 16px;
+          border-top: 1px solid var(--border);
+        }
+
+        .ms-features-label {
+          font-size: 11px;
           font-weight: 500;
-          color: #6b7280;
-          margin: 0 0 0.5rem;
+          color: var(--text-secondary);
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          display: block;
+          margin-bottom: 8px;
         }
 
-        .features-list {
-          list-style: none;
-          padding: 0;
-          margin: 0;
+        .ms-features-list {
           display: flex;
           flex-wrap: wrap;
-          gap: 0.5rem;
+          gap: 6px;
         }
 
-        .feature-item {
-          display: flex;
+        .ms-feature-tag {
+          display: inline-flex;
           align-items: center;
-          gap: 0.375rem;
-          font-size: 0.75rem;
-          color: #6b7280;
-          background: white;
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          border: 1px solid #e5e7eb;
+          gap: 5px;
+          font-size: 11px;
+          color: var(--text-secondary);
+          background: var(--card);
+          padding: 4px 10px;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border);
         }
 
-        .feature-dot {
+        .ms-feature-dot {
           width: 4px;
           height: 4px;
-          background: var(--accent-color);
+          background: var(--ms-accent);
           border-radius: 50%;
           flex-shrink: 0;
         }
 
-        .footer-section {
-          text-align: center;
+        /* ---- Footer ---- */
+        .ms-footer {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 24px;
+          padding: 12px 16px;
+          font-size: 12px;
+          color: var(--text-secondary);
+          background: var(--background);
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border);
         }
 
-        .footer-note {
-          font-size: 0.75rem;
-          color: #9ca3af;
-          margin: 0;
+        .ms-footer-icon {
+          flex-shrink: 0;
+          opacity: 0.6;
         }
 
-        @media (max-width: 480px) {
-          .selector-wrapper {
-            padding: 1.5rem;
-          }
-          
-          .selector-header h1 {
-            font-size: 1.25rem;
+        /* ---- Responsive ---- */
+        @media (max-width: 640px) {
+          .ms-container {
+            padding: 20px 16px;
+            align-items: flex-start;
+            padding-top: 48px;
           }
 
-          .module-header {
-            flex-wrap: wrap;
+          .ms-wrapper {
+            padding: 32px 24px;
+          }
+
+          .ms-title {
+            font-size: 20px;
+          }
+        }
+
+        @media (max-width: 400px) {
+          .ms-wrapper {
+            padding: 24px 18px;
+          }
+
+          .ms-card-top {
+            padding: 14px 14px 12px;
+          }
+
+          .ms-features {
+            padding: 10px 14px 14px;
+          }
+
+          .ms-card-icon {
+            width: 40px;
+            height: 40px;
+          }
+
+          .ms-card-name {
+            font-size: 14px;
+          }
+        }
+
+        /* ---- Reduced Motion ---- */
+        @media (prefers-reduced-motion: reduce) {
+          .ms-card,
+          .ms-card-icon,
+          .ms-card-arrow {
+            transition: none;
           }
         }
       `}</style>

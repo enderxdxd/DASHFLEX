@@ -12,12 +12,10 @@ import {
   Award,
   BarChart3
 } from 'lucide-react';
-import useDarkMode from '../../hooks/useDarkMode';
 import { formatCurrency, formatCompactNumber, formatPercentage, shouldUseCompactFormat } from '../../utils/formatters';
 import '../../styles/ModernStatsCards.css';
 
 const ComissaoStats = ({ estatisticas, consultor }) => {
-  const [theme] = useDarkMode();
   
   if (!estatisticas || !consultor) {
     return null;

@@ -1,5 +1,6 @@
 // src/components/dashboard/FilterControls.jsx
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Search, Calendar, Trash2, X, Check, ShoppingCart, DollarSign, Maximize2, FileText, Package } from 'lucide-react';
 import dayjs from 'dayjs';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -8,13 +9,13 @@ import ptBR from 'date-fns/locale/pt-BR';
 
 registerLocale('pt-BR', ptBR);
 
-const FilterControls = ({ 
-  filters, 
-  dispatchFilters, 
-  responsaveis, 
-  produtos, 
-  totalVendas, 
-  totalFaturado, 
+const FilterControls = ({
+  filters,
+  dispatchFilters,
+  responsaveis,
+  produtos,
+  totalVendas,
+  totalFaturado,
   mediaVenda,
   estatisticasPlanos,
   estatisticasOutros,
@@ -26,21 +27,15 @@ const FilterControls = ({
     startDate: filters.startDate,
     endDate: filters.endDate
   });
-  
-  // Atualiza o estado local quando os filtros mudam
+
   useEffect(() => {
-    setLocalDateRange({
-      startDate: filters.startDate,
-      endDate: filters.endDate
-    });
+    setLocalDateRange({ startDate: filters.startDate, endDate: filters.endDate });
   }, [filters.startDate, filters.endDate]);
 
-  // Sync search term from external changes (e.g. clear filters)
   useEffect(() => {
     setLocalSearchTerm(filters.searchTerm || '');
   }, [filters.searchTerm]);
 
-  // Debounced search handler (300ms delay)
   const handleSearchChange = useCallback((value) => {
     setLocalSearchTerm(value);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
@@ -49,755 +44,440 @@ const FilterControls = ({
     }, 300);
   }, [dispatchFilters]);
 
-  // Cleanup debounce on unmount
   useEffect(() => {
-    return () => {
-      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    };
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
   }, []);
-  
-  // Formatação para valores monetários
+
   const formatMoney = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
-  
-  // Limpar todos os filtros
-  const clearAllFilters = () => {
-    dispatchFilters({ type: 'RESET_FILTERS' });
-  };
-  
-  // Aplicar intervalo de datas selecionado
+
+  const clearAllFilters = () => dispatchFilters({ type: 'RESET_FILTERS' });
+
   const applyDateRange = () => {
-    dispatchFilters({
-      type: 'SET_DATE_RANGE',
-      payload: localDateRange
-    });
+    dispatchFilters({ type: 'SET_DATE_RANGE', payload: localDateRange });
     setIsDateRangeOpen(false);
   };
-  
-  // Limpar intervalo de datas
+
   const clearDateRange = () => {
-    setLocalDateRange({
-      startDate: null,
-      endDate: null
-    });
-    dispatchFilters({
-      type: 'SET_DATE_RANGE',
-      payload: { startDate: null, endDate: null }
-    });
+    setLocalDateRange({ startDate: null, endDate: null });
+    dispatchFilters({ type: 'SET_DATE_RANGE', payload: { startDate: null, endDate: null } });
   };
-  
+
   return (
-    <div className="filters-panel">
-      <div className="filters-header">
+    <div className="fc-panel">
+      {/* Header */}
+      <div className="fc-header">
         <div>
-          <h2>Filtros e Controles</h2>
-          <p>Personalize a visualização dos dados conforme suas necessidades</p>
+          <h2 className="fc-heading">Filtros e Controles</h2>
+          <p className="fc-desc">Personalize a visualização dos dados conforme suas necessidades</p>
         </div>
-        <button className="clear-all-btn" onClick={clearAllFilters} type="button">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 6h18"></path>
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-            <line x1="10" y1="11" x2="10" y2="17"></line>
-            <line x1="14" y1="11" x2="14" y2="17"></line>
-          </svg>
+        <button className="fc-clear-btn" onClick={clearAllFilters} type="button">
+          <Trash2 size={14} />
           Limpar Filtros
         </button>
       </div>
-      
-      <div className="filters-container">
-        <div className="filters-grid">
-          <div className="filter-column">
-            <div className="filter-group">
-              <label htmlFor="responsavel">Responsável</label>
-              <div className="select-wrapper">
-                <select 
-                  id="responsavel"
-                  value={filters.filtroResponsavel}
-                  onChange={(e) => dispatchFilters({
-                    type: 'SET_FILTER_RESPONSAVEL',
-                    payload: e.target.value
-                  })}
-                >
-                  <option value="">Todos</option>
-                  {responsaveis.map(resp => (
-                    <option key={resp} value={resp}>{resp}</option>
-                  ))}
-                </select>
-              </div>
+
+      {/* Content: filters + stats sidebar */}
+      <div className="fc-content">
+        {/* Filters grid */}
+        <div className="fc-filters">
+          <div className="fc-row">
+            <div className="fc-field">
+              <label htmlFor="fc-responsavel">Responsável</label>
+              <select
+                id="fc-responsavel"
+                value={filters.filtroResponsavel}
+                onChange={(e) => dispatchFilters({ type: 'SET_FILTER_RESPONSAVEL', payload: e.target.value })}
+              >
+                <option value="">Todos</option>
+                {responsaveis.map(resp => <option key={resp} value={resp}>{resp}</option>)}
+              </select>
             </div>
-            
-            <div className="filter-group">
-              <label htmlFor="produto">Produto</label>
-              <div className="select-wrapper">
-                <select 
-                  id="produto"
-                  value={filters.filtroProduto}
-                  onChange={(e) => dispatchFilters({
-                    type: 'SET_FILTER_PRODUTO',
-                    payload: e.target.value
-                  })}
-                >
-                  <option value="">Todos</option>
-                  {produtos.map(prod => (
-                    <option key={prod} value={prod}>{prod}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-          
-          <div className="filter-column">
-            <div className="filter-group">
-              <label htmlFor="searchInput">Pesquisar</label>
-              <div className="search-input-wrapper">
+
+            <div className="fc-field">
+              <label htmlFor="fc-search">Pesquisar</label>
+              <div className="fc-search-wrap">
                 <input
                   type="text"
-                  id="searchInput"
+                  id="fc-search"
                   placeholder="Digite para pesquisar..."
                   value={localSearchTerm}
                   onChange={(e) => handleSearchChange(e.target.value)}
                 />
-                <button className="search-btn" type="button">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            <div className="filter-group date-filter-group">
-              <label>Intervalo de Datas</label>
-              <div className="date-range-wrapper">
-                <button 
-                  className="date-range-display"
-                  onClick={() => setIsDateRangeOpen(!isDateRangeOpen)}
-                  type="button"
-                >
-                  <span>
-                    {filters.startDate 
-                      ? dayjs(filters.startDate).format('DD/MM/YYYY') 
-                      : 'Data inicial'}
-                  </span>
-                  <span className="date-range-separator">a</span>
-                  <span>
-                    {filters.endDate 
-                      ? dayjs(filters.endDate).format('DD/MM/YYYY') 
-                      : 'Data final'}
-                  </span>
-                  <svg className="calendar-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                  </svg>
-                </button>
-                
-                {isDateRangeOpen && (
-                  <div className="date-picker-popup">
-                    <div className="date-picker-header">
-                      <h4>Selecione um intervalo de datas</h4>
-                      <button 
-                        className="close-calendar-btn"
-                        onClick={() => setIsDateRangeOpen(false)}
-                        type="button"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="18" y1="6" x2="6" y2="18"></line>
-                          <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                      </button>
-                    </div>
-                    
-                    <DatePicker
-                      selected={localDateRange.startDate}
-                      onChange={(dates) => {
-                        const [start, end] = dates;
-                        setLocalDateRange({
-                          startDate: start,
-                          endDate: end
-                        });
-                      }}
-                      startDate={localDateRange.startDate}
-                      endDate={localDateRange.endDate}
-                      selectsRange
-                      inline
-                      monthsShown={2}
-                      locale="pt-BR"
-                      dateFormat="dd/MM/yyyy"
-                      calendarClassName="custom-datepicker"
-                    />
-                    <div className="date-picker-actions">
-                      <button 
-                        className="clear-dates-btn"
-                        onClick={clearDateRange}
-                        type="button"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="18" y1="6" x2="6" y2="18"></line>
-                          <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                        Limpar
-                      </button>
-                      <button
-                        className="apply-dates-btn"
-                        onClick={applyDateRange}
-                        type="button"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Aplicar
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <Search size={16} className="fc-search-icon" />
               </div>
             </div>
           </div>
-        </div>
-        
-        <div className="stats-column">
-          <div className="stats-header">
-            <h3>Estatísticas Filtradas</h3>
-            <div className="period-indicator">
-              {filters.startDate && filters.endDate ? (
-                <span>
-                  {dayjs(filters.startDate).format('DD/MM/YYYY')} - {dayjs(filters.endDate).format('DD/MM/YYYY')}
-                </span>
-              ) : (
-                <span>Período completo</span>
+
+          <div className="fc-row">
+            <div className="fc-field">
+              <label htmlFor="fc-produto">Produto</label>
+              <select
+                id="fc-produto"
+                value={filters.filtroProduto}
+                onChange={(e) => dispatchFilters({ type: 'SET_FILTER_PRODUTO', payload: e.target.value })}
+              >
+                <option value="">Todos</option>
+                {produtos.map(prod => <option key={prod} value={prod}>{prod}</option>)}
+              </select>
+            </div>
+
+            <div className="fc-field fc-field--date">
+              <label>Intervalo de Datas</label>
+              <button
+                className="fc-date-btn"
+                onClick={() => setIsDateRangeOpen(!isDateRangeOpen)}
+                type="button"
+              >
+                <span>{filters.startDate ? dayjs(filters.startDate).format('DD/MM/YYYY') : 'Data inicial'}</span>
+                <span className="fc-date-sep">a</span>
+                <span>{filters.endDate ? dayjs(filters.endDate).format('DD/MM/YYYY') : 'Data final'}</span>
+                <Calendar size={16} className="fc-date-icon" />
+              </button>
+
+              {isDateRangeOpen && (
+                <div className="fc-datepicker-popup">
+                  <div className="fc-datepicker-header">
+                    <h4>Selecione um intervalo</h4>
+                    <button className="fc-icon-btn" onClick={() => setIsDateRangeOpen(false)} type="button">
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <DatePicker
+                    selected={localDateRange.startDate}
+                    onChange={(dates) => {
+                      const [start, end] = dates;
+                      setLocalDateRange({ startDate: start, endDate: end });
+                    }}
+                    startDate={localDateRange.startDate}
+                    endDate={localDateRange.endDate}
+                    selectsRange
+                    inline
+                    monthsShown={2}
+                    locale="pt-BR"
+                    dateFormat="dd/MM/yyyy"
+                    calendarClassName="fc-calendar"
+                  />
+                  <div className="fc-datepicker-actions">
+                    <button className="fc-btn fc-btn--outline-danger" onClick={clearDateRange} type="button">
+                      <X size={14} /> Limpar
+                    </button>
+                    <button className="fc-btn fc-btn--primary" onClick={applyDateRange} type="button">
+                      <Check size={14} /> Aplicar
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
+        </div>
 
-          {/* Nova seção para breakdown de produtos */}
-          <div className="product-breakdown-section">
-            <div className="breakdown-grid">
-              {/* Card para Planos */}
-              <div className="breakdown-card planos">
-                <div className="breakdown-header">
-                  <div className="breakdown-content">
-                    <div className="breakdown-icon planos-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14,2 14,8 20,8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                        <polyline points="10,9 9,9 8,9"></polyline>
-                      </svg>
-                    </div>
-                    <div className="breakdown-label">Planos</div>
-                  </div>
-                  <div className="breakdown-badge planos-badge">{formatMoney(estatisticasPlanos?.valorTotal || 0)}</div>
+        {/* Stats sidebar */}
+        <div className="fc-stats">
+          <div className="fc-stats-header">
+            <h3>Estatísticas Filtradas</h3>
+            <div className="fc-period-tag">
+              {filters.startDate && filters.endDate
+                ? `${dayjs(filters.startDate).format('DD/MM/YYYY')} - ${dayjs(filters.endDate).format('DD/MM/YYYY')}`
+                : 'Período completo'}
+            </div>
+          </div>
+
+          {/* Product breakdown */}
+          <div className="fc-breakdown">
+            <div className="fc-bk-card">
+              <div className="fc-bk-top">
+                <div className="fc-bk-icon fc-bk-icon--planos"><FileText size={16} /></div>
+                <span className="fc-bk-label">Planos</span>
+              </div>
+              <div className="fc-bk-badge fc-bk-badge--planos">{formatMoney(estatisticasPlanos?.valorTotal || 0)}</div>
+              <div className="fc-bk-stats">
+                <div className="fc-bk-stat">
+                  <span className="fc-bk-num">{estatisticasPlanos?.quantidade || 0}</span>
+                  <span className="fc-bk-desc">VENDAS</span>
                 </div>
-                
-                <div className="breakdown-stats">
-                  <div className="breakdown-stat">
-                    <span className="breakdown-number">{estatisticasPlanos?.quantidade || 0}</span>
-                    <span className="breakdown-desc">Vendas</span>
-                  </div>
-                  <div className="breakdown-stat">
-                    <span className="breakdown-number">{formatMoney(estatisticasPlanos?.valorMedio || 0)}</span>
-                    <span className="breakdown-desc">Média</span>
-                  </div>
+                <div className="fc-bk-stat">
+                  <span className="fc-bk-num">{formatMoney(estatisticasPlanos?.valorMedio || 0)}</span>
+                  <span className="fc-bk-desc">MÉDIA</span>
                 </div>
               </div>
+            </div>
 
-              {/* Card para Outros Produtos */}
-              <div className="breakdown-card outros">
-                <div className="breakdown-header">
-                  <div className="breakdown-content">
-                    <div className="breakdown-icon outros-icon">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                        <polyline points="3.27,6.96 12,12.01 20.73,6.96"></polyline>
-                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                      </svg>
-                    </div>
-                    <div className="breakdown-label">Outros</div>
-                  </div>
-                  <div className="breakdown-badge outros-badge">{formatMoney(estatisticasOutros?.valorTotal || 0)}</div>
+            <div className="fc-bk-card">
+              <div className="fc-bk-top">
+                <div className="fc-bk-icon fc-bk-icon--outros"><Package size={16} /></div>
+                <span className="fc-bk-label">Outros</span>
+              </div>
+              <div className="fc-bk-badge fc-bk-badge--outros">{formatMoney(estatisticasOutros?.valorTotal || 0)}</div>
+              <div className="fc-bk-stats">
+                <div className="fc-bk-stat">
+                  <span className="fc-bk-num">{estatisticasOutros?.quantidade || 0}</span>
+                  <span className="fc-bk-desc">VENDAS</span>
                 </div>
-                
-                <div className="breakdown-stats">
-                  <div className="breakdown-stat">
-                    <span className="breakdown-number">{estatisticasOutros?.quantidade || 0}</span>
-                    <span className="breakdown-desc">Vendas</span>
-                  </div>
-                  <div className="breakdown-stat">
-                    <span className="breakdown-number">{formatMoney(estatisticasOutros?.valorMedio || 0)}</span>
-                    <span className="breakdown-desc">Média</span>
-                  </div>
+                <div className="fc-bk-stat">
+                  <span className="fc-bk-num">{formatMoney(estatisticasOutros?.valorMedio || 0)}</span>
+                  <span className="fc-bk-desc">MÉDIA</span>
                 </div>
               </div>
             </div>
           </div>
-          
-          {/* Cards de estatísticas gerais */}
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-icon sales-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="9" cy="21" r="1"></circle>
-                  <circle cx="20" cy="21" r="1"></circle>
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-                </svg>
-              </div>
-              <div className="stat-content">
-                <div className="stat-value">{totalVendas}</div>
-                <div className="stat-label">Vendas</div>
+
+          {/* Summary stats */}
+          <div className="fc-summary">
+            <div className="fc-sum-card">
+              <div className="fc-sum-icon fc-sum-icon--sales"><ShoppingCart size={18} /></div>
+              <div>
+                <div className="fc-sum-value">{totalVendas}</div>
+                <div className="fc-sum-label">Vendas</div>
               </div>
             </div>
-            
-            <div className="stat-card">
-              <div className="stat-icon total-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23"></line>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-              </div>
-              <div className="stat-content">
-                <div className="stat-value">{formatMoney(totalFaturado)}</div>
-                <div className="stat-label">Total Faturado</div>
+            <div className="fc-sum-card">
+              <div className="fc-sum-icon fc-sum-icon--total"><DollarSign size={18} /></div>
+              <div>
+                <div className="fc-sum-value">{formatMoney(totalFaturado)}</div>
+                <div className="fc-sum-label">Total Faturado</div>
               </div>
             </div>
-            
-            <div className="stat-card">
-              <div className="stat-icon average-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"></path>
-                </svg>
-              </div>
-              <div className="stat-content">
-                <div className="stat-value">{formatMoney(mediaVenda)}</div>
-                <div className="stat-label">Média por Venda</div>
+            <div className="fc-sum-card">
+              <div className="fc-sum-icon fc-sum-icon--avg"><Maximize2 size={18} /></div>
+              <div>
+                <div className="fc-sum-value">{formatMoney(mediaVenda)}</div>
+                <div className="fc-sum-label">Média por Venda</div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <style jsx>{`
-        .filters-panel {
-          background: linear-gradient(135deg, var(--bg-primary, white) 0%, var(--bg-secondary, #f8fafc) 100%);
-          border-radius: 16px;
-          box-shadow: var(--shadow-lg, 0 4px 12px rgba(0, 0, 0, 0.05));
-          border: 1px solid var(--border-color, #e2e8f0);
-          padding: 24px;
-          margin-bottom: 32px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          position: relative;
-          overflow: visible; /* Mudança aqui para permitir que o calendário apareça */
+
+      <style>{`
+        /* ── Panel ────────────────────────────── */
+        .fc-panel {
+          background: var(--card);
+          border-radius: var(--radius-lg);
+          border: 1px solid var(--border);
+          border-top: 2px solid var(--primary);
+          padding: 1.5rem;
+          margin-bottom: 1.5rem;
+          box-shadow: var(--shadow);
         }
-        
-        .filters-panel::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: linear-gradient(90deg, var(--primary, #4f46e5) 0%, var(--primary-light, #818cf8) 50%, var(--primary, #4f46e5) 100%);
-          opacity: 0.6;
-        }
-        
-        .filters-header {
+
+        /* ── Header ──────────────────────────── */
+        .fc-header {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
-          margin-bottom: 24px;
-          position: relative;
+          margin-bottom: 1.25rem;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid var(--border);
         }
-        
-        .filters-header h2 {
-          font-size: 18px;
+
+        .fc-heading {
+          font-size: 1rem;
           font-weight: 700;
-          color: var(--text-primary, #1e293b);
-          margin: 0 0 6px 0;
-          background: linear-gradient(135deg, var(--text-primary, #1e293b) 0%, var(--primary, #4f46e5) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          color: var(--text-primary);
+          margin: 0 0 0.25rem 0;
         }
-        
-        .filters-header p {
-          font-size: 14px;
-          color: var(--text-secondary, #64748b);
+
+        .fc-desc {
+          font-size: 0.8125rem;
+          color: var(--text-secondary);
           margin: 0;
         }
-        
-        .clear-all-btn {
+
+        .fc-clear-btn {
           display: flex;
           align-items: center;
-          gap: 8px;
-          background: linear-gradient(135deg, var(--danger-light, #fef2f2) 0%, var(--danger-lighter, #fee2e2) 100%);
-          color: var(--danger, #ef4444);
-          border: 1px solid var(--danger-border, #fecaca);
-          border-radius: 8px;
-          padding: 10px 16px;
-          font-size: 14px;
+          gap: 0.375rem;
+          background: var(--error-light);
+          color: var(--danger);
+          border: 1px solid color-mix(in srgb, var(--danger) 20%, transparent);
+          border-radius: var(--radius-sm);
+          padding: 0.5rem 0.75rem;
+          font-size: 0.8125rem;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: var(--shadow-sm, 0 2px 4px rgba(239, 68, 68, 0.1));
+          transition: background var(--transition-fast), box-shadow var(--transition-fast);
+          flex-shrink: 0;
         }
-        
-        .clear-all-btn:hover {
-          background: linear-gradient(135deg, var(--danger-hover, #fee2e2) 0%, var(--danger-hover-light, #fecaca) 100%);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-md, 0 4px 12px rgba(239, 68, 68, 0.2));
+
+        .fc-clear-btn:hover {
+          background: color-mix(in srgb, var(--danger) 15%, transparent);
+          box-shadow: var(--shadow-sm);
         }
-        
-        .clear-all-btn:active {
-          transform: translateY(0);
-        }
-        
-        /* Container principal para organizar layout */
-        .filters-container {
+
+        /* ── Content layout ──────────────────── */
+        .fc-content {
           display: flex;
-          gap: 24px;
+          gap: 1.5rem;
           align-items: flex-start;
         }
-        
-        .filters-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(280px, 1fr));
-          gap: 24px;
+
+        .fc-filters {
           flex: 1;
-          max-width: 600px; /* Limita a largura dos filtros */
-        }
-        
-        .filter-column {
+          min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 1rem;
         }
-        
-        .filter-group {
+
+        .fc-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1rem;
+        }
+
+        /* ── Fields ──────────────────────────── */
+        .fc-field {
           display: flex;
           flex-direction: column;
-          gap: 10px;
-          position: relative;
+          gap: 0.375rem;
         }
-        
-        /* Z-index especial para o grupo de datas */
-        .date-filter-group {
-          z-index: 1000;
+
+        .fc-field--date {
           position: relative;
+          z-index: 100;
         }
-        
-        .filter-group label {
-          font-size: 14px;
+
+        .fc-field label {
+          font-size: 0.8125rem;
           font-weight: 600;
-          color: var(--text-label, #475569);
-          margin-bottom: 4px;
+          color: var(--text-secondary);
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 0.375rem;
         }
-        
-        .filter-group label::before {
+
+        .fc-field label::before {
           content: '';
           width: 3px;
-          height: 16px;
-          background: linear-gradient(180deg, var(--primary, #4f46e5) 0%, var(--primary-light, #818cf8) 100%);
+          height: 14px;
+          background: var(--primary);
           border-radius: 2px;
+        }
+
+        .fc-field select,
+        .fc-field input {
+          width: 100%;
+          padding: 0.625rem 0.75rem;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          background: var(--card);
+          font-size: 0.875rem;
+          color: var(--text-primary);
+          appearance: none;
+          transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+          box-shadow: var(--shadow-sm);
+          font-family: var(--font-sans);
+        }
+
+        .fc-field select {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 0.75rem center;
+          padding-right: 2.25rem;
+        }
+
+        .fc-field select:focus,
+        .fc-field input:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent);
+        }
+
+        .fc-field input::placeholder {
+          color: var(--text-secondary);
           opacity: 0.6;
         }
-        
-        .select-wrapper {
+
+        .fc-search-wrap {
           position: relative;
         }
-        
-        .select-wrapper::after {
-          content: "";
+
+        .fc-search-wrap input {
+          padding-right: 2.5rem;
+        }
+
+        .fc-search-icon {
           position: absolute;
+          right: 0.75rem;
           top: 50%;
-          right: 16px;
           transform: translateY(-50%);
-          width: 0;
-          height: 0;
-          border-left: 5px solid transparent;
-          border-right: 5px solid transparent;
-          border-top: 5px solid var(--text-muted, #64748b);
+          color: var(--text-secondary);
           pointer-events: none;
-          transition: all 0.2s ease;
         }
-        
-        .select-wrapper:hover::after {
-          border-top-color: var(--primary, #4f46e5);
-        }
-        
-        select {
-          width: 100%;
-          padding: 12px 16px;
-          border: 1px solid var(--border-input, #e2e8f0);
-          border-radius: 8px;
-          background: linear-gradient(135deg, var(--bg-input, white) 0%, var(--bg-input-light, #f8fafc) 100%);
-          font-size: 14px;
-          color: var(--text-primary, #1e293b);
-          appearance: none;
-          cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: var(--shadow-input, 0 1px 3px rgba(0, 0, 0, 0.05));
-        }
-        
-        select:hover {
-          border-color: var(--border-hover, #cbd5e1);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-input-hover, 0 4px 12px rgba(0, 0, 0, 0.1));
-        }
-        
-        select:focus {
-          outline: none;
-          border-color: var(--primary, #818cf8);
-          box-shadow: 0 0 0 3px var(--primary-alpha, rgba(99, 102, 241, 0.1)), var(--shadow-input-focus, 0 4px 12px rgba(99, 102, 241, 0.15));
-          transform: translateY(-1px);
-        }
-        
-        input {
-          width: 100%;
-          padding: 12px 16px;
-          border: 1px solid var(--border-input, #e2e8f0);
-          border-radius: 8px;
-          background: linear-gradient(135deg, var(--bg-input, white) 0%, var(--bg-input-light, #f8fafc) 100%);
-          font-size: 14px;
-          color: var(--text-primary, #1e293b);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          box-shadow: var(--shadow-input, 0 1px 3px rgba(0, 0, 0, 0.05));
-        }
-        
-        input:hover {
-          border-color: var(--border-hover, #cbd5e1);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-input-hover, 0 4px 12px rgba(0, 0, 0, 0.1));
-        }
-        
-        input:focus {
-          outline: none;
-          border-color: var(--primary, #818cf8);
-          box-shadow: 0 0 0 3px var(--primary-alpha, rgba(99, 102, 241, 0.1)), var(--shadow-input-focus, 0 4px 12px rgba(99, 102, 241, 0.15));
-          transform: translateY(-1px);
-        }
-        
-        input::placeholder {
-          color: var(--text-placeholder, #94a3b8);
-        }
-        
-        .search-input-wrapper {
-          position: relative;
-        }
-        
-        .search-btn {
-          position: absolute;
-          right: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: var(--text-muted, #64748b);
-          transition: all 0.2s ease;
-          border-radius: 6px;
-        }
-        
-        .search-btn:hover {
-          color: var(--primary, #4f46e5);
-          background: linear-gradient(135deg, var(--primary-light, #f8fafc) 0%, var(--primary-lighter, #eef2ff) 100%);
-          transform: translateY(-50%) scale(1.1);
-        }
-        
-        .date-range-wrapper {
-          position: relative;
-        }
-        
-        .date-range-display {
+
+        /* ── Date button ─────────────────────── */
+        .fc-date-btn {
           display: flex;
           align-items: center;
           width: 100%;
-          padding: 12px 16px;
-          border: 1px solid var(--border-input, #e2e8f0);
-          border-radius: 8px;
-          background: linear-gradient(135deg, var(--bg-input, white) 0%, var(--bg-input-light, #f8fafc) 100%);
-          font-size: 14px;
-          color: var(--text-primary, #1e293b);
+          padding: 0.625rem 0.75rem;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          background: var(--card);
+          font-size: 0.875rem;
+          color: var(--text-primary);
           cursor: pointer;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: border-color var(--transition-fast);
           text-align: left;
-          box-shadow: var(--shadow-input, 0 1px 3px rgba(0, 0, 0, 0.05));
+          box-shadow: var(--shadow-sm);
+          font-family: var(--font-sans);
         }
-        
-        .date-range-display:hover {
-          border-color: var(--border-hover, #cbd5e1);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-input-hover, 0 4px 12px rgba(0, 0, 0, 0.1));
+
+        .fc-date-btn:hover {
+          border-color: var(--primary);
         }
-        
-        .date-range-separator {
-          margin: 0 8px;
-          color: var(--text-muted, #64748b);
+
+        .fc-date-sep {
+          margin: 0 0.5rem;
+          color: var(--text-secondary);
           font-weight: 500;
         }
-        
-        .calendar-icon {
+
+        .fc-date-icon {
           margin-left: auto;
-          color: var(--text-muted, #64748b);
-          transition: all 0.2s ease;
+          color: var(--text-secondary);
+          flex-shrink: 0;
         }
-        
-        .date-range-display:hover .calendar-icon {
-          color: var(--primary, #4f46e5);
-        }
-        
-        .date-picker-popup {
+
+        /* ── Datepicker popup ────────────────── */
+        .fc-datepicker-popup {
           position: absolute;
-          top: calc(100% + 8px);
+          top: calc(100% + 0.5rem);
           left: 0;
-          z-index: 9999; /* Z-index muito alto para ficar acima de tudo */
-          width: 100%;
-          min-width: 660px;
-          background: linear-gradient(135deg, var(--bg-popup, white) 0%, var(--bg-popup-light, #f8fafc) 100%);
-          border-radius: 12px;
-          box-shadow: var(--shadow-popup, 0 20px 40px rgba(0, 0, 0, 0.25));
-          border: 1px solid var(--border-popup, #e2e8f0);
-          padding: 20px;
-          backdrop-filter: blur(20px);
-          animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          z-index: 9999;
+          min-width: 600px;
+          background: var(--card);
+          border-radius: var(--radius);
+          box-shadow: var(--shadow-lg);
+          border: 1px solid var(--border);
+          padding: 1.25rem;
+          animation: fc-slideDown 200ms ease;
         }
-        
-        @keyframes slideDown {
-          0% {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
+
+        @keyframes fc-slideDown {
+          from { opacity: 0; transform: translateY(-6px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        
-        .custom-datepicker {
-          width: 100%;
-          border: none;
-          background: transparent;
-          font-family: inherit;
-        }
-        
-        /* Override react-datepicker styles */
-        :global(.react-datepicker) {
-          font-family: inherit !important;
-          border: none !important;
-          width: 100% !important;
-          background-color: transparent !important;
-        }
-        
-        :global(.react-datepicker__month-container) {
-          width: 48% !important;
-        }
-        
-        :global(.react-datepicker__day--selected),
-        :global(.react-datepicker__day--in-selecting-range),
-        :global(.react-datepicker__day--in-range) {
-          background: linear-gradient(135deg, var(--primary, #4f46e5) 0%, var(--primary-dark, #4338ca) 100%) !important;
-          border-radius: 0.5rem !important;
-          color: white !important;
-          font-weight: 600 !important;
-        }
-        
-        :global(.react-datepicker__day--keyboard-selected) {
-          background: linear-gradient(135deg, var(--primary-light, #818cf8) 0%, var(--primary, #4f46e5) 100%) !important;
-          color: white !important;
-        }
-        
-        :global(.react-datepicker__day:hover) {
-          background: linear-gradient(135deg, var(--primary-lighter, #eef2ff) 0%, var(--primary-light-hover, #e0e7ff) 100%) !important;
-          border-radius: 0.4rem !important;
-          color: var(--primary, #4f46e5) !important;
-        }
-        
-        :global(.react-datepicker__day--in-selecting-range:not(.react-datepicker__day--in-range)) {
-          background: linear-gradient(135deg, var(--primary-alpha, rgba(79, 70, 229, 0.3)) 0%, var(--primary-alpha-light, rgba(129, 140, 248, 0.3)) 100%) !important;
-          border-radius: 0.4rem !important;
-        }
-        
-        :global(.react-datepicker__header) {
-          background: linear-gradient(135deg, var(--bg-header, #f8fafc) 0%, var(--bg-header-light, #f1f5f9) 100%) !important;
-          border-bottom: 1px solid var(--border-header, #e2e8f0) !important;
-          border-radius: 8px 8px 0 0 !important;
-        }
-        
-        :global(.react-datepicker__current-month) {
-          color: var(--text-primary, #1e293b) !important;
-          font-weight: 700 !important;
-        }
-        
-        :global(.react-datepicker__day-name) {
-          color: var(--text-secondary, #64748b) !important;
-          font-weight: 600 !important;
-        }
-        
-        :global(.react-datepicker__day) {
-          color: var(--text-primary, #1e293b) !important;
-          border-radius: 0.3rem !important;
-          transition: all 0.2s ease !important;
-        }
-        
-        :global(.react-datepicker__day--disabled) {
-          color: var(--text-disabled, #cbd5e1) !important;
-        }
-        
-        :global(.react-datepicker__navigation) {
-          top: 15px !important;
-        }
-        
-        :global(.react-datepicker__navigation--previous) {
-          border-right-color: var(--primary, #4f46e5) !important;
-        }
-        
-        :global(.react-datepicker__navigation--next) {
-          border-left-color: var(--primary, #4f46e5) !important;
-        }
-        
-        .date-picker-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 12px;
-          margin-top: 20px;
-          border-top: 1px solid var(--border-divider, #f1f5f9);
-          padding-top: 20px;
-        }
-        
-        .date-picker-header {
+
+        .fc-datepicker-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 20px;
-          padding-bottom: 16px;
-          border-bottom: 1px solid var(--border-divider, #f1f5f9);
+          margin-bottom: 1rem;
+          padding-bottom: 0.75rem;
+          border-bottom: 1px solid var(--border);
         }
 
-        .date-picker-header h4 {
-          font-size: 16px;
-          font-weight: 700;
-          color: var(--text-primary, #1e293b);
+        .fc-datepicker-header h4 {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--text-primary);
           margin: 0;
-          background: linear-gradient(135deg, var(--text-primary, #1e293b) 0%, var(--primary, #4f46e5) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
         }
 
-        .close-calendar-btn {
+        .fc-icon-btn {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -806,554 +486,191 @@ const FilterControls = ({
           border-radius: 50%;
           background: none;
           border: none;
-          color: var(--text-muted, #64748b);
+          color: var(--text-secondary);
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background var(--transition-fast), color var(--transition-fast);
         }
 
-        .close-calendar-btn:hover {
-          background: linear-gradient(135deg, var(--danger-light, #f1f5f9) 0%, var(--danger-lighter, #fee2e2) 100%);
-          color: var(--danger, #ef4444);
-          transform: scale(1.1);
+        .fc-icon-btn:hover {
+          background: var(--error-light);
+          color: var(--danger);
         }
-        
-        .clear-dates-btn {
+
+        .fc-datepicker-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.5rem;
+          margin-top: 1rem;
+          padding-top: 0.75rem;
+          border-top: 1px solid var(--border);
+        }
+
+        .fc-btn {
           display: flex;
           align-items: center;
-          gap: 8px;
-          background: none;
-          border: 1px solid var(--danger-border, #fee2e2);
-          color: var(--danger, #ef4444);
-          font-size: 14px;
+          gap: 0.375rem;
+          padding: 0.5rem 0.875rem;
+          border-radius: var(--radius-sm);
+          font-size: 0.8125rem;
           font-weight: 600;
           cursor: pointer;
-          padding: 10px 16px;
-          border-radius: 8px;
-          transition: all 0.2s ease;
+          transition: background var(--transition-fast), box-shadow var(--transition-fast);
+          font-family: var(--font-sans);
         }
-        
-        .clear-dates-btn:hover {
-          background: linear-gradient(135deg, var(--danger-light, #fee2e2) 0%, var(--danger-lighter, #fecaca) 100%);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-btn, 0 4px 12px rgba(239, 68, 68, 0.2));
+
+        .fc-btn--outline-danger {
+          background: none;
+          border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+          color: var(--danger);
         }
-        
-        .apply-dates-btn {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: linear-gradient(135deg, var(--primary, #4f46e5) 0%, var(--primary-dark, #4338ca) 100%);
+
+        .fc-btn--outline-danger:hover {
+          background: var(--error-light);
+        }
+
+        .fc-btn--primary {
+          background: var(--primary);
           color: white;
           border: none;
-          padding: 10px 16px;
-          border-radius: 8px;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: var(--shadow-btn-primary, 0 4px 12px rgba(79, 70, 229, 0.3));
+          box-shadow: var(--shadow-sm);
         }
-        
-        .apply-dates-btn:hover {
-          background: linear-gradient(135deg, var(--primary-dark, #4338ca) 0%, var(--primary-darker, #3730a3) 100%);
-          transform: translateY(-1px);
-          box-shadow: var(--shadow-btn-primary-hover, 0 6px 16px rgba(79, 70, 229, 0.4));
+
+        .fc-btn--primary:hover {
+          background: var(--primary-hover);
+          box-shadow: var(--shadow-md);
         }
-        
-        .apply-dates-btn:active {
-          transform: translateY(0);
+
+        /* ── react-datepicker overrides ──────── */
+        :global(.react-datepicker) {
+          font-family: var(--font-sans) !important;
+          border: none !important;
+          width: 100% !important;
+          background-color: transparent !important;
         }
-        
-        .stats-column {
-          background: linear-gradient(135deg, var(--bg-stats, #f8fafc) 0%, var(--bg-stats-light, #f1f5f9) 100%);
-          border: 1px solid var(--border-stats, #e2e8f0);
-          border-radius: 12px;
-          padding: 24px;
-          min-width: 320px;
-          max-width: 380px;
-          height: fit-content;
+
+        :global(.react-datepicker__month-container) {
+          width: 48% !important;
         }
-        
-        .stats-header {
-          margin-bottom: 20px;
+
+        :global(.react-datepicker__header) {
+          background: var(--background) !important;
+          border-bottom: 1px solid var(--border) !important;
+          border-radius: var(--radius-sm) var(--radius-sm) 0 0 !important;
         }
-        
-        .stats-header h3 {
-          font-size: 16px;
-          font-weight: 700;
-          color: var(--text-primary, #1e293b);
-          margin: 0 0 8px 0;
-          background: linear-gradient(135deg, var(--text-primary, #1e293b) 0%, var(--primary, #4f46e5) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+
+        :global(.react-datepicker__current-month) {
+          color: var(--text-primary) !important;
+          font-weight: 600 !important;
         }
-        
-        .period-indicator {
-          font-size: 13px;
-          color: var(--text-secondary, #64748b);
-          background: linear-gradient(135deg, var(--bg-indicator, white) 0%, var(--bg-indicator-light, #f8fafc) 100%);
-          border-radius: 8px;
-          padding: 8px 12px;
-          display: inline-block;
-          border: 1px solid var(--border-indicator, #e2e8f0);
-          font-weight: 500;
-          box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.05));
+
+        :global(.react-datepicker__day-name) {
+          color: var(--text-secondary) !important;
+          font-weight: 600 !important;
         }
-        
-        .stats-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 16px;
+
+        :global(.react-datepicker__day) {
+          color: var(--text-primary) !important;
+          border-radius: var(--radius-sm) !important;
+          transition: background 150ms ease !important;
         }
-        
-        .stat-card {
-          background: linear-gradient(135deg, var(--bg-card, white) 0%, var(--bg-card-light, #f8fafc) 100%);
-          border-radius: 12px;
-          padding: 20px;
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          border: 1px solid var(--border-card, #f1f5f9);
-          box-shadow: var(--shadow-card, 0 2px 8px rgba(0, 0, 0, 0.05));
-          position: relative;
-          overflow: hidden;
+
+        :global(.react-datepicker__day:hover) {
+          background: var(--primary-light) !important;
+          color: var(--primary) !important;
         }
-        
-        .stat-card::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: linear-gradient(90deg, var(--card-accent, #4f46e5) 0%, transparent 100%);
-          opacity: 0;
-          transition: opacity 0.3s ease;
+
+        :global(.react-datepicker__day--selected),
+        :global(.react-datepicker__day--in-selecting-range),
+        :global(.react-datepicker__day--in-range) {
+          background: var(--primary) !important;
+          color: white !important;
+          font-weight: 600 !important;
         }
-        
-        .stat-card:hover {
-          transform: translateY(-4px);
-          box-shadow: var(--shadow-card-hover, 0 8px 25px rgba(0, 0, 0, 0.1));
+
+        :global(.react-datepicker__day--keyboard-selected) {
+          background: var(--primary) !important;
+          color: white !important;
         }
-        
-        .stat-card:hover::before {
-          opacity: 1;
+
+        :global(.react-datepicker__day--in-selecting-range:not(.react-datepicker__day--in-range)) {
+          background: color-mix(in srgb, var(--primary) 25%, transparent) !important;
         }
-        
-        .stat-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
+
+        :global(.react-datepicker__day--disabled) {
+          color: var(--text-secondary) !important;
+          opacity: 0.4 !important;
+        }
+
+        :global(.react-datepicker__navigation--previous) {
+          border-right-color: var(--primary) !important;
+        }
+
+        :global(.react-datepicker__navigation--next) {
+          border-left-color: var(--primary) !important;
+        }
+
+        /* ── Stats sidebar ───────────────────── */
+        .fc-stats {
+          background: var(--background);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          padding: 1.25rem;
+          min-width: 300px;
+          max-width: 360px;
           flex-shrink: 0;
-          transition: all 0.3s ease;
-        }
-        
-        .stat-card:hover .stat-icon {
-          transform: scale(1.1);
-        }
-        
-        .sales-icon {
-          background: linear-gradient(135deg, var(--sales-bg, #dbeafe) 0%, var(--sales-bg-light, #bfdbfe) 100%);
-          color: var(--sales-color, #3b82f6);
-        }
-        
-        .total-icon {
-          background: linear-gradient(135deg, var(--total-bg, #eef2ff) 0%, var(--total-bg-light, #e0e7ff) 100%);
-          color: var(--total-color, #4f46e5);
-        }
-        
-        .average-icon {
-          background: linear-gradient(135deg, var(--average-bg, #fef3c7) 0%, var(--average-bg-light, #fde68a) 100%);
-          color: var(--average-color, #f59e0b);
-        }
-        
-        .stat-content {
-          display: flex;
-          flex-direction: column;
-          flex: 1;
-        }
-        
-        .stat-value {
-          font-size: 20px;
-          font-weight: 800;
-          color: var(--text-primary, #1e293b);
-          margin-bottom: 4px;
-          background: linear-gradient(135deg, var(--text-primary, #1e293b) 0%, var(--text-accent, #4f46e5) 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        
-        .stat-label {
-          font-size: 13px;
-          color: var(--text-secondary, #64748b);
-          font-weight: 500;
-        }
-        
-        /* Dark Mode */
-        .dark .filters-panel,
-        [data-theme="dark"] .filters-panel {
-          --bg-primary: #1e293b;
-          --bg-secondary: #0f172a;
-          --bg-input: #334155;
-          --bg-input-light: #475569;
-          --bg-popup: #1e293b;
-          --bg-popup-light: #334155;
-          --bg-header: #334155;
-          --bg-header-light: #475569;
-          --bg-stats: #0f172a;
-          --bg-stats-light: #1e293b;
-          --bg-card: #334155;
-          --bg-card-light: #475569;
-          --bg-indicator: #334155;
-          --bg-indicator-light: #475569;
-          --text-primary: #f1f5f9;
-          --text-secondary: #94a3b8;
-          --text-muted: #64748b;
-          --text-label: #cbd5e1;
-          --text-placeholder: #64748b;
-          --text-disabled: #475569;
-          --text-accent: #818cf8;
-          --border-color: #334155;
-          --border-input: #475569;
-          --border-hover: #64748b;
-          --border-popup: #475569;
-          --border-header: #475569;
-          --border-divider: #334155;
-          --border-stats: #334155;
-          --border-card: #475569;
-          --border-indicator: #475569;
-          --primary: #6366f1;
-          --primary-light: #818cf8;
-          --primary-lighter: #1e3a8a40;
-          --primary-light-hover: #1e40af40;
-          --primary-dark: #4f46e5;
-          --primary-darker: #4338ca;
-          --primary-alpha: rgba(99, 102, 241, 0.2);
-          --primary-alpha-light: rgba(129, 140, 248, 0.2);
-          --danger: #f87171;
-          --danger-light: #99182040;
-          --danger-lighter: #dc262640;
-          --danger-hover: #fee2e240;
-          --danger-border: #991b1b;
-          --sales-bg: #1e40af40;
-          --sales-bg-light: #3b82f640;
-          --sales-color: #60a5fa;
-          --total-bg: #4338ca40;
-          --total-bg-light: #6366f140;
-          --total-color: #a5b4fc;
-          --average-bg: #d9710240;
-          --average-bg-light: #f59e0b40;
-          --average-color: #fbbf24;
-          --card-accent: #6366f1;
-          --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
-          --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-          --shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.5);
-          --shadow-popup: 0 20px 40px rgba(0, 0, 0, 0.6);
-          --shadow-input: 0 1px 3px rgba(0, 0, 0, 0.2);
-          --shadow-input-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
-          --shadow-input-focus: 0 4px 12px rgba(99, 102, 241, 0.3);
-          --shadow-btn: 0 4px 12px rgba(0, 0, 0, 0.3);
-          --shadow-btn-primary: 0 4px 12px rgba(99, 102, 241, 0.4);
-          --shadow-btn-primary-hover: 0 6px 16px rgba(99, 102, 241, 0.5);
-          --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2);
-          --shadow-card-hover: 0 8px 25px rgba(0, 0, 0, 0.3);
-        }
-        
-        /* Light Mode Default Values */
-        :root {
-          --bg-primary: white;
-          --bg-secondary: #f8fafc;
-          --bg-input: white;
-          --bg-input-light: #f8fafc;
-          --bg-popup: white;
-          --bg-popup-light: #f8fafc;
-          --bg-header: #f8fafc;
-          --bg-header-light: #f1f5f9;
-          --bg-stats: #f8fafc;
-          --bg-stats-light: #f1f5f9;
-          --bg-card: white;
-          --bg-card-light: #f8fafc;
-          --bg-indicator: white;
-          --bg-indicator-light: #f8fafc;
-          --text-primary: #1e293b;
-          --text-secondary: #64748b;
-          --text-muted: #94a3b8;
-          --text-label: #475569;
-          --text-placeholder: #94a3b8;
-          --text-disabled: #cbd5e1;
-          --text-accent: #4f46e5;
-          --border-color: #e2e8f0;
-          --border-input: #e2e8f0;
-          --border-hover: #cbd5e1;
-          --border-popup: #e2e8f0;
-          --border-header: #e2e8f0;
-          --border-divider: #f1f5f9;
-          --border-stats: #e2e8f0;
-          --border-card: #f1f5f9;
-          --border-indicator: #e2e8f0;
-          --primary: #4f46e5;
-          --primary-light: #818cf8;
-          --primary-lighter: #eef2ff;
-          --primary-light-hover: #e0e7ff;
-          --primary-dark: #4338ca;
-          --primary-darker: #3730a3;
-          --primary-alpha: rgba(99, 102, 241, 0.1);
-          --primary-alpha-light: rgba(129, 140, 248, 0.1);
-          --danger: #ef4444;
-          --danger-light: #fef2f2;
-          --danger-lighter: #fee2e2;
-          --danger-hover: #fee2e2;
-          --danger-border: #fecaca;
-          --sales-bg: #dbeafe;
-          --sales-bg-light: #bfdbfe;
-          --sales-color: #3b82f6;
-          --total-bg: #eef2ff;
-          --total-bg-light: #e0e7ff;
-          --total-color: #4f46e5;
-          --average-bg: #fef3c7;
-          --average-bg-light: #fde68a;
-          --average-color: #f59e0b;
-          --card-accent: #4f46e5;
-          --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
-          --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-          --shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.15);
-          --shadow-popup: 0 20px 40px rgba(0, 0, 0, 0.15);
-          --shadow-input: 0 1px 3px rgba(0, 0, 0, 0.05);
-          --shadow-input-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
-          --shadow-input-focus: 0 4px 12px rgba(99, 102, 241, 0.15);
-          --shadow-btn: 0 4px 12px rgba(239, 68, 68, 0.2);
-          --shadow-btn-primary: 0 4px 12px rgba(79, 70, 229, 0.3);
-          --shadow-btn-primary-hover: 0 6px 16px rgba(79, 70, 229, 0.4);
-          --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.05);
-          --shadow-card-hover: 0 8px 25px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* Enhanced interactions */
-        .filter-group:hover label::before {
-          background: linear-gradient(180deg, var(--primary, #4f46e5) 0%, var(--primary-dark, #4338ca) 100%);
-          opacity: 1;
-          transform: scaleY(1.2);
-        }
-        
-        .select-wrapper:focus-within,
-        .search-input-wrapper:focus-within,
-        .date-range-wrapper:focus-within {
-          transform: translateY(-1px);
-        }
-        
-        /* Focus states for accessibility */
-        .clear-all-btn:focus,
-        .search-btn:focus,
-        .date-range-display:focus,
-        .close-calendar-btn:focus,
-        .clear-dates-btn:focus,
-        .apply-dates-btn:focus {
-          outline: 2px solid var(--primary, #4f46e5);
-          outline-offset: 2px;
-        }
-        
-        /* Responsive Design */
-        @media (max-width: 1200px) {
-          .filters-container {
-            flex-direction: column;
-            gap: 20px;
-          }
-          
-          .filters-grid {
-            max-width: none;
-          }
-          
-          .stats-column {
-            max-width: none;
-          }
-          
-          .stats-grid {
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          }
-        }
-        
-        @media (max-width: 768px) {
-          .filters-panel {
-            padding: 16px;
-            margin-bottom: 24px;
-          }
-          
-          .filters-header {
-            flex-direction: column;
-            gap: 16px;
-            align-items: stretch;
-          }
-          
-          .filters-grid {
-            grid-template-columns: 1fr;
-            gap: 16px;
-          }
-          
-          .date-picker-popup {
-            min-width: 300px;
-            right: 0;
-            left: auto;
-            padding: 16px;
-          }
-          
-          .stats-column {
-            padding: 16px;
-          }
-          
-          .stat-card {
-            padding: 16px;
-            gap: 12px;
-          }
-          
-          .stat-icon {
-            width: 40px;
-            height: 40px;
-          }
-          
-          .stat-value {
-            font-size: 18px;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          .filters-panel {
-            padding: 12px;
-            border-radius: 12px;
-          }
-          
-          .filter-group {
-            gap: 8px;
-          }
-          
-          select,
-          input,
-          .date-range-display {
-            padding: 10px 12px;
-          }
-          
-          .date-picker-popup {
-            min-width: 280px;
-            padding: 12px;
-          }
-          
-          .date-picker-actions {
-            gap: 8px;
-          }
-          
-          .clear-dates-btn,
-          .apply-dates-btn {
-            padding: 8px 12px;
-            font-size: 13px;
-          }
-        }
-        
-        /* Accessibility improvements */
-        @media (prefers-reduced-motion: reduce) {
-          .filters-panel,
-          .clear-all-btn,
-          select,
-          input,
-          .search-btn,
-          .date-range-display,
-          .stat-card,
-          .stat-icon,
-          .apply-dates-btn,
-          .clear-dates-btn,
-          .close-calendar-btn {
-            transition: none;
-            animation: none;
-            transform: none;
-          }
-          
-          .date-picker-popup {
-            animation: none;
-          }
-          
-          @keyframes slideDown {
-            0%, 100% { opacity: 1; transform: translateY(0); }
-          }
-        }
-        
-        /* Print styles */
-        @media print {
-          .filters-panel {
-            box-shadow: none;
-            border: 1px solid #ccc;
-            background: white;
-          }
-          
-          .clear-all-btn,
-          .search-btn,
-          .close-calendar-btn,
-          .date-picker-popup {
-            display: none;
-          }
-        }
-        .product-breakdown-section {
-          margin-top: 32px;
-          padding-top: 24px;
-          border-top: 1px solid var(--border, #e5e7eb);
         }
 
-        .breakdown-title {
-          font-size: 16px;
-          font-weight: 600;
-          color: var(--text-primary, #1f2937);
-          margin-bottom: 16px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .breakdown-title::before {
-          content: '';
-          width: 4px;
-          height: 16px;
-          background: linear-gradient(135deg, var(--accent, #6366f1), var(--accent-light, #8b5cf6));
-          border-radius: 2px;
-        }
-
-        .breakdown-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-        }
-
-        .breakdown-card {
-          background: white;
-          border-radius: 8px;
-          padding: 1rem;
-          border: 1px solid #e5e7eb;
-          transition: all 0.15s ease;
-          position: relative;
-        }
-
-        .breakdown-card:hover {
-          border-color: #d1d5db;
-        }
-
-        .breakdown-header {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
+        .fc-stats-header {
           margin-bottom: 1rem;
         }
 
-        .breakdown-content {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
+        .fc-stats-header h3 {
+          font-size: 0.9375rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin: 0 0 0.5rem 0;
         }
 
-        .breakdown-icon {
-          width: 32px;
-          height: 32px;
+        .fc-period-tag {
+          display: inline-block;
+          font-size: 0.75rem;
+          color: var(--text-secondary);
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          padding: 0.25rem 0.625rem;
+          font-weight: 500;
+        }
+
+        /* ── Breakdown cards ─────────────────── */
+        .fc-breakdown {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+          padding-bottom: 1rem;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .fc-bk-card {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          padding: 0.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .fc-bk-top {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+
+        .fc-bk-icon {
+          width: 28px;
+          height: 28px;
           border-radius: 6px;
           display: flex;
           align-items: center;
@@ -1361,292 +678,162 @@ const FilterControls = ({
           flex-shrink: 0;
         }
 
-        .breakdown-icon.planos-icon {
-          background: #10b981;
+        .fc-bk-icon--planos {
+          background: var(--success);
           color: white;
         }
 
-        .breakdown-icon.outros-icon {
-          background: #3b82f6;
+        .fc-bk-icon--outros {
+          background: var(--primary);
           color: white;
         }
 
-        .breakdown-label {
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: #374151;
-        }
-
-        .breakdown-badge {
-          font-size: 0.875rem;
+        .fc-bk-label {
+          font-size: 0.8125rem;
           font-weight: 600;
-          padding: 0.375rem 0.625rem;
+          color: var(--text-primary);
+        }
+
+        .fc-bk-badge {
+          font-size: 0.8125rem;
+          font-weight: 700;
+          padding: 0.25rem 0.5rem;
           border-radius: 4px;
           color: white;
-          white-space: nowrap;
-          overflow: visible;
+          width: fit-content;
+          font-variant-numeric: tabular-nums;
         }
 
-        .breakdown-badge.planos-badge {
-          background: #10b981;
-        }
+        .fc-bk-badge--planos { background: var(--success); }
+        .fc-bk-badge--outros { background: var(--primary); }
 
-        .breakdown-badge.outros-badge {
-          background: #3b82f6;
-        }
-
-        .breakdown-stats {
+        .fc-bk-stats {
           display: flex;
-          gap: 1.25rem;
+          gap: 1rem;
         }
 
-        .breakdown-stat {
+        .fc-bk-stat {
           display: flex;
           flex-direction: column;
-          gap: 0.25rem;
+          gap: 0.125rem;
         }
 
-        .breakdown-number {
-          font-size: 1.125rem;
+        .fc-bk-num {
+          font-size: 0.875rem;
           font-weight: 600;
-          color: #111827;
-          line-height: 1;
+          color: var(--text-primary);
+          font-variant-numeric: tabular-nums;
         }
 
-        .breakdown-desc {
-          font-size: 0.7rem;
-          color: #6b7280;
+        .fc-bk-desc {
+          font-size: 0.625rem;
+          color: var(--text-secondary);
           text-transform: uppercase;
-          letter-spacing: 0.025em;
+          letter-spacing: 0.04em;
+          font-weight: 500;
         }
 
-        /* Responsividade */
+        /* ── Summary stat cards ──────────────── */
+        .fc-summary {
+          display: flex;
+          flex-direction: column;
+          gap: 0.625rem;
+        }
+
+        .fc-sum-card {
+          background: var(--card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          padding: 0.875rem;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          transition: box-shadow var(--transition-fast);
+        }
+
+        .fc-sum-card:hover {
+          box-shadow: var(--shadow-md);
+        }
+
+        .fc-sum-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: var(--radius-sm);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .fc-sum-icon--sales {
+          background: var(--primary-light);
+          color: var(--primary);
+        }
+
+        .fc-sum-icon--total {
+          background: var(--secondary-light);
+          color: var(--secondary);
+        }
+
+        .fc-sum-icon--avg {
+          background: var(--warning-light);
+          color: var(--warning);
+        }
+
+        .fc-sum-value {
+          font-size: 1.125rem;
+          font-weight: 700;
+          color: var(--text-primary);
+          font-variant-numeric: tabular-nums;
+          line-height: 1.2;
+        }
+
+        .fc-sum-label {
+          font-size: 0.75rem;
+          color: var(--text-secondary);
+          font-weight: 500;
+        }
+
+        /* ── Focus states ────────────────────── */
+        .fc-clear-btn:focus-visible,
+        .fc-date-btn:focus-visible,
+        .fc-icon-btn:focus-visible,
+        .fc-btn:focus-visible {
+          outline: 2px solid var(--primary);
+          outline-offset: 2px;
+        }
+
+        /* ── Responsive ──────────────────────── */
+        @media (max-width: 1200px) {
+          .fc-content {
+            flex-direction: column;
+          }
+          .fc-stats {
+            max-width: none;
+            min-width: 0;
+          }
+        }
+
         @media (max-width: 768px) {
-          .breakdown-grid {
-            grid-template-columns: 1fr;
+          .fc-panel { padding: 1rem; }
+          .fc-header { flex-direction: column; gap: 0.75rem; }
+          .fc-row { grid-template-columns: 1fr; }
+          .fc-datepicker-popup { min-width: 300px; right: 0; left: auto; }
+          .fc-breakdown { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 480px) {
+          .fc-panel { padding: 0.75rem; border-radius: var(--radius); }
+          .fc-datepicker-popup { min-width: 280px; padding: 0.75rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .fc-panel, .fc-clear-btn, .fc-field select, .fc-field input,
+          .fc-date-btn, .fc-sum-card, .fc-icon-btn, .fc-btn {
+            transition: none;
           }
-          
-          .breakdown-card {
-            padding: 16px;
-          }
-          
-          .breakdown-stats {
-            gap: 16px;
-          }
-          
-          .breakdown-number {
-            font-size: 16px;
-          }
+          .fc-datepicker-popup { animation: none; }
         }
-        /* ========================================================================
-        MODO ESCURO PARA BREAKDOWN DE PRODUTOS
-        ======================================================================== */
-
-      /* Seção de breakdown de produtos - Modo Escuro */
-      .dark .product-breakdown-section,
-      [data-theme="dark"] .product-breakdown-section {
-        border-top-color: var(--border-dark, #374151);
-      }
-
-      .dark .breakdown-title,
-      [data-theme="dark"] .breakdown-title {
-        color: var(--text-primary-dark, #f9fafb);
-      }
-
-      .dark .breakdown-title::before,
-      [data-theme="dark"] .breakdown-title::before {
-        background: linear-gradient(135deg, var(--accent-dark, #8b5cf6), var(--accent-light-dark, #a78bfa));
-      }
-
-      /* Cards de breakdown - Modo Escuro */
-      .dark .breakdown-card,
-      [data-theme="dark"] .breakdown-card {
-        background: linear-gradient(135deg, var(--bg-card-dark, #374151) 0%, var(--bg-card-light-dark, #4b5563) 100%);
-        border-color: var(--border-card-dark, #4b5563);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-      }
-
-      .dark .breakdown-card:hover,
-      [data-theme="dark"] .breakdown-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-      }
-
-      /* Ícones mantêm as cores originais para contraste */
-      .dark .breakdown-icon.planos-icon,
-      [data-theme="dark"] .breakdown-icon.planos-icon {
-        background: linear-gradient(135deg, #10b981, #059669);
-        color: white;
-      }
-
-      .dark .breakdown-icon.outros-icon,
-      [data-theme="dark"] .breakdown-icon.outros-icon {
-        background: linear-gradient(135deg, #3b82f6, #2563eb);
-        color: white;
-      }
-
-      /* Labels de breakdown - Modo Escuro */
-      .dark .breakdown-label,
-      [data-theme="dark"] .breakdown-label {
-        color: var(--text-secondary-dark, #d1d5db);
-      }
-
-      /* Badges mantêm as cores originais para contraste */
-      .dark .breakdown-badge.planos-badge,
-      [data-theme="dark"] .breakdown-badge.planos-badge {
-        background: linear-gradient(135deg, #10b981, #059669);
-        color: white;
-      }
-
-      .dark .breakdown-badge.outros-badge,
-      [data-theme="dark"] .breakdown-badge.outros-badge {
-        background: linear-gradient(135deg, #3b82f6, #2563eb);
-        color: white;
-      }
-
-      /* Números e estatísticas - Modo Escuro */
-      .dark .breakdown-number,
-      [data-theme="dark"] .breakdown-number {
-        color: var(--text-primary-dark, #f9fafb);
-      }
-
-      .dark .breakdown-desc,
-      [data-theme="dark"] .breakdown-desc {
-        color: var(--text-tertiary-dark, #9ca3af);
-      }
-
-      /* Variáveis CSS personalizadas para modo escuro */
-      [data-theme="dark"] {
-        --bg-card-dark: #374151;
-        --bg-card-light-dark: #4b5563;
-        --border-card-dark: #4b5563;
-        --border-dark: #374151;
-        --text-primary-dark: #f9fafb;
-        --text-secondary-dark: #d1d5db;
-        --text-tertiary-dark: #9ca3af;
-        --accent-dark: #8b5cf6;
-        --accent-light-dark: #a78bfa;
-      }
-
-      .dark {
-        --bg-card-dark: #374151;
-        --bg-card-light-dark: #4b5563;
-        --border-card-dark: #4b5563;
-        --border-dark: #374151;
-        --text-primary-dark: #f9fafb;
-        --text-secondary-dark: #d1d5db;
-        --text-tertiary-dark: #9ca3af;
-        --accent-dark: #8b5cf6;
-        --accent-light-dark: #a78bfa;
-      }
-
-      /* ========================================================================
-        RESPONSIVIDADE PARA MODO ESCURO
-        ======================================================================== */
-
-      @media (max-width: 768px) {
-        .dark .breakdown-card,
-        [data-theme="dark"] .breakdown-card {
-          background: linear-gradient(135deg, var(--bg-card-dark, #374151) 0%, var(--bg-card-light-dark, #4b5563) 100%);
-          border-color: var(--border-card-dark, #4b5563);
-        }
-        
-        .dark .breakdown-number,
-        [data-theme="dark"] .breakdown-number {
-          color: var(--text-primary-dark, #f9fafb);
-        }
-      }
-
-      @media (max-width: 480px) {
-        .dark .breakdown-card,
-        [data-theme="dark"] .breakdown-card {
-          background: linear-gradient(135deg, var(--bg-card-dark, #374151) 0%, var(--bg-card-light-dark, #4b5563) 100%);
-        }
-        
-        .dark .breakdown-desc,
-        [data-theme="dark"] .breakdown-desc {
-          color: var(--text-tertiary-dark, #9ca3af);
-        }
-      }
-
-      /* ========================================================================
-        EFEITOS ESPECIAIS PARA MODO ESCURO
-        ======================================================================== */
-
-      /* Efeito de brilho nos cards no modo escuro */
-      .dark .breakdown-card::after,
-      [data-theme="dark"] .breakdown-card::after {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: linear-gradient(
-          45deg,
-          transparent,
-          rgba(255, 255, 255, 0.03),
-          transparent
-        );
-        transform: rotate(45deg);
-        transition: all 0.5s ease;
-        opacity: 0;
-        pointer-events: none;
-      }
-
-      .dark .breakdown-card:hover::after,
-      [data-theme="dark"] .breakdown-card:hover::after {
-        opacity: 1;
-        animation: shimmer 1.5s ease-in-out;
-      }
-
-      @keyframes shimmer {
-        0% {
-          transform: translateX(-100%) translateY(-100%) rotate(45deg);
-        }
-        100% {
-          transform: translateX(100%) translateY(100%) rotate(45deg);
-        }
-      }
-
-      /* Melhora do contraste para acessibilidade no modo escuro */
-      @media (prefers-contrast: high) {
-        .dark .breakdown-card,
-        [data-theme="dark"] .breakdown-card {
-          border: 2px solid var(--border-card-dark, #6b7280);
-          background: var(--bg-card-dark, #374151);
-        }
-        
-        .dark .breakdown-number,
-        [data-theme="dark"] .breakdown-number {
-          color: #ffffff;
-          font-weight: 800;
-        }
-        
-        .dark .breakdown-label,
-        [data-theme="dark"] .breakdown-label {
-          color: #e5e7eb;
-        }
-      }
-
-      /* Suporte para reduced motion no modo escuro */
-      @media (prefers-reduced-motion: reduce) {
-        .dark .breakdown-card,
-        [data-theme="dark"] .breakdown-card {
-          transition: none;
-        }
-        
-        .dark .breakdown-card::after,
-        [data-theme="dark"] .breakdown-card::after {
-          display: none;
-        }
-        
-        @keyframes shimmer {
-          0%, 100% { 
-            transform: translateX(0) translateY(0) rotate(45deg);
-          }
-        }
-      }
       `}</style>
     </div>
   );

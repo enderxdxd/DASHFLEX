@@ -9,15 +9,12 @@ import {
   ChevronUp,
   ChevronDown
 } from 'lucide-react';
-import useDarkMode from '../../hooks/useDarkMode';
-
-const ComissaoTable = ({ 
-  resultados = [], 
+const ComissaoTable = ({
+  resultados = [],
   consultor = '',
   showDetails = true,
   onToggleDetails
 }) => {
-  const [theme] = useDarkMode();
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
   // Função para ordenar resultados
@@ -70,7 +67,7 @@ const ComissaoTable = ({
 
   if (resultados.length === 0) {
     return (
-      <div className={`comissao-table-container ${theme === 'light' ? 'light-mode' : 'dark-mode'}`}>
+      <div className="comissao-table-container">
         <div className="table-header">
           <h3>Resultados da Análise</h3>
           <div className="table-actions">
@@ -94,7 +91,7 @@ const ComissaoTable = ({
   }
 
   return (
-    <div className={`comissao-table-container ${theme === 'light' ? 'light-mode' : 'dark-mode'}`}>
+    <div className="comissao-table-container">
       <div className="table-header">
         <h3>
           Análise Detalhada - {consultor}

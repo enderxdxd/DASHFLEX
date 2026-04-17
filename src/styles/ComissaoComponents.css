@@ -1,103 +1,31 @@
 /* src/styles/ComissaoComponents.css */
 
-/* ===== LIGHT MODE VARIABLES ===== */
+/* ===== VARIABLE ALIASES — map to main design system (variables.css) ===== */
+/* These aliases exist so sub-components that reference the old names
+   automatically pick up the correct tokens from :root / :root.dark. */
 :root {
-  /* Light Mode Colors */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  
-  --text-primary: #1f2937;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
+  --bg-primary: var(--card);
+  --bg-secondary: var(--background);
+  --bg-tertiary: var(--background);
+  --bg-gradient: var(--background);
+
+  --text-tertiary: var(--text-secondary);
   --text-inverse: #ffffff;
-  
-  --border-light: #f3f4f6;
-  --border-medium: #e5e7eb;
-  --border-dark: #d1d5db;
-  
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.12);
-  
-  --accent-blue: #3b82f6;
-  --accent-blue-light: #60a5fa;
-  --accent-green: #10b981;
-  --accent-green-light: #34d399;
-  --accent-yellow: #f59e0b;
-  --accent-yellow-light: #fbbf24;
-  --accent-red: #ef4444;
-  --accent-red-light: #f87171;
-  --accent-purple: #8b5cf6;
-  --accent-purple-light: #a78bfa;
-}
 
-/* Dark Mode Variables - Using DASHFLEX Pattern */
-.dark {
-  --bg-primary: #1e293b;
-  --bg-secondary: #0f172a;
-  --bg-tertiary: #334155;
-  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-tertiary: #64748b;
-  --text-inverse: #1f2937;
-  
-  --border-light: rgba(51, 65, 85, 0.5);
-  --border-medium: #334155;
-  --border-dark: #4b5563;
-  
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.5);
-}
+  --border-light: var(--border);
+  --border-medium: var(--border);
+  --border-dark: var(--border);
 
-/* Force Light Mode Class */
-.light-mode {
-  --bg-primary: #ffffff !important;
-  --bg-secondary: #f8fafc !important;
-  --bg-tertiary: #f1f5f9 !important;
-  --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
-  
-  --text-primary: #1f2937 !important;
-  --text-secondary: #6b7280 !important;
-  --text-tertiary: #9ca3af !important;
-  --text-inverse: #ffffff !important;
-  
-  --border-light: #f3f4f6 !important;
-  --border-medium: #e5e7eb !important;
-  --border-dark: #d1d5db !important;
-  
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
-  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
-}
-
-/* Force Dark Mode Class */
-.dark-mode {
-  --bg-primary: #1e293b !important;
-  --bg-secondary: #0f172a !important;
-  --bg-tertiary: #334155 !important;
-  --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
-  
-  --text-primary: #f1f5f9 !important;
-  --text-secondary: #94a3b8 !important;
-  --text-tertiary: #64748b !important;
-  --text-inverse: #1f2937 !important;
-  
-  --border-light: rgba(51, 65, 85, 0.5) !important;
-  --border-medium: #334155 !important;
-  --border-dark: #4b5563 !important;
-  
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
-  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.5) !important;
+  --accent-blue: var(--primary);
+  --accent-blue-light: var(--primary-hover);
+  --accent-green: var(--success);
+  --accent-green-light: var(--success);
+  --accent-yellow: var(--warning);
+  --accent-yellow-light: var(--warning);
+  --accent-red: var(--danger);
+  --accent-red-light: var(--danger);
+  --accent-purple: var(--secondary);
+  --accent-purple-light: var(--secondary);
 }
 
 /* ===== CONSULTOR CARD ===== */

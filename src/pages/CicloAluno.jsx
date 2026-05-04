@@ -6,7 +6,7 @@ import "dayjs/locale/pt-br";
 import {
   RefreshCw, UserPlus, RotateCcw, Repeat, Search,
   ChevronLeft, ChevronRight, X, Hash, Percent, Users,
-  TrendingUp, CircleDollarSign
+  TrendingUp, CircleDollarSign, Database, Loader2, AlertTriangle
 } from "lucide-react";
 import NavBar from "../components/NavBar";
 import MonthSelector from "../components/dashboard/MonthSelector";
@@ -15,6 +15,7 @@ import { useVendas } from "../hooks/useVendas";
 import { useMetas } from "../hooks/useMetas";
 import { useGlobalProdutos } from "../hooks/useGlobalProdutos";
 import { useStudentLifecycle } from "../hooks/useStudentLifecycle";
+import { usePactoContratos } from "../hooks/usePactoContratos";
 
 dayjs.locale("pt-br");
 
@@ -51,6 +52,17 @@ function CicloAluno() {
   const { metas, loading: metasLoading } = useMetas(unidade);
   const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();
 
+  // Integração PACTO: busca contratos históricos
+  const {
+    contratos: contratosPacto,
+    loading: pactoLoading,
+    error: pactoError,
+    enabled: pactoEnabled,
+    setEnabled: setPactoEnabled,
+    refresh: refreshPacto,
+    stats: pactoStats,
+  } = usePactoContratos({ vendas: vendasOriginais });
+
   const responsaveisOficiais = useMemo(() => {
     const metasDoMes = metas.filter((m) => m.periodo === selectedMonth);
     return [...new Set(metasDoMes.map((m) => m.responsavel.trim().toLowerCase()))];
@@ -62,6 +74,7 @@ function CicloAluno() {
     selectedMonth,
     responsaveisOficiais,
     produtosSelecionados,
+    contratosPacto: pactoEnabled ? contratosPacto : [],
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -257,6 +270,46 @@ function CicloAluno() {
             <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
           </div>
         </header>
+
+        {/* ── PACTO Integration Badge ── */}
+        <div className="ca-pacto-bar">
+          <button
+            type="button"
+            className={`ca-pacto-toggle ${pactoEnabled ? "on" : ""}`}
+            onClick={() => setPactoEnabled((p) => !p)}
+            aria-pressed={pactoEnabled}
+            title={pactoEnabled ? "Desabilitar dados PACTO" : "Habilitar dados PACTO"}
+          >
+            <Database size={13} />
+            <span>PACTO</span>
+            <span className={`ca-pacto-dot ${pactoEnabled ? "on" : ""}`} />
+          </button>
+          {pactoEnabled && (
+            <>
+              {pactoLoading && (
+                <span className="ca-pacto-status loading">
+                  <Loader2 size={12} className="ca-spin" /> Buscando contratos...
+                </span>
+              )}
+              {!pactoLoading && !pactoError && contratosPacto.length > 0 && (
+                <span className="ca-pacto-status ok">
+                  {pactoStats.totalContratos} contratos de {pactoStats.pessoasUnicas} alunos
+                </span>
+              )}
+              {!pactoLoading && !pactoError && contratosPacto.length === 0 && (
+                <span className="ca-pacto-status empty">Nenhum contrato encontrado</span>
+              )}
+              {pactoError && (
+                <span className="ca-pacto-status error">
+                  <AlertTriangle size={12} /> {pactoError}
+                </span>
+              )}
+              <button type="button" className="ca-pacto-refresh" onClick={refreshPacto} disabled={pactoLoading} aria-label="Recarregar PACTO">
+                <RefreshCw size={12} />
+              </button>
+            </>
+          )}
+        </div>
 
         {/* ── Cards ── */}
         <div className="ca-cards">
@@ -708,6 +761,23 @@ function CicloAluno() {
         .ca-board-table-row{padding:11px 0;border-bottom:1px solid var(--border);font-size:.78rem;color:var(--text-primary);font-variant-numeric:tabular-nums}
         .ca-board-table-row:last-child{border-bottom:none}
         .ca-board-footnote{margin:0;font-size:.72rem;line-height:1.5;color:var(--text-secondary)}
+
+        /* ===== PACTO BAR ===== */
+        .ca-pacto-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+        .ca-pacto-toggle{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--text-secondary);font-size:.72rem;font-weight:600;font-family:var(--font-sans);cursor:pointer;transition:all var(--transition-fast)}
+        .ca-pacto-toggle:hover{border-color:var(--primary);color:var(--primary)}
+        .ca-pacto-toggle.on{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 8%,var(--card));color:var(--primary)}
+        .ca-pacto-dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:background var(--transition-fast)}
+        .ca-pacto-dot.on{background:#10b981;box-shadow:0 0 6px rgba(16,185,129,.4)}
+        .ca-pacto-status{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:var(--text-secondary)}
+        .ca-pacto-status.loading{color:var(--primary)}
+        .ca-pacto-status.ok{color:#10b981}
+        .ca-pacto-status.empty{color:var(--text-secondary);opacity:.7}
+        .ca-pacto-status.error{color:var(--danger)}
+        .ca-pacto-refresh{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border);border-radius:50%;background:var(--card);color:var(--text-secondary);cursor:pointer;transition:all var(--transition-fast);padding:0}
+        .ca-pacto-refresh:hover:not(:disabled){border-color:var(--primary);color:var(--primary)}
+        .ca-pacto-refresh:disabled{opacity:.4;cursor:not-allowed}
+        .ca-spin{animation:spin .8s linear infinite}
 
         @keyframes spin{to{transform:rotate(360deg)}}
 

@@ -195,6 +195,12 @@ const Dashboard = () => {
     selectedMonth
   );
 
+  // Vendas filtradas apenas da unidade atual (para o gráfico de performance)
+  const vendasUnidadeParaChart = useMemo(() => {
+    const u = (unidade || '').toLowerCase();
+    return filteredVendas.filter(v => (v.unidade || '').toLowerCase() === u);
+  }, [filteredVendas, unidade]);
+
   // Calcula % de consultores batendo meta (usando faturamento da unidade)
   const pctConsultoresBatendoMeta = useMemo(() => {
     if (!metas.length) return 0;
@@ -378,7 +384,7 @@ const Dashboard = () => {
 
         <div className="dashboard-section">
           <PerformanceChart
-            filteredVendas={filteredVendas}
+            filteredVendas={vendasUnidadeParaChart}
             chartTimeRange={chartTimeRange}
             setChartTimeRange={setChartTimeRange}
             selectedMonth={selectedMonth}

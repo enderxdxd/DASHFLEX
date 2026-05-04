@@ -832,3 +832,13 @@ exports.uploadDescontos = functions
   .region("southamerica-east1")
   .runWith({ timeoutSeconds: 540, memory: "2GB" })
   .https.onRequest(appDescontos);
+
+// ==========================================
+// PROXY PACTO API (contratos históricos)
+// ==========================================
+const appPacto = require("./pactoProxy");
+
+exports.pactoProxy = functions
+  .region("southamerica-east1")
+  .runWith({ timeoutSeconds: 120, memory: "512MB" })
+  .https.onRequest(appPacto);

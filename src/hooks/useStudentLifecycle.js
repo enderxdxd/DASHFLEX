@@ -11,6 +11,7 @@ import { calcularIndicesDeCiclo } from '../utils/studentLifecycle';
  * @param {string} params.selectedMonth          - "YYYY-MM"
  * @param {Array}  params.responsaveisOficiais   - consultores com meta (lowercase)
  * @param {Array}  params.produtosSelecionados   - filtro global de produtos
+ * @param {Array}  params.contratosPacto         - contratos normalizados da API PACTO
  * @returns {{ resumo, eventosDetalhados }}
  */
 export function useStudentLifecycle({
@@ -19,6 +20,7 @@ export function useStudentLifecycle({
   selectedMonth,
   responsaveisOficiais = [],
   produtosSelecionados = [],
+  contratosPacto = [],
 }) {
   return useMemo(() => {
     return calcularIndicesDeCiclo({
@@ -27,6 +29,7 @@ export function useStudentLifecycle({
       selectedMonth,
       responsaveisOficiais,
       produtosSelecionados,
+      contratosPacto,
     });
-  }, [vendasOriginais, unidade, selectedMonth, responsaveisOficiais, produtosSelecionados]);
+  }, [vendasOriginais, unidade, selectedMonth, responsaveisOficiais, produtosSelecionados, contratosPacto]);
 }

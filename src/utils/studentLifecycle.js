@@ -277,6 +277,7 @@ export function classificarHistoricoPorMatricula(eventosConsolidados) {
  * @param {string} params.selectedMonth          - "YYYY-MM"
  * @param {Array}  params.responsaveisOficiais   - consultores com meta (lowercase)
  * @param {Array}  params.produtosSelecionados   - filtro global de produtos
+ * @param {Array}  params.contratosPacto         - contratos normalizados da API PACTO
  */
 export function calcularIndicesDeCiclo({
   vendasOriginais,
@@ -284,13 +285,31 @@ export function calcularIndicesDeCiclo({
   selectedMonth,
   responsaveisOficiais = [],
   produtosSelecionados = [],
+  contratosPacto = [],
 }) {
   if (!vendasOriginais || !vendasOriginais.length) {
     return resultadoVazio();
   }
 
-  // 1) Consolida todos os eventos de plano do histórico global
-  const eventosConsolidados = consolidarEventosDePlano(vendasOriginais);
+  // 1) Consolida eventos locais
+  const eventosLocais = consolidarEventosDePlano(vendasOriginais);
+
+  // 1b) Consolida contratos PACTO e mescla com locais
+  //     Prioriza dados locais quando houver mesmo numeroContrato
+  let eventosConsolidados = eventosLocais;
+
+  if (contratosPacto && contratosPacto.length > 0) {
+    const eventosPacto = consolidarEventosDePlano(contratosPacto);
+    const contratosLocaisSet = new Set(
+      eventosLocais
+        .map(e => e.numeroContrato)
+        .filter(c => c && c !== '' && c !== '0')
+    );
+    const eventosPactoNovos = eventosPacto.filter(
+      e => !e.numeroContrato || !contratosLocaisSet.has(e.numeroContrato)
+    );
+    eventosConsolidados = [...eventosLocais, ...eventosPactoNovos];
+  }
 
   // 2) Classifica pelo histórico global da matrícula
   const todosClassificados = classificarHistoricoPorMatricula(eventosConsolidados);

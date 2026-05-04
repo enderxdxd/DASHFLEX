@@ -202,8 +202,10 @@ export default function ComissaoDetalhes() {
     }
     
     // Filtrar vendas do consultor no mês
+    // ✅ CORREÇÃO: Normalizar comparação para evitar mismatch por espaços/casing
+    const consultorNorm = (consultor || '').trim().toLowerCase();
     const vendasDoConsultor = vendas.filter(v => 
-      v.responsavel === consultor && 
+      (v.responsavel || '').trim().toLowerCase() === consultorNorm && 
       v.dataFormatada && v.dataFormatada.startsWith(mesAtual)
     );
     
@@ -223,13 +225,16 @@ export default function ComissaoDetalhes() {
     
     // CORREÇÃO: Filtrar vendas da unidade apenas por consultores com meta + produtos comissionáveis
     const metasUnidade = metas.filter(m => m.periodo === mesAtual);
-    const consultoresComMeta = metasUnidade.map(m => m.responsavel || m.nome || m.nomeConsultor || m.consultor).filter(Boolean);
+    // ✅ CORREÇÃO: Normalizar nomes dos consultores com meta
+    const consultoresComMetaSet = new Set(
+      metasUnidade.map(m => (m.responsavel || m.nome || m.nomeConsultor || m.consultor || '').trim().toLowerCase()).filter(Boolean)
+    );
     
     const vendasUnidadeNoMes = vendas.filter(v => {
       if (!v.dataFormatada || !v.dataFormatada.startsWith(mesAtual)) return false;
       
-      // FILTRO CRÍTICO: Apenas consultores que têm meta cadastrada
-      if (!consultoresComMeta.includes(v.responsavel || v.consultor)) return false;
+      // FILTRO CRÍTICO: Apenas consultores que têm meta cadastrada (normalizado)
+      if (!consultoresComMetaSet.has((v.responsavel || v.consultor || '').trim().toLowerCase())) return false;
       
       // Aplicar mesma lógica de filtro de produtos
       const produtosNaoComissionaveisFixos = [
@@ -417,11 +422,12 @@ export default function ComissaoDetalhes() {
   }, [vendas, mesAtual, filtrosOtimizados]);
   
   // ===== OTIMIZAÇÃO: Agrupar vendas por consultor uma única vez =====
+  // ✅ CORREÇÃO: Normalizar chave (trim + toLowerCase) para evitar mismatch com metas
   const vendasPorConsultor = useMemo(() => {
     const grupos = new Map();
     
     vendasFiltradas.forEach(venda => {
-      const consultor = venda.responsavel;
+      const consultor = (venda.responsavel || '').trim().toLowerCase();
       if (!consultor) return;
       
       if (!grupos.has(consultor)) {
@@ -432,6 +438,25 @@ export default function ComissaoDetalhes() {
     
     return grupos;
   }, [vendasFiltradas]);
+
+  // ✅ CORREÇÃO: Vendas do mês SEM filtro de produtos (para premiação, que usa total de vendas)
+  // Consistente com Metas.jsx que não exclui produtos não-comissionáveis do total
+  const vendasDoMesPorConsultor = useMemo(() => {
+    if (!vendas?.length || !mesAtual) return new Map();
+    
+    const grupos = new Map();
+    vendas.filter(v => v.dataFormatada && v.dataFormatada.startsWith(mesAtual)).forEach(venda => {
+      const consultor = (venda.responsavel || '').trim().toLowerCase();
+      if (!consultor) return;
+      
+      if (!grupos.has(consultor)) {
+        grupos.set(consultor, []);
+      }
+      grupos.get(consultor).push(venda);
+    });
+    
+    return grupos;
+  }, [vendas, mesAtual]);
 
   // ===== OTIMIZAÇÃO: Pré-processar descontos por matrícula =====
   const descontosPorMatricula = useMemo(() => {
@@ -446,18 +471,20 @@ export default function ComissaoDetalhes() {
   }, [vendasComDesconto]);
 
   // Dados dos consultores para os cards
+  // ✅ CORREÇÃO: Não exigir vendasFiltradas.length > 0 — consultores com meta devem aparecer mesmo sem vendas
   const dadosConsultores = useMemo(() => {
-    if (!metas?.length || !vendasFiltradas?.length || !mesAtual) return [];
+    if (!metas?.length || !mesAtual) return [];
     
     const metasDoMes = metas.filter(m => m.periodo === mesAtual);
     
     // Calcular totais da unidade otimizado
+    // ✅ CORREÇÃO: Normalizar nomes para matching consistente
     const consultoresComMetaCard = new Set(
-      metasDoMes.map(m => m.responsavel || m.nome || m.nomeConsultor || m.consultor).filter(Boolean)
+      metasDoMes.map(m => (m.responsavel || m.nome || m.nomeConsultor || m.consultor || '').trim().toLowerCase()).filter(Boolean)
     );
     
     const vendasUnidadeNoMes = vendasFiltradas.filter(v => 
-      consultoresComMetaCard.has(v.responsavel || v.consultor)
+      consultoresComMetaCard.has((v.responsavel || v.consultor || '').trim().toLowerCase())
     );
     
     const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);
@@ -466,7 +493,14 @@ export default function ComissaoDetalhes() {
     
     return metasDoMes.map(meta => {
       const consultor = meta.responsavel;
-      const vendasConsultor = vendasPorConsultor.get(consultor) || [];
+      const remuneracaoType = meta.remuneracaoType || 'comissao';
+      // ✅ CORREÇÃO: Usar chave normalizada para buscar vendas (consistente com o Map)
+      const consultorNorm = (consultor || '').trim().toLowerCase();
+      // Para comissão: vendas filtradas (sem produtos não-comissionáveis)
+      // Para premiação: TODAS as vendas do mês (consistente com Metas.jsx)
+      const vendasConsultor = remuneracaoType === 'premiacao'
+        ? (vendasDoMesPorConsultor.get(consultorNorm) || [])
+        : (vendasPorConsultor.get(consultorNorm) || []);
       
       const totalVendas = vendasConsultor.reduce((sum, v) => sum + Number(v.valor || 0), 0);
       const metaIndividual = Number(meta.meta || 0);
@@ -542,7 +576,6 @@ export default function ComissaoDetalhes() {
       const percentualDesconto = planosCount > 0 ? ((totalComDesconto / planosCount) * 100).toFixed(1) : 0;
       
       // ===== CÁLCULO DE REMUNERAÇÃO BASEADO NO TIPO =====
-      const remuneracaoType = meta.remuneracaoType || 'comissao';
       let valorRemuneracao = totalComissaoReal;
       let bonus = 0;
       
@@ -602,7 +635,7 @@ export default function ComissaoDetalhes() {
         }
       };
     });
-  }, [vendasFiltradas, metas, mesAtual, vendasComDesconto, produtosSelecionados, configRem, vendasPorConsultor, descontosPorMatricula]);
+  }, [vendasFiltradas, metas, mesAtual, vendas, vendasComDesconto, produtosSelecionados, configRem, vendasPorConsultor, vendasDoMesPorConsultor, descontosPorMatricula]);
 
   // ===== CÁLCULO DA PREMIAÇÃO DO SUPERVISOR =====
   const premiacaoSupervisor = useMemo(() => {
@@ -612,12 +645,13 @@ export default function ComissaoDetalhes() {
     const metasDoMes = metas.filter(m => m.periodo === mesAtual);
     
     // Calcular totais da unidade
+    // ✅ CORREÇÃO: Normalizar nomes para matching consistente
     const consultoresComMeta = new Set(
-      metasDoMes.map(m => m.responsavel || m.nome || m.nomeConsultor || m.consultor).filter(Boolean)
+      metasDoMes.map(m => (m.responsavel || m.nome || m.nomeConsultor || m.consultor || '').trim().toLowerCase()).filter(Boolean)
     );
     
     const vendasUnidadeNoMes = vendasFiltradas.filter(v => 
-      consultoresComMeta.has(v.responsavel || v.consultor)
+      consultoresComMeta.has((v.responsavel || v.consultor || '').trim().toLowerCase())
     );
     
     const totalVendasUnidade = vendasUnidadeNoMes.reduce((sum, v) => sum + Number(v.valor || 0), 0);

@@ -71,6 +71,7 @@ const PersonalUnidadeSelector = lazy(() => import("./pages/PersonalUnidadeSelect
 const TesteClassificacao = lazy(() => import("./pages/teste-page"));
 const AdminProdutoConfig = lazy(() => import("./components/admin/AdminProdutoConfig"));
 const CicloAluno = lazy(() => import("./pages/CicloAluno"));
+const PactoDebug = lazy(() => import("./pages/PactoDebug"));
 
 export default function App() {
   return (
@@ -189,6 +190,9 @@ export default function App() {
                 </PrivateRoute>
               }
             />
+
+            {/* Debug PACTO (temporário) */}
+            <Route path="/pacto-debug/:unidade" element={<PrivateRoute><PactoDebug /></PrivateRoute>} />
 
             {/* Teste de classificação */}
             <Route

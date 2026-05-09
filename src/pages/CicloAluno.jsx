@@ -1,16 +1,19 @@
 // @refresh reset
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
+import { addDoc, collection, doc, updateDoc } from "firebase/firestore";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 import {
   RefreshCw, UserPlus, RotateCcw, Repeat, Search,
   ChevronLeft, ChevronRight, X, Hash, Percent, Users,
-  TrendingUp, CircleDollarSign, Database, Loader2, AlertTriangle
+  TrendingUp, CircleDollarSign, Database, Loader2, AlertTriangle, ListChecks,
+  Check, Pencil
 } from "lucide-react";
 import NavBar from "../components/NavBar";
 import MonthSelector from "../components/dashboard/MonthSelector";
 import Loading3D from "../components/ui/Loading3D";
+import { db } from "../firebase";
 import { useVendas } from "../hooks/useVendas";
 import { useMetas } from "../hooks/useMetas";
 import { useGlobalProdutos } from "../hooks/useGlobalProdutos";
@@ -49,7 +52,7 @@ function CicloAluno() {
     refreshVendas,
   } = useVendas(unidade, [], { groupPlans: false });
 
-  const { metas, loading: metasLoading } = useMetas(unidade);
+  const { metas, loading: metasLoading, refreshMetas } = useMetas(unidade);
   const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();
 
   // Integração PACTO: busca contratos históricos
@@ -76,6 +79,68 @@ function CicloAluno() {
     produtosSelecionados,
     contratosPacto: pactoEnabled ? contratosPacto : [],
   });
+
+  // Mapa de metas do mês: nome consultor (lowercase) -> { id, metaRenovacoes, ... }
+  const metasDoMesPorConsultor = useMemo(() => {
+    const map = new Map();
+    for (const m of metas) {
+      if (m.periodo !== selectedMonth) continue;
+      const key = (m.responsavel || "").trim().toLowerCase();
+      if (!key) continue;
+      map.set(key, m);
+    }
+    return map;
+  }, [metas, selectedMonth]);
+
+  // Estado de edição inline da meta de renovações
+  const [editingRenovacao, setEditingRenovacao] = useState(null); // consultor key (lowercase)
+  const [editingRenovacaoValue, setEditingRenovacaoValue] = useState("");
+  const [savingRenovacao, setSavingRenovacao] = useState(false);
+
+  const handleStartEditRenovacao = useCallback((consultorKey, currentValue) => {
+    setEditingRenovacao(consultorKey);
+    setEditingRenovacaoValue(currentValue ? String(currentValue) : "");
+  }, []);
+
+  const handleCancelEditRenovacao = useCallback(() => {
+    setEditingRenovacao(null);
+    setEditingRenovacaoValue("");
+  }, []);
+
+  const handleSaveRenovacao = useCallback(async (consultorKey, consultorNome) => {
+    if (!unidade || savingRenovacao) return;
+    const parsed = Math.max(0, Math.floor(Number(editingRenovacaoValue) || 0));
+    setSavingRenovacao(true);
+    try {
+      const metaExistente = metasDoMesPorConsultor.get(consultorKey);
+      if (metaExistente?.id) {
+        await updateDoc(
+          doc(db, "faturamento", unidade.toLowerCase(), "metas", metaExistente.id),
+          { metaRenovacoes: parsed }
+        );
+      } else {
+        // Cria doc mínimo só com a meta de renovações (mantém compat com Metas.jsx)
+        await addDoc(
+          collection(db, "faturamento", unidade.toLowerCase(), "metas"),
+          {
+            responsavel: consultorNome,
+            periodo: selectedMonth,
+            remuneracaoType: "comissao",
+            meta: 0,
+            metaRenovacoes: parsed,
+            createdAt: dayjs().toISOString(),
+          }
+        );
+      }
+      await refreshMetas();
+      setEditingRenovacao(null);
+      setEditingRenovacaoValue("");
+    } catch (err) {
+      console.error("Erro ao salvar meta de renovações:", err);
+    } finally {
+      setSavingRenovacao(false);
+    }
+  }, [editingRenovacaoValue, metasDoMesPorConsultor, refreshMetas, savingRenovacao, selectedMonth, unidade]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroClassificacao, setFiltroClassificacao] = useState("todos");
@@ -143,15 +208,48 @@ function CicloAluno() {
       porConsultor.set(responsavel, atual);
     }
 
+    // Inclui consultores que têm meta de renovações cadastrada no mês mesmo
+    // que ainda não tenham fechado nada — pra eles aparecerem na lista.
+    for (const m of metasDoMesPorConsultor.values()) {
+      const responsavel = (m.responsavel || "").trim();
+      if (!responsavel) continue;
+      const meta = Number(m.metaRenovacoes || 0);
+      if (meta <= 0) continue;
+      if (!porConsultor.has(responsavel)) {
+        porConsultor.set(responsavel, {
+          responsavel,
+          total: 0,
+          valorTotal: 0,
+          matricula: 0,
+          rematricula: 0,
+          renovacao: 0,
+        });
+      }
+    }
+
+    let totalMetaRenovacoes = 0;
+
     const consultores = Array.from(porConsultor.values())
-      .map((item) => ({
-        ...item,
-        participacaoPct: totalPlanos > 0 ? (item.total / totalPlanos) * 100 : 0,
-        matriculaPct: item.total > 0 ? (item.matricula / item.total) * 100 : 0,
-        rematriculaPct: item.total > 0 ? (item.rematricula / item.total) * 100 : 0,
-        renovacaoPct: item.total > 0 ? (item.renovacao / item.total) * 100 : 0,
-        ticketMedio: item.total > 0 ? item.valorTotal / item.total : 0,
-      }))
+      .map((item) => {
+        const consultorKey = item.responsavel.toLowerCase();
+        const metaDoc = metasDoMesPorConsultor.get(consultorKey);
+        const metaRenovacoes = Number(metaDoc?.metaRenovacoes || 0);
+        totalMetaRenovacoes += metaRenovacoes;
+        const conversaoRenovacaoPct =
+          metaRenovacoes > 0 ? (item.renovacao / metaRenovacoes) * 100 : 0;
+        return {
+          ...item,
+          consultorKey,
+          metaDocId: metaDoc?.id || null,
+          participacaoPct: totalPlanos > 0 ? (item.total / totalPlanos) * 100 : 0,
+          matriculaPct: item.total > 0 ? (item.matricula / item.total) * 100 : 0,
+          rematriculaPct: item.total > 0 ? (item.rematricula / item.total) * 100 : 0,
+          renovacaoPct: item.total > 0 ? (item.renovacao / item.total) * 100 : 0,
+          ticketMedio: item.total > 0 ? item.valorTotal / item.total : 0,
+          metaRenovacoes,
+          conversaoRenovacaoPct,
+        };
+      })
       .sort((a, b) => b.total - a.total || a.responsavel.localeCompare(b.responsavel, "pt-BR"));
 
     return {
@@ -164,8 +262,11 @@ function CicloAluno() {
       topRenovacao: [...consultores]
         .sort((a, b) => b.renovacaoPct - a.renovacaoPct || b.total - a.total)
         .slice(0, 5),
+      totalMetaRenovacoes,
+      consultoresComMetaRenovacao: [...consultores]
+        .sort((a, b) => b.metaRenovacoes - a.metaRenovacoes || a.responsavel.localeCompare(b.responsavel, "pt-BR")),
     };
-  }, [eventosDetalhados]);
+  }, [eventosDetalhados, metasDoMesPorConsultor]);
 
   const mixPercentual = [
     {
@@ -368,6 +469,12 @@ function CicloAluno() {
             <CircleDollarSign size={14} />
             <span>Ticket médio {formatCurrency(quadroPercentual.ticketMedio)}</span>
           </div>
+          <div className="ca-snapshot-pill ca-snapshot-pill-accent" title="Soma das metas de renovação definidas para o time no mês">
+            <ListChecks size={14} />
+            <span>
+              Meta time: {quadroPercentual.totalMetaRenovacoes} renovaç{quadroPercentual.totalMetaRenovacoes === 1 ? "ão" : "ões"}
+            </span>
+          </div>
           <button type="button" className="ca-snapshot-cta" onClick={() => setShowPercentBoard(true)}>
             Ver quadro em %
           </button>
@@ -532,6 +639,130 @@ function CicloAluno() {
 
           <section className="ca-board-section">
             <div className="ca-board-section-hdr">
+              <ListChecks size={15} />
+              <div>
+                <h3>Meta de renovações do mês</h3>
+                <p>
+                  Defina quantas renovações cada consultor tem que fechar no mês
+                  (a quantidade da lista deles). O sistema acompanha a conversão.
+                </p>
+              </div>
+            </div>
+            {quadroPercentual.consultores.length === 0 ? (
+              <p className="ca-board-empty">
+                Nenhum consultor ativo encontrado neste mês.
+              </p>
+            ) : (
+              <div className="ca-board-renlist">
+                <div className="ca-board-renlist-summary">
+                  <div>
+                    <span className="ca-board-renlist-kicker">Meta total</span>
+                    <strong>{quadroPercentual.totalMetaRenovacoes}</strong>
+                    <small>renovaç{quadroPercentual.totalMetaRenovacoes === 1 ? "ão" : "ões"} no time</small>
+                  </div>
+                  <div>
+                    <span className="ca-board-renlist-kicker">Já fechadas</span>
+                    <strong>{resumo.renovacoes}</strong>
+                    <small>
+                      {quadroPercentual.totalMetaRenovacoes > 0
+                        ? `${formatPercent((resumo.renovacoes / quadroPercentual.totalMetaRenovacoes) * 100)} da meta`
+                        : "Defina as metas abaixo"}
+                    </small>
+                  </div>
+                </div>
+                <div className="ca-board-renlist-rows">
+                  {quadroPercentual.consultoresComMetaRenovacao.map((item) => {
+                    const isEditing = editingRenovacao === item.consultorKey;
+                    const meta = item.metaRenovacoes;
+                    const conv = Math.min(item.conversaoRenovacaoPct, 100);
+                    const tone = meta === 0 ? "n" : conv >= 80 ? "g" : conv >= 50 ? "y" : "r";
+
+                    return (
+                      <div key={`ren-${item.responsavel}`} className="ca-board-renlist-row">
+                        <div className="ca-board-renlist-meta">
+                          <strong>{item.responsavel}</strong>
+                          <small>
+                            {meta > 0
+                              ? `${item.renovacao} de ${meta} fechada${item.renovacao === 1 ? "" : "s"}`
+                              : "Sem meta definida"}
+                          </small>
+                        </div>
+
+                        <div className="ca-board-renlist-bar">
+                          {meta > 0 && (
+                            <div
+                              className={`ca-board-renlist-fill ${tone}`}
+                              style={{ width: `${Math.max(conv, 4)}%` }}
+                            />
+                          )}
+                        </div>
+
+                        {isEditing ? (
+                          <form
+                            className="ca-meta-edit"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              handleSaveRenovacao(item.consultorKey, item.responsavel);
+                            }}
+                          >
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={editingRenovacaoValue}
+                              onChange={(e) => setEditingRenovacaoValue(e.target.value)}
+                              autoFocus
+                              className="ca-meta-input"
+                              aria-label={`Meta de renovações para ${item.responsavel}`}
+                              disabled={savingRenovacao}
+                              onKeyDown={(e) => {
+                                if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  handleCancelEditRenovacao();
+                                }
+                              }}
+                            />
+                            <button
+                              type="submit"
+                              className="ca-meta-btn save"
+                              disabled={savingRenovacao}
+                              aria-label="Salvar meta"
+                            >
+                              {savingRenovacao ? <Loader2 size={12} className="ca-spin" /> : <Check size={12} />}
+                            </button>
+                            <button
+                              type="button"
+                              className="ca-meta-btn cancel"
+                              onClick={handleCancelEditRenovacao}
+                              disabled={savingRenovacao}
+                              aria-label="Cancelar edição"
+                            >
+                              <X size={12} />
+                            </button>
+                          </form>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`ca-meta-display ${tone}`}
+                            onClick={() => handleStartEditRenovacao(item.consultorKey, meta)}
+                            title="Clique para editar a meta de renovações deste consultor"
+                          >
+                            <span className="ca-meta-display-value">
+                              {meta > 0 ? `${item.renovacao}/${meta}` : "Definir"}
+                            </span>
+                            <Pencil size={11} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="ca-board-section">
+            <div className="ca-board-section-hdr">
               <Percent size={15} />
               <div>
                 <h3>Mix do time</h3>
@@ -593,6 +824,7 @@ function CicloAluno() {
                   <span>Mat%</span>
                   <span>Remat%</span>
                   <span>Ren%</span>
+                  <span title="Fechadas / Meta de renovações do mês">Meta</span>
                 </div>
                 {quadroPercentual.consultores.map((item) => (
                   <div key={`mix-${item.responsavel}`} className="ca-board-table-row">
@@ -602,6 +834,15 @@ function CicloAluno() {
                     <span>{formatPercent(item.matriculaPct)}</span>
                     <span>{formatPercent(item.rematriculaPct)}</span>
                     <span>{formatPercent(item.renovacaoPct)}</span>
+                    <span className="ca-board-table-lista">
+                      {item.metaRenovacoes > 0 ? (
+                        <span title={`${item.renovacao} fechada${item.renovacao === 1 ? "" : "s"} de ${item.metaRenovacoes} na meta`}>
+                          {item.renovacao}/{item.metaRenovacoes}
+                        </span>
+                      ) : (
+                        <span className="ca-board-table-lista-empty">—</span>
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -755,12 +996,62 @@ function CicloAluno() {
         .ca-board-rank-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--secondary),var(--primary))}
         .ca-board-rank-value{font-size:.78rem;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums}
         .ca-board-table-wrap{overflow-x:auto}
-        .ca-board-table{min-width:520px}
-        .ca-board-table-head,.ca-board-table-row{display:grid;grid-template-columns:minmax(170px,1.4fr) repeat(5,minmax(58px,.75fr));gap:8px;align-items:center}
+        .ca-board-table{min-width:600px}
+        .ca-board-table-head,.ca-board-table-row{display:grid;grid-template-columns:minmax(170px,1.4fr) repeat(5,minmax(58px,.75fr)) minmax(64px,.85fr);gap:8px;align-items:center}
+        .ca-board-table-lista{font-weight:600;color:var(--text-primary)}
+        .ca-board-table-lista-empty{color:var(--text-secondary);opacity:.55}
         .ca-board-table-head{padding:0 0 10px;border-bottom:1px dashed var(--border);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary)}
         .ca-board-table-row{padding:11px 0;border-bottom:1px solid var(--border);font-size:.78rem;color:var(--text-primary);font-variant-numeric:tabular-nums}
         .ca-board-table-row:last-child{border-bottom:none}
         .ca-board-footnote{margin:0;font-size:.72rem;line-height:1.5;color:var(--text-secondary)}
+        .ca-board-empty{margin:6px 0 0;padding:14px;border-radius:14px;background:var(--background);border:1px dashed var(--border);font-size:.78rem;color:var(--text-secondary);text-align:center}
+
+        /* ===== LISTA DE RENOVAÇÕES ===== */
+        .ca-snapshot-pill-accent{background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-color:#c7d2fe;color:#3730a3;font-weight:600}
+        .ca-snapshot-pill-accent svg{color:#4338ca}
+        .ca-board-renlist{display:flex;flex-direction:column;gap:14px}
+        .ca-board-renlist-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .ca-board-renlist-summary>div{padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid var(--border);display:flex;flex-direction:column;gap:2px}
+        .ca-board-renlist-kicker{font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);font-weight:700}
+        .ca-board-renlist-summary strong{font-size:1.4rem;line-height:1.1;color:var(--text-primary);font-variant-numeric:tabular-nums}
+        .ca-board-renlist-summary small{font-size:.72rem;color:var(--text-secondary)}
+        .ca-board-renlist-rows{display:flex;flex-direction:column;gap:8px}
+        .ca-board-renlist-row{display:grid;grid-template-columns:minmax(0,180px) 1fr auto;gap:10px;align-items:center}
+        .ca-board-renlist-meta{min-width:0;display:flex;flex-direction:column;gap:1px}
+        .ca-board-renlist-meta strong{font-size:.82rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .ca-board-renlist-meta small{font-size:.7rem;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+        .ca-board-renlist-bar{height:8px;border-radius:999px;background:var(--border);overflow:hidden}
+        .ca-board-renlist-fill{height:100%;border-radius:999px;transition:width .4s cubic-bezier(.22,1,.36,1)}
+        .ca-board-renlist-fill.g{background:linear-gradient(90deg,#34d399,#10b981)}
+        .ca-board-renlist-fill.y{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+        .ca-board-renlist-fill.r{background:linear-gradient(90deg,#fb7185,#ef4444)}
+        .ca-board-renlist-pct{font-size:.78rem;font-weight:700;font-variant-numeric:tabular-nums;min-width:46px;text-align:right}
+        .ca-board-renlist-pct.g{color:#059669}
+        .ca-board-renlist-pct.y{color:#b45309}
+        .ca-board-renlist-pct.r{color:#dc2626}
+
+        /* edição inline da meta */
+        .ca-meta-display{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--text-primary);font-size:.76rem;font-weight:700;font-variant-numeric:tabular-nums;font-family:var(--font-sans);cursor:pointer;transition:all var(--transition-fast);min-width:72px;justify-content:center}
+        .ca-meta-display:hover{border-color:var(--primary);color:var(--primary);transform:translateY(-1px);box-shadow:0 4px 10px rgba(15,23,42,.08)}
+        .ca-meta-display svg{opacity:.5;transition:opacity var(--transition-fast)}
+        .ca-meta-display:hover svg{opacity:1}
+        .ca-meta-display.g{border-color:#34d399;background:#ecfdf5;color:#059669}
+        .ca-meta-display.y{border-color:#fbbf24;background:#fffbeb;color:#b45309}
+        .ca-meta-display.r{border-color:#fb7185;background:#fef2f2;color:#dc2626}
+        .ca-meta-display.n{border-style:dashed;color:var(--text-secondary)}
+        .ca-meta-display.n:hover{color:var(--primary);border-color:var(--primary)}
+        .ca-meta-display-value{line-height:1}
+        .ca-meta-edit{display:inline-flex;align-items:center;gap:4px}
+        .ca-meta-input{width:64px;height:28px;padding:0 8px;border:1px solid var(--primary);border-radius:6px;background:var(--card);color:var(--text-primary);font-size:.78rem;font-weight:600;font-variant-numeric:tabular-nums;font-family:var(--font-sans);outline:none;text-align:center}
+        .ca-meta-input:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 18%,transparent)}
+        .ca-meta-input::-webkit-outer-spin-button,.ca-meta-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+        .ca-meta-input[type=number]{-moz-appearance:textfield}
+        .ca-meta-btn{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:none;border-radius:6px;cursor:pointer;transition:all var(--transition-fast);padding:0}
+        .ca-meta-btn:disabled{opacity:.5;cursor:not-allowed}
+        .ca-meta-btn.save{background:#10b981;color:#fff}
+        .ca-meta-btn.save:hover:not(:disabled){background:#059669}
+        .ca-meta-btn.cancel{background:var(--background);color:var(--text-secondary);border:1px solid var(--border)}
+        .ca-meta-btn.cancel:hover:not(:disabled){border-color:var(--danger);color:var(--danger)}
 
         /* ===== PACTO BAR ===== */
         .ca-pacto-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
@@ -803,6 +1094,8 @@ function CicloAluno() {
           .ca-board{width:100vw}
           .ca-board-hero,.ca-board-mix{grid-template-columns:1fr}
           .ca-board-rank-row{grid-template-columns:1fr}
+          .ca-board-renlist-summary{grid-template-columns:1fr}
+          .ca-board-renlist-row{grid-template-columns:1fr auto}
         }
         @media(max-width:480px){
           .ca-cards{grid-template-columns:1fr}

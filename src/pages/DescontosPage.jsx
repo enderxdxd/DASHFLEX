@@ -606,12 +606,7 @@ const DescontosPage = () => {
                 </div>
                 <button
                   onClick={handleDeleteAll}
-                  className="flex items-center gap-2 px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-all duration-200 hover:border-red-300 hover:shadow-sm active:scale-95"
-                  style={{
-                    background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-                    borderColor: '#fecaca',
-                    color: '#dc2626'
-                  }}
+                  className="dp-btn-danger"
                 >
                   <Trash2 className="w-4 h-4" />
                   Limpar Todos
@@ -940,50 +935,10 @@ const DescontosPage = () => {
                 </div>
                 <button
                   onClick={exportarParaExcel}
-                  className="group relative flex items-center gap-3 px-6 py-3 text-white font-semibold rounded-xl transition-all duration-300 hover:shadow-lg active:scale-95 overflow-hidden"
-                  style={{
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)',
-                    boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4), 0 4px 12px rgba(5, 150, 105, 0.3)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    position: 'relative'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 12px 35px rgba(16, 185, 129, 0.5), 0 8px 20px rgba(5, 150, 105, 0.4)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 8px 25px rgba(16, 185, 129, 0.4), 0 4px 12px rgba(5, 150, 105, 0.3)';
-                  }}
+                  className="dp-btn-primary"
                 >
-                  {/* Shimmer effect overlay */}
-                  <div 
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                    style={{
-                      background: 'linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%)',
-                      animation: 'shimmer 2s infinite'
-                    }}
-                  />
-                  
-                  {/* Icon with animation */}
-                  <div className="relative flex items-center justify-center w-5 h-5 transition-transform duration-300 group-hover:scale-110">
-                    <Download className="w-5 h-5 drop-shadow-sm" />
-                  </div>
-                  
-                  {/* Text */}
-                  <span className="relative font-medium tracking-wide drop-shadow-sm">
-                    Exportar para Excel
-                  </span>
-                  
-                  {/* Subtle glow effect */}
-                  <div 
-                    className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.2) 100%)',
-                      filter: 'blur(8px)',
-                      zIndex: -1
-                    }}
-                  />
+                  <Download className="w-4 h-4" />
+                  Exportar para Excel
                 </button>
               </div>
 

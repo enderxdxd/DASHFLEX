@@ -474,13 +474,52 @@ export const useDescontos = (
       grupo.totalDesconto += tt;
     });
     
+    // ====== AGRUPAR VENDAS POR MATRÍCULA ANTES DE RECONCILIAR ======
+    // Quando 'vendas' chega bruta (groupPlans:false), uma mesma matrícula vira
+    // múltiplas linhas (1 por parcela). O desconto, porém, está agregado por
+    // matrícula. Sem este passo, o cálculo vira:
+    //   valorCheio = valor(1_parcela) + descontoTotal(matricula) -> % inflado
+    // Idempotente: se já vier agrupado, segue igual.
+    const vendasPorMatricula = new Map();
+    const vendasSemMatricula = [];
+
+    for (const v of vendasDaUnidade) {
+      const matriculaNorm = String(v.matricula || '').replace(/\D/g, '').padStart(6, '0');
+      if (!matriculaNorm || matriculaNorm === '000000') {
+        vendasSemMatricula.push({ ...v, valor: Number(v.valor || 0) });
+        continue;
+      }
+      const existente = vendasPorMatricula.get(matriculaNorm);
+      if (!existente) {
+        vendasPorMatricula.set(matriculaNorm, {
+          ...v,
+          valor: Number(v.valor || 0),
+          _aggregatedCount: 1,
+        });
+      } else {
+        existente.valor = Number(existente.valor || 0) + Number(v.valor || 0);
+        existente._aggregatedCount += 1;
+        // mantém a data mais recente
+        const dataAtual = existente.dataFormatada || '';
+        const dataNova = v.dataFormatada || '';
+        if (dataNova > dataAtual) existente.dataFormatada = v.dataFormatada;
+        // preserva nome se faltava
+        if (!existente.nome && v.nome) existente.nome = v.nome;
+      }
+    }
+
+    const vendasParaReconciliar = [
+      ...vendasPorMatricula.values(),
+      ...vendasSemMatricula,
+    ];
+
     // Aplicar lógica de reconciliação
-    const vendasProcessadas = vendasDaUnidade.map(venda => {
+    const vendasProcessadas = vendasParaReconciliar.map(venda => {
       const matriculaNorm = String(venda.matricula || '').replace(/\D/g, '').padStart(6, '0');
       const descontoGrupo = descontosPorMatricula[matriculaNorm];
-      
+
       const valorPago = Number(venda.valor || 0);
-      
+
       if (descontoGrupo && descontoGrupo.totalDesconto > 0) {
         const descontoPlanoFinal = Number(descontoGrupo.descontoPlano || 0);
         const descontoMatriculaFinal = desconsiderarMatricula ? 0 : Number(descontoGrupo.descontoMatricula || 0);

@@ -261,7 +261,7 @@ export default function Metas() {
           </div>
           <div className="metas-table-scroll">
             <table className="metas-table-modern">
-              <thead><tr><th>Período</th><th>Responsável</th><th>Meta</th><th>Realizado</th><th>% Meta</th><th>Tipo</th><th>Ações</th></tr></thead>
+              <thead><tr><th>Período</th><th>Responsável</th><th>Meta</th><th>Realizado</th><th>Faltam</th><th>% Meta</th><th>Tipo</th><th>Ações</th></tr></thead>
               <tbody>
                 {metasComPerformance.length > 0 ? metasComPerformance.map((meta) => {
                   const isEditing = editingId === meta.id;
@@ -272,12 +272,13 @@ export default function Metas() {
                       <td className="meta-name-cell">{isEditing ? <input type="text" value={editResponsavel} onChange={(event) => setEditResponsavel(event.target.value)} className="modern-input" /> : meta.responsavel}</td>
                       <td className="meta-value-cell">{isEditing ? <input type="number" value={editMeta} onChange={(event) => setEditMeta(event.target.value)} className="modern-input" /> : money(meta.meta)}</td>
                       <td>{money(meta.totalVendas)}</td>
+                      <td className={`meta-gap-cell ${Math.max(Number(meta.meta || 0) - meta.totalVendas, 0) === 0 ? "meta-gap-cell--reached" : ""}`}>{Math.max(Number(meta.meta || 0) - meta.totalVendas, 0) === 0 ? "Meta atingida" : money(Math.max(Number(meta.meta || 0) - meta.totalVendas, 0))}</td>
                       <td className="meta-progress-cell"><div className="meta-progress-inline"><div className="meta-progress-inline-bar"><div className="meta-progress-inline-fill" style={{ width: `${Math.min(meta.percentualMeta, 100)}%`, background: currentTone === "success" ? "linear-gradient(90deg, #10b981 0%, #059669 100%)" : currentTone === "warning" ? "linear-gradient(90deg, #f59e0b 0%, #d97706 100%)" : "linear-gradient(90deg, #ef4444 0%, #dc2626 100%)" }} /></div><span className="meta-progress-text">{pct(meta.percentualMeta)}</span></div></td>
                       <td>{isEditing ? <select value={editRemType} onChange={(event) => setEditRemType(event.target.value)} className="modern-input"><option value="comissao">Comissão</option><option value="premiacao">Premiação</option></select> : <span className={`meta-tag meta-tag--${currentTone}`}>{meta.remuneracaoType === "premiacao" ? "Premiação" : "Comissão"}</span>}</td>
                       <td className="meta-actions-cell">{isEditing ? <><button type="button" className="meta-action-btn edit" onClick={() => handleSaveEditedMeta(meta.id)} title="Salvar"><Save size={14} /></button><button type="button" className="meta-action-btn" onClick={() => setEditingId(null)} title="Cancelar"><X size={14} /></button></> : <><button type="button" className="meta-action-btn edit" onClick={() => handleEditMeta(meta)} title="Editar"><Pencil size={14} /></button><button type="button" className="meta-action-btn delete" onClick={() => handleDeleteMeta(meta.id)} title="Excluir"><Trash2 size={14} /></button></>}</td>
                     </tr>
                   );
-                }) : <tr><td colSpan="7"><div className="empty-card empty-card--inline">Nenhuma meta cadastrada para {dayjs(`${selectedMonth}-01`).format("MMMM [de] YYYY")}.</div></td></tr>}
+                }) : <tr><td colSpan="8"><div className="empty-card empty-card--inline">Nenhuma meta cadastrada para {dayjs(`${selectedMonth}-01`).format("MMMM [de] YYYY")}.</div></td></tr>}
               </tbody>
             </table>
           </div>

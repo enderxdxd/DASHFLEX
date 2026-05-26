@@ -1,126 +1,154 @@
-Você está trabalhando no projeto DASHFLEX. Antes de codar, leia estes arquivos para entender o comportamento atual e preservar a lógica existente:
-- src/hooks/useVendas.js
-- src/hooks/useGroupedVendas.js
-- src/pages/Dashboard.jsx
-- src/pages/AnalyticsPage.jsx
-- src/utils/correcaoDiarias.js
-- src/utils/calculoRemuneracaoDuracao.js
-- src/hooks/useDescontos.js
-- functions/index.js
 
-Objetivo:
-Implementar um novo índice de ciclo do aluno com 3 classificações:
-- matricula
-- rematricula
-- renovacao
+O DashFlex tem um módulo "Ciclo do Aluno" (`src/pages/CicloAluno.jsx`) que classifica vendas/planos em: **matrícula** (primeiro plano ou retorno após 6+ meses), **rematrícula** (retorno entre 31 dias e 6 meses) e **renovação** (continuidade ou retorno em até 30 dias).
 
-Regras de negócio:
-- Matrícula = primeira vez que a matrícula aparece no histórico de planos.
-- Matrícula também = retorno após 6 meses ou mais sem plano ativo.
-- Renovação = novo plano iniciado da data final do plano anterior até 30 dias depois.
-- Rematrícula = novo plano iniciado após mais de 30 dias de inatividade, mas antes de completar 6 meses sem plano.
-- Se houver sobreposição ou continuidade de planos, considerar como renovação.
-- Diárias, produtos avulsos, taxa de matrícula, estorno, ajuste contábil e cancelamentos não entram nesse índice.
-- O índice deve ser calculado por histórico da matrícula, não apenas pela venda isolada do mês.
+A lógica está em `src/utils/studentLifecycle.js` (função `calcularIndicesDeCiclo`), que recebe vendas do Firebase via `src/hooks/useVendas.js` (collectionGroup "vendas" no Firestore).
 
-Decisões técnicas obrigatórias:
-- Reaproveitar a lógica já existente de correção/classificação de planos:
-  - usar corrigirClassificacaoDiarias
-  - usar ehPlanoAposCorrecao
-- Não criar uma regra paralela diferente para identificar plano.
-- Não usar apenas useGroupedVendas para esse cálculo, porque o agrupamento atual é mensal e pode esconder eventos diferentes do mesmo aluno.
-- Partir de vendasOriginais do useVendas.
-- Criar uma consolidação específica de “evento de plano” para o ciclo do aluno.
+**Problema:** se o Firebase não tem contratos antigos (ex: de 2023), um aluno que volta é classificado como "matrícula" ao invés de "rematrícula", pois o sistema não encontra o contrato anterior.
 
-Como consolidar eventos antes da classificação:
-- Preferir agrupar por numeroContrato quando existir.
-- Se numeroContrato não existir, agrupar por:
-  - matricula normalizada
-  - dataInicio efetiva
-  - dataFim efetiva
-  - plano/produto
-- Se houver múltiplas linhas do mesmo evento por parcelamento, somar valor, mas contar como 1 evento de ciclo.
-- Ignorar registros sem matrícula válida.
-- Normalizar matrícula como somente dígitos, usando o mesmo padrão já adotado nos arquivos de desconto.
-- Ignorar manualmente registros sem data suficiente para classificação, em vez de chutar.
+**Solução:** integrar a API do Sistema PACTO (sistema de gestão da academia) para buscar o histórico completo de contratos de cada aluno.
 
-Datas e fallback:
-- Data principal do evento = dataInicio.
-- Se dataInicio não existir, usar dataFormatada.
-- Se ainda não existir, usar dataCadastro.
-- Data final efetiva = dataFim ou dataTermino.
-- Se data final não existir mas duracaoMeses existir, derivar a data final com base na data inicial + duracaoMeses.
-- Para a regra de 6 meses, usar 6 meses de calendário, não 180 dias fixos.
-- Para a regra de renovação, usar 30 dias corridos.
+## API da PACTO — Endpoints Relevantes
 
-Como classificar:
-- Ordenar todos os eventos válidos de cada matrícula por data do evento.
-- Para cada evento, localizar o evento de plano imediatamente anterior da mesma matrícula.
-- Se não houver anterior: classificacao = matricula.
-- Se houver anterior:
-  - se dataAtual <= dataFimAnterior + 30 dias: classificacao = renovacao
-  - se dataAtual > dataFimAnterior + 30 dias e dataAtual < dataFimAnterior + 6 meses: classificacao = rematricula
-  - se dataAtual >= dataFimAnterior + 6 meses: classificacao = matricula
+**Base URL:** `https://apigw.pactosolucoes.com.br`  
+**Auth:** `Authorization: Bearer {CHAVE_API}` (chave gerada no admin da Pacto > Configurações > Integrações > ADM > API Sistema Pacto)  
+**Permissão necessária:** `adm:cadastros:clientes:consultar`
 
-Escopo funcional:
-- Criar um utilitário puro, por exemplo em src/utils/studentLifecycle.js, contendo:
-  - normalizeMatricula
-  - getDataEvento
-  - getDataFimEfetiva
-  - consolidarEventosDePlano
-  - classificarHistoricoPorMatricula
-  - calcularIndicesDeCiclo
-- Criar um hook reutilizável, por exemplo src/hooks/useStudentLifecycle.js, que receba:
-  - vendasOriginais
-  - unidade atual
-  - selectedMonth
-  - responsaveisOficiais
-  - produtosSelecionados
-- O cálculo do tipo do evento deve usar o histórico global por matrícula.
-- A contagem exibida na tela deve considerar apenas os eventos do contexto atual da página:
-  - mês selecionado
-  - unidade atual
-  - filtros globais de produto já usados no projeto
-  - consultores oficiais quando a página já usa esse filtro
+### Endpoint Principal: Contratos de uma Pessoa
 
-Onde integrar:
-- No Dashboard:
-  - usar src/pages/Dashboard.jsx
-  - preferencialmente exibir os 3 índices em cards novos ou em uma seção própria perto de MetricCards
-- Deixar o cálculo reutilizável para o AnalyticsPage também
-- Não quebrar as métricas atuais de faturamento, comissão, descontos e produtos
+```
+GET /pessoas/{codPessoa}/contratos
+```
 
-Saída esperada do cálculo:
-- resumo:
-  - matriculas
-  - rematriculas
-  - renovacoes
-  - totalEventosClassificados
-  - percentualMatriculas
-  - percentualRematriculas
-  - percentualRenovacoes
-- eventosDetalhados:
-  - matricula
-  - nome
-  - unidade
-  - responsavel
-  - dataEvento
-  - dataFimAnterior
-  - diasInativo
-  - classificacao
-  - motivoClassificacao
+**Parâmetros:**
+- `codPessoa` (path, required, int32) — Código da pessoa
+- `page` (query, int32) — Página (default: 0)
+- `size` (query, int32) — Itens por página (default: 10)
+- `sort` (query, string) — Ordenação. Atributos: `vigenciaAteAjustada`, `codigo`, `situacaoContrato`, `responsavelContrato`, `vigenciaDe`, `situacao`. Formato: `atributo,asc` ou `atributo,desc`
 
-Casos de teste obrigatórios:
-- Primeiro plano da matrícula = matrícula
-- Plano iniciado 15 dias após o fim do anterior = renovação
-- Plano iniciado 45 dias após o fim do anterior = rematrícula
-- Plano iniciado 6 meses ou mais após o fim do anterior = matrícula
-- Parcelamento do mesmo contrato no mesmo mês deve contar uma única vez
-- Diária não pode ser contada como matrícula/renovação/rematrícula
-- Registro sem matrícula não pode entrar no índice
+**Response 200 (campos relevantes):**
+```json
+{
+  "content": [
+    {
+      "codigo": 3,
+      "tipo": "MENSAL",
+      "vigenciaDe": "2019-04-18T00:00:00Z",
+      "vigenciaAte": "2020-04-18T00:00:00Z",
+      "vigenciaAteAjustada": "2020-05-18T00:00:00Z",
+      "situacao": "ATIVO",
+      "pessoa": 12345,
+      "pessoaDTO": {
+        "codigo": 12345,
+        "codCliente": 67890,
+        "nome": "João Silva",
+        "cpf": "123.456.789-00",
+        "categoria": "ALUNO",
+        "situacao": "ATIVO",
+        "situacaoContrato": "VIGENTE",
+        "matriculaCliente": "2024001"
+      }
+    }
+  ],
+  "last": false,
+  "totalPages": 5,
+  "totalElements": 47
+}
+```
 
-Importante:
-- Preserve toda a lógica atual de comissão e desconto.
-- Não duplique fetch no Firestore se useVendas já entrega os dados necessários.
-- Prefira funções puras e um hook reutilizável.
-- Se houver dúvida entre usar venda agrupada e venda original, use venda original para classificar o ciclo e só agregue depois.
+### Endpoint Complementar: Índice de Renovação
+
+```
+POST /v2-indice-renovacao
+```
+
+**Body:**
+```json
+{
+  "empresa": 1,
+  "colaboradores": [0],
+  "dataInicial": 1704067200000,
+  "dataFinal": 1706745599000,
+  "retornarContratos": false,
+  "desconsiderarContratosRenovaveis": false,
+  "token": "<string>"
+}
+```
+
+**Response (campos relevantes):**
+```json
+{
+  "content": {
+    "nome": "INDICE_RENOVACAO",
+    "jsonDados": {
+      "previsaoMes": 85,
+      "renovadosPrevisaoMes": 68,
+      "naoRenovadosPrevisaoMes": 17,
+      "renovadosDentroMes": 72,
+      "renovadosTotal": 92,
+      "contratosPrevisaoMes": [
+        {
+          "nomeCliente": "João Silva Santos",
+          "situacaoCliente": "AT",
+          "matriculaCliente": "2024001",
+          "codigoCliente": 1001,
+          "codigoContrato": 5001,
+          "colaboradores": "João Silva, Maria Santos"
+        }
+      ]
+    }
+  }
+}
+```
+
+## Mapeamento de Campos PACTO → DashFlex
+
+| DashFlex (studentLifecycle) | PACTO API | Notas |
+|---|---|---|
+| `matricula` | `pessoaDTO.matriculaCliente` | Normalizar para só dígitos |
+| `nome` | `pessoaDTO.nome` | Direto |
+| `dataInicio` | `vigenciaDe` | ISO 8601 → dayjs |
+| `dataFim` | `vigenciaAteAjustada` (fallback `vigenciaAte`) | Priorizar ajustada |
+| `produto` / `plano` | `tipo` | MENSAL, TRIMESTRAL, etc. |
+| `numeroContrato` | `codigo` | Chave de deduplicação |
+| `valor` | N/A neste endpoint | Vem apenas das vendas locais |
+| `responsavel` | N/A neste endpoint | Vem apenas das vendas locais |
+
+## O que implementar
+
+### 1. Cloud Function: proxy para PACTO API (proteger chave)
+
+Criar `functions/pactoProxy.js` — A Cloud Function recebe uma lista de `codPessoa` (ou matriculas) do frontend, consulta a PACTO API paginando automaticamente, e retorna todos os contratos. A chave API fica em `functions.config().pacto.api_key`. Registrar como rota no `functions/index.js` existente (que já usa Express). Instalar `axios` nas dependencies do `functions/package.json`.
+
+### 2. Service frontend: `src/services/pactoApi.js`
+
+Função que chama a Cloud Function e normaliza cada contrato PACTO para o formato que `consolidarEventosDePlano()` em `studentLifecycle.js` espera (mesmos campos que uma venda do Firebase).
+
+### 3. Hook: `src/hooks/usePactoContratos.js`
+
+Hook React que recebe as matrículas das vendas locais, chama o service, faz cache em memória, e retorna os contratos normalizados. Deve ter um estado `enabled` (toggle) para poder desabilitar a integração.
+
+### 4. Modificar `src/utils/studentLifecycle.js`
+
+Na função `calcularIndicesDeCiclo`, aceitar um novo parâmetro `contratosPacto = []`. Antes da classificação:
+- Consolidar vendas locais normalmente
+- Consolidar contratos PACTO  
+- Mesclar os dois, **priorizando dados locais** quando houver mesmo `numeroContrato`
+- Classificar pelo histórico completo mesclado
+
+A lógica de merge é: criar Set dos `numeroContrato` dos eventos locais, filtrar os PACTO que não estão nesse Set, concatenar.
+
+### 5. Modificar `src/hooks/useStudentLifecycle.js`
+
+Aceitar `contratosPacto` como parâmetro e passá-lo ao `calcularIndicesDeCiclo`.
+
+### 6. Modificar `src/pages/CicloAluno.jsx`
+
+Chamar `usePactoContratos` e passar o resultado ao `useStudentLifecycle`. Adicionar um indicador visual (badge/pill) mostrando se os dados PACTO estão ativos ou não.
+
+## Considerações importantes
+
+- **codPessoa vs matrícula:** o endpoint `/pessoas/{codPessoa}/contratos` usa o código interno da PACTO, não a matrícula. Pode ser necessário primeiro buscar o codPessoa via endpoint de Clientes ou manter mapeamento no Firestore. Avalie a melhor abordagem.
+- **Cache:** implementar cache dos contratos PACTO no Firestore (TTL ~24h) para não bater na API a cada page load. 
+- **Fallback:** se a PACTO estiver fora, o sistema funciona normalmente só com dados locais.
+- **Rate limiting:** não fazer chamadas em paralelo excessivas. Implementar batch com concorrência limitada (ex: 5 simultâneas).
+- **A Cloud Function existente** (`functions/index.js`) já usa Express com CORS e faz upload XLS para a mesma URL base (`https://southamerica-east1-chatpos-aff1a.cloudfunctions.net`). Seguir o mesmo padrão.

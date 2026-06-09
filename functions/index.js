@@ -71,7 +71,36 @@ app.post("/", (req, res) => {
         return res.status(400).json({ success: false, error: "Formato de arquivo inválido" });
       }
       const sheetName = workbook.SheetNames[0];
-      const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+      const worksheet = workbook.Sheets[sheetName];
+
+      // Lê em modo array pra preservar colunas com headers duplicados
+      // (a planilha agora tem duas colunas "Responsável": a 1ª = recebimento, a 2ª = venda).
+      const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+      if (sheetData.length < 2) {
+        return res.status(400).json({ success: false, error: "Nenhuma linha encontrada na planilha" });
+      }
+
+      const headerRowArr = sheetData[0].map((h) => (h || "").toString().trim());
+      const respColIndices = [];
+      headerRowArr.forEach((h, idx) => {
+        if (h === "Responsável" || h === "Responsavel") respColIndices.push(idx);
+      });
+
+      // Constrói cada linha como objeto preservando a 1ª ocorrência de chaves duplicadas
+      // e expõe as duas colunas de Responsável (quando há duplicata) por chaves dedicadas.
+      const rows = sheetData.slice(1).map((arr) => {
+        const obj = {};
+        headerRowArr.forEach((h, idx) => {
+          if (!h || h in obj) return;
+          obj[h] = arr[idx];
+        });
+        if (respColIndices.length >= 2) {
+          obj.__respRecebimento__ = arr[respColIndices[0]];
+          obj.__respVenda__ = arr[respColIndices[1]];
+        }
+        return obj;
+      });
+
       if (!rows.length) {
         return res.status(400).json({ success: false, error: "Nenhuma linha encontrada na planilha" });
       }
@@ -95,18 +124,22 @@ app.post("/", (req, res) => {
         ) || 0;
 
         // extrai Resp. Recebimento e Resp. Venda
+        // Quando a planilha vem com duas colunas "Responsável", usamos as chaves
+        // posicionais (__respRecebimento__/__respVenda__). Senão caímos no fallback antigo.
         const respRecebimento = (
+          row.__respRecebimento__ ||
           row["Resp. Recebimento"] ||
           row["Resp Recebimento"] ||
           row["Responsável"] ||
           ""
-        ).trim();
+        ).toString().trim();
 
         const respVenda = (
+          row.__respVenda__ ||
           row["Resp. Venda"] ||
           row["Resp Venda"] ||
           ""
-        ).trim();
+        ).toString().trim();
 
         // Se o responsável for 'Administrador' ou 'RECORRENCIA' e usuário optou pela conversão, usa o respVenda
         const deveSubstituir = shouldConvert && 

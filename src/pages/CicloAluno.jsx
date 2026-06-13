@@ -8,7 +8,7 @@ import {
   RefreshCw, UserPlus, RotateCcw, Repeat, Search,
   ChevronLeft, ChevronRight, X, Hash, Percent, Users,
   TrendingUp, CircleDollarSign, Database, Loader2, AlertTriangle, ListChecks,
-  Check, Pencil
+  Check, Pencil, Activity
 } from "lucide-react";
 import NavBar from "../components/NavBar";
 import MonthSelector from "../components/dashboard/MonthSelector";
@@ -33,6 +33,13 @@ const CLASSIFICACAO_CONFIG = {
 const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
 const formatCurrency = (value) =>
   `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+const normalizeConsultorKey = (value = "") =>
+  String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 
 function CicloAluno() {
   const { unidade } = useParams();
@@ -68,7 +75,7 @@ function CicloAluno() {
 
   const responsaveisOficiais = useMemo(() => {
     const metasDoMes = metas.filter((m) => m.periodo === selectedMonth);
-    return [...new Set(metasDoMes.map((m) => m.responsavel.trim().toLowerCase()))];
+    return [...new Set(metasDoMes.map((m) => (m.responsavel || "").trim().toLowerCase()))];
   }, [metas, selectedMonth]);
 
   const { resumo, eventosDetalhados } = useStudentLifecycle({
@@ -85,7 +92,7 @@ function CicloAluno() {
     const map = new Map();
     for (const m of metas) {
       if (m.periodo !== selectedMonth) continue;
-      const key = (m.responsavel || "").trim().toLowerCase();
+      const key = normalizeConsultorKey(m.responsavel);
       if (!key) continue;
       map.set(key, m);
     }
@@ -192,9 +199,10 @@ function CicloAluno() {
     const porConsultor = new Map();
 
     for (const ev of eventosDetalhados) {
-      const responsavel = (ev.responsavel || "Sem consultor").trim() || "Sem consultor";
-      const atual = porConsultor.get(responsavel) || {
-        responsavel,
+      const responsavelOriginal = (ev.responsavel || "Sem consultor").trim() || "Sem consultor";
+      const key = normalizeConsultorKey(responsavelOriginal);
+      const atual = porConsultor.get(key) || {
+        responsavel: responsavelOriginal,
         total: 0,
         valorTotal: 0,
         matricula: 0,
@@ -205,7 +213,7 @@ function CicloAluno() {
       atual.total += 1;
       atual.valorTotal += Number(ev.valor || 0);
       atual[ev.classificacao] += 1;
-      porConsultor.set(responsavel, atual);
+      porConsultor.set(key, atual);
     }
 
     // Inclui consultores que têm meta de renovações cadastrada no mês mesmo
@@ -215,8 +223,9 @@ function CicloAluno() {
       if (!responsavel) continue;
       const meta = Number(m.metaRenovacoes || 0);
       if (meta <= 0) continue;
-      if (!porConsultor.has(responsavel)) {
-        porConsultor.set(responsavel, {
+      const key = normalizeConsultorKey(responsavel);
+      if (!porConsultor.has(key)) {
+        porConsultor.set(key, {
           responsavel,
           total: 0,
           valorTotal: 0,
@@ -231,7 +240,7 @@ function CicloAluno() {
 
     const consultores = Array.from(porConsultor.values())
       .map((item) => {
-        const consultorKey = item.responsavel.toLowerCase();
+        const consultorKey = normalizeConsultorKey(item.responsavel);
         const metaDoc = metasDoMesPorConsultor.get(consultorKey);
         const metaRenovacoes = Number(metaDoc?.metaRenovacoes || 0);
         totalMetaRenovacoes += metaRenovacoes;
@@ -347,8 +356,9 @@ function CicloAluno() {
         {/* ── Header ── */}
         <header className="ca-hdr">
           <div className="ca-hdr-left">
-            <span className="ca-unit-tag">{(unidade || "").toUpperCase()}</span>
-            <div>
+            <div className="ca-hdr-badge"><Activity size={20} strokeWidth={2.2} /></div>
+            <div className="ca-hdr-titles">
+              <span className="ca-unit-tag">{(unidade || "").toUpperCase()}</span>
               <h1 className="ca-page-title">Ciclo do Aluno</h1>
               <p className="ca-page-sub">{formattedMonth}</p>
             </div>
@@ -449,9 +459,22 @@ function CicloAluno() {
           <div className="ca-card ca-card-total">
             <div className="ca-card-top">
               <div className="ca-card-icon"><Hash size={18} strokeWidth={2.2} /></div>
+              <span className="ca-card-total-badge">Mix do mês</span>
             </div>
             <span className="ca-card-count">{resumo.totalEventosClassificados}</span>
-            <span className="ca-card-label">Total</span>
+            <span className="ca-card-label">Eventos classificados</span>
+            <div className="ca-card-stack" role="img" aria-label="Composição do mix de eventos">
+              {mixPercentual.map((m) => (
+                m.percentual > 0 ? (
+                  <div
+                    key={m.key}
+                    className="ca-card-stack-seg"
+                    style={{ width: `${m.percentual}%`, background: m.accent }}
+                    title={`${m.label}: ${m.percentual.toFixed(1)}% (${m.total})`}
+                  />
+                ) : null
+              ))}
+            </div>
           </div>
         </div>
 
@@ -459,15 +482,15 @@ function CicloAluno() {
         <div className="ca-snapshot">
           <div className="ca-snapshot-pill">
             <Users size={14} />
-            <span>{quadroPercentual.consultoresAtivos} consultor{quadroPercentual.consultoresAtivos !== 1 ? "es" : ""} ativos</span>
+            <span><strong>{quadroPercentual.consultoresAtivos}</strong> consultor{quadroPercentual.consultoresAtivos !== 1 ? "es" : ""} ativos</span>
           </div>
           <div className="ca-snapshot-pill">
             <TrendingUp size={14} />
-            <span>{quadroPercentual.totalPlanos} planos classificados no mês</span>
+            <span><strong>{quadroPercentual.totalPlanos}</strong> planos classificados no mês</span>
           </div>
           <div className="ca-snapshot-pill">
             <CircleDollarSign size={14} />
-            <span>Ticket médio {formatCurrency(quadroPercentual.ticketMedio)}</span>
+            <span>Ticket médio <strong>{formatCurrency(quadroPercentual.ticketMedio)}</strong></span>
           </div>
           <div className="ca-snapshot-pill ca-snapshot-pill-accent" title="Soma das metas de renovação definidas para o time no mês">
             <ListChecks size={14} />
@@ -599,261 +622,266 @@ function CicloAluno() {
       </main>
 
       {showPercentBoard && (
-        <button
-          type="button"
-          className="ca-board-backdrop"
+        <div
+          className="ca-board-overlay"
           onClick={() => setShowPercentBoard(false)}
-          aria-label="Fechar quadro em porcentagem"
-        />
-      )}
-
-      <aside className={`ca-board ${showPercentBoard ? "open" : ""}`} aria-hidden={!showPercentBoard}>
-        <div className="ca-board-head">
-          <div>
-            <span className="ca-board-kicker">Quadro em %</span>
-            <h2>Leitura percentual do ciclo</h2>
-            <p>
-              Base do mês: {quadroPercentual.totalPlanos} planos classificados em {formattedMonth}.
-            </p>
-          </div>
-          <button type="button" className="ca-board-close" onClick={() => setShowPercentBoard(false)} aria-label="Fechar painel">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="ca-board-body">
-          <section className="ca-board-hero">
-            <div className="ca-board-stat">
-              <span className="ca-board-stat-label">Consultores ativos</span>
-              <strong>{quadroPercentual.consultoresAtivos}</strong>
-            </div>
-            <div className="ca-board-stat">
-              <span className="ca-board-stat-label">Ticket médio</span>
-              <strong>{formatCurrency(quadroPercentual.ticketMedio)}</strong>
-            </div>
-            <div className="ca-board-stat">
-              <span className="ca-board-stat-label">Volume da base</span>
-              <strong>{formatCurrency(quadroPercentual.valorTotal)}</strong>
-            </div>
-          </section>
-
-          <section className="ca-board-section">
-            <div className="ca-board-section-hdr">
-              <ListChecks size={15} />
+          role="presentation"
+        >
+          <aside
+            className="ca-board"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Quadro em porcentagem"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="ca-board-head">
               <div>
-                <h3>Meta de renovações do mês</h3>
+                <span className="ca-board-kicker">Quadro em %</span>
+                <h2>Leitura percentual do ciclo</h2>
                 <p>
-                  Defina quantas renovações cada consultor tem que fechar no mês
-                  (a quantidade da lista deles). O sistema acompanha a conversão.
+                  Base do mês: {quadroPercentual.totalPlanos} planos classificados em {formattedMonth}.
                 </p>
               </div>
+              <button type="button" className="ca-board-close" onClick={() => setShowPercentBoard(false)} aria-label="Fechar painel">
+                <X size={16} />
+              </button>
             </div>
-            {quadroPercentual.consultores.length === 0 ? (
-              <p className="ca-board-empty">
-                Nenhum consultor ativo encontrado neste mês.
-              </p>
-            ) : (
-              <div className="ca-board-renlist">
-                <div className="ca-board-renlist-summary">
+
+            <div className="ca-board-body">
+              <section className="ca-board-hero">
+                <div className="ca-board-stat">
+                  <span className="ca-board-stat-label">Consultores ativos</span>
+                  <strong>{quadroPercentual.consultoresAtivos}</strong>
+                </div>
+                <div className="ca-board-stat">
+                  <span className="ca-board-stat-label">Ticket médio</span>
+                  <strong>{formatCurrency(quadroPercentual.ticketMedio)}</strong>
+                </div>
+                <div className="ca-board-stat">
+                  <span className="ca-board-stat-label">Volume da base</span>
+                  <strong>{formatCurrency(quadroPercentual.valorTotal)}</strong>
+                </div>
+              </section>
+
+              <section className="ca-board-section">
+                <div className="ca-board-section-hdr">
+                  <ListChecks size={15} />
                   <div>
-                    <span className="ca-board-renlist-kicker">Meta total</span>
-                    <strong>{quadroPercentual.totalMetaRenovacoes}</strong>
-                    <small>renovaç{quadroPercentual.totalMetaRenovacoes === 1 ? "ão" : "ões"} no time</small>
-                  </div>
-                  <div>
-                    <span className="ca-board-renlist-kicker">Já fechadas</span>
-                    <strong>{resumo.renovacoes}</strong>
-                    <small>
-                      {quadroPercentual.totalMetaRenovacoes > 0
-                        ? `${formatPercent((resumo.renovacoes / quadroPercentual.totalMetaRenovacoes) * 100)} da meta`
-                        : "Defina as metas abaixo"}
-                    </small>
+                    <h3>Meta de renovações do mês</h3>
+                    <p>
+                      Defina quantas renovações cada consultor tem que fechar no mês
+                      (a quantidade da lista deles). O sistema acompanha a conversão.
+                    </p>
                   </div>
                 </div>
-                <div className="ca-board-renlist-rows">
-                  {quadroPercentual.consultoresComMetaRenovacao.map((item) => {
-                    const isEditing = editingRenovacao === item.consultorKey;
-                    const meta = item.metaRenovacoes;
-                    const conv = Math.min(item.conversaoRenovacaoPct, 100);
-                    const tone = meta === 0 ? "n" : conv >= 80 ? "g" : conv >= 50 ? "y" : "r";
-
-                    return (
-                      <div key={`ren-${item.responsavel}`} className="ca-board-renlist-row">
-                        <div className="ca-board-renlist-meta">
-                          <strong>{item.responsavel}</strong>
-                          <small>
-                            {meta > 0
-                              ? `${item.renovacao} de ${meta} fechada${item.renovacao === 1 ? "" : "s"}`
-                              : "Sem meta definida"}
-                          </small>
-                        </div>
-
-                        <div className="ca-board-renlist-bar">
-                          {meta > 0 && (
-                            <div
-                              className={`ca-board-renlist-fill ${tone}`}
-                              style={{ width: `${Math.max(conv, 4)}%` }}
-                            />
-                          )}
-                        </div>
-
-                        {isEditing ? (
-                          <form
-                            className="ca-meta-edit"
-                            onSubmit={(e) => {
-                              e.preventDefault();
-                              handleSaveRenovacao(item.consultorKey, item.responsavel);
-                            }}
-                          >
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={editingRenovacaoValue}
-                              onChange={(e) => setEditingRenovacaoValue(e.target.value)}
-                              autoFocus
-                              className="ca-meta-input"
-                              aria-label={`Meta de renovações para ${item.responsavel}`}
-                              disabled={savingRenovacao}
-                              onKeyDown={(e) => {
-                                if (e.key === "Escape") {
-                                  e.preventDefault();
-                                  handleCancelEditRenovacao();
-                                }
-                              }}
-                            />
-                            <button
-                              type="submit"
-                              className="ca-meta-btn save"
-                              disabled={savingRenovacao}
-                              aria-label="Salvar meta"
-                            >
-                              {savingRenovacao ? <Loader2 size={12} className="ca-spin" /> : <Check size={12} />}
-                            </button>
-                            <button
-                              type="button"
-                              className="ca-meta-btn cancel"
-                              onClick={handleCancelEditRenovacao}
-                              disabled={savingRenovacao}
-                              aria-label="Cancelar edição"
-                            >
-                              <X size={12} />
-                            </button>
-                          </form>
-                        ) : (
-                          <button
-                            type="button"
-                            className={`ca-meta-display ${tone}`}
-                            onClick={() => handleStartEditRenovacao(item.consultorKey, meta)}
-                            title="Clique para editar a meta de renovações deste consultor"
-                          >
-                            <span className="ca-meta-display-value">
-                              {meta > 0 ? `${item.renovacao}/${meta}` : "Definir"}
-                            </span>
-                            <Pencil size={11} />
-                          </button>
-                        )}
+                {quadroPercentual.consultores.length === 0 ? (
+                  <p className="ca-board-empty">
+                    Nenhum consultor ativo encontrado neste mês.
+                  </p>
+                ) : (
+                  <div className="ca-board-renlist">
+                    <div className="ca-board-renlist-summary">
+                      <div>
+                        <span className="ca-board-renlist-kicker">Meta total</span>
+                        <strong>{quadroPercentual.totalMetaRenovacoes}</strong>
+                        <small>renovaç{quadroPercentual.totalMetaRenovacoes === 1 ? "ão" : "ões"} no time</small>
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </section>
+                      <div>
+                        <span className="ca-board-renlist-kicker">Já fechadas</span>
+                        <strong>{resumo.renovacoes}</strong>
+                        <small>
+                          {quadroPercentual.totalMetaRenovacoes > 0
+                            ? `${formatPercent((resumo.renovacoes / quadroPercentual.totalMetaRenovacoes) * 100)} da meta`
+                            : "Defina as metas abaixo"}
+                        </small>
+                      </div>
+                    </div>
+                    <div className="ca-board-renlist-rows">
+                      {quadroPercentual.consultoresComMetaRenovacao.map((item) => {
+                        const isEditing = editingRenovacao === item.consultorKey;
+                        const meta = item.metaRenovacoes;
+                        const conv = Math.min(item.conversaoRenovacaoPct, 100);
+                        const tone = meta === 0 ? "n" : conv >= 80 ? "g" : conv >= 50 ? "y" : "r";
 
-          <section className="ca-board-section">
-            <div className="ca-board-section-hdr">
-              <Percent size={15} />
-              <div>
-                <h3>Mix do time</h3>
-                <p>Percentual de matrículas, rematrículas e renovações sobre o total de planos do mês.</p>
-              </div>
-            </div>
-            <div className="ca-board-mix">
-              {mixPercentual.map((item) => (
-                <article key={item.key} className="ca-board-mix-card" style={{ "--mix-accent": item.accent }}>
-                  <span>{item.label}</span>
-                  <strong>{formatPercent(item.percentual)}</strong>
-                  <small>{item.total} plano{item.total !== 1 ? "s" : ""}</small>
-                </article>
-              ))}
-            </div>
-          </section>
+                        return (
+                          <div key={`ren-${item.responsavel}`} className="ca-board-renlist-row">
+                            <div className="ca-board-renlist-meta">
+                              <strong>{item.responsavel}</strong>
+                              <small>
+                                {meta > 0
+                                  ? `${item.renovacao} de ${meta} fechada${item.renovacao === 1 ? "" : "s"}`
+                                  : "Sem meta definida"}
+                              </small>
+                            </div>
 
-          <section className="ca-board-section">
-            <div className="ca-board-section-hdr">
-              <Users size={15} />
-              <div>
-                <h3>Participação no total</h3>
-                <p>Quanto cada consultor representa dentro do total de planos classificados da página.</p>
-              </div>
-            </div>
-            <div className="ca-board-rank">
-              {quadroPercentual.topParticipacao.map((item, index) => (
-                <div key={`part-${item.responsavel}`} className="ca-board-rank-row">
-                  <div className="ca-board-rank-meta">
-                    <span className="ca-board-rank-pos">{index + 1}</span>
-                    <div>
-                      <strong>{item.responsavel}</strong>
-                      <small>{item.total} plano{item.total !== 1 ? "s" : ""}</small>
+                            <div className="ca-board-renlist-bar">
+                              {meta > 0 && (
+                                <div
+                                  className={`ca-board-renlist-fill ${tone}`}
+                                  style={{ width: `${Math.max(conv, 4)}%` }}
+                                />
+                              )}
+                            </div>
+
+                            {isEditing ? (
+                              <form
+                                className="ca-meta-edit"
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  handleSaveRenovacao(item.consultorKey, item.responsavel);
+                                }}
+                              >
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={editingRenovacaoValue}
+                                  onChange={(e) => setEditingRenovacaoValue(e.target.value)}
+                                  autoFocus
+                                  className="ca-meta-input"
+                                  aria-label={`Meta de renovações para ${item.responsavel}`}
+                                  disabled={savingRenovacao}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Escape") {
+                                      e.preventDefault();
+                                      handleCancelEditRenovacao();
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="submit"
+                                  className="ca-meta-btn save"
+                                  disabled={savingRenovacao}
+                                  aria-label="Salvar meta"
+                                >
+                                  {savingRenovacao ? <Loader2 size={12} className="ca-spin" /> : <Check size={12} />}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="ca-meta-btn cancel"
+                                  onClick={handleCancelEditRenovacao}
+                                  disabled={savingRenovacao}
+                                  aria-label="Cancelar edição"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </form>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`ca-meta-display ${tone}`}
+                                onClick={() => handleStartEditRenovacao(item.consultorKey, meta)}
+                                title="Clique para editar a meta de renovações deste consultor"
+                              >
+                                <span className="ca-meta-display-value">
+                                  {meta > 0 ? `${item.renovacao}/${meta}` : "Definir"}
+                                </span>
+                                <Pencil size={11} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                  <div className="ca-board-rank-bar">
-                    <div className="ca-board-rank-fill" style={{ width: `${Math.min(item.participacaoPct, 100)}%` }} />
-                  </div>
-                  <span className="ca-board-rank-value">{formatPercent(item.participacaoPct)}</span>
-                </div>
-              ))}
-            </div>
-          </section>
+                )}
+              </section>
 
-          <section className="ca-board-section">
-            <div className="ca-board-section-hdr">
-              <TrendingUp size={15} />
-              <div>
-                <h3>Taxa por consultor</h3>
-                <p>Cada percentual usa como base o total de planos do próprio consultor no mês.</p>
-              </div>
-            </div>
-            <div className="ca-board-table-wrap">
-              <div className="ca-board-table">
-                <div className="ca-board-table-head">
-                  <span>Consultor</span>
-                  <span>Total</span>
-                  <span>Part.</span>
-                  <span>Mat%</span>
-                  <span>Remat%</span>
-                  <span>Ren%</span>
-                  <span title="Fechadas / Meta de renovações do mês">Meta</span>
+              <section className="ca-board-section">
+                <div className="ca-board-section-hdr">
+                  <Percent size={15} />
+                  <div>
+                    <h3>Mix do time</h3>
+                    <p>Percentual de matrículas, rematrículas e renovações sobre o total de planos do mês.</p>
+                  </div>
                 </div>
-                {quadroPercentual.consultores.map((item) => (
-                  <div key={`mix-${item.responsavel}`} className="ca-board-table-row">
-                    <span className="ca-board-table-name">{item.responsavel}</span>
-                    <span>{item.total}</span>
-                    <span>{formatPercent(item.participacaoPct)}</span>
-                    <span>{formatPercent(item.matriculaPct)}</span>
-                    <span>{formatPercent(item.rematriculaPct)}</span>
-                    <span>{formatPercent(item.renovacaoPct)}</span>
-                    <span className="ca-board-table-lista">
-                      {item.metaRenovacoes > 0 ? (
-                        <span title={`${item.renovacao} fechada${item.renovacao === 1 ? "" : "s"} de ${item.metaRenovacoes} na meta`}>
-                          {item.renovacao}/{item.metaRenovacoes}
+                <div className="ca-board-mix">
+                  {mixPercentual.map((item) => (
+                    <article key={item.key} className="ca-board-mix-card" style={{ "--mix-accent": item.accent }}>
+                      <span>{item.label}</span>
+                      <strong>{formatPercent(item.percentual)}</strong>
+                      <small>{item.total} plano{item.total !== 1 ? "s" : ""}</small>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="ca-board-section">
+                <div className="ca-board-section-hdr">
+                  <Users size={15} />
+                  <div>
+                    <h3>Participação no total</h3>
+                    <p>Quanto cada consultor representa dentro do total de planos classificados da página.</p>
+                  </div>
+                </div>
+                <div className="ca-board-rank">
+                  {quadroPercentual.topParticipacao.map((item, index) => (
+                    <div key={`part-${item.responsavel}`} className="ca-board-rank-row">
+                      <div className="ca-board-rank-meta">
+                        <span className="ca-board-rank-pos">{index + 1}</span>
+                        <div>
+                          <strong>{item.responsavel}</strong>
+                          <small>{item.total} plano{item.total !== 1 ? "s" : ""}</small>
+                        </div>
+                      </div>
+                      <div className="ca-board-rank-bar">
+                        <div className="ca-board-rank-fill" style={{ width: `${Math.min(item.participacaoPct, 100)}%` }} />
+                      </div>
+                      <span className="ca-board-rank-value">{formatPercent(item.participacaoPct)}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="ca-board-section">
+                <div className="ca-board-section-hdr">
+                  <TrendingUp size={15} />
+                  <div>
+                    <h3>Taxa por consultor</h3>
+                    <p>Mat% e Remat% usam o total de planos do consultor; Ren% usa a meta de renovações.</p>
+                  </div>
+                </div>
+                <div className="ca-board-table-wrap">
+                  <div className="ca-board-table">
+                    <div className="ca-board-table-head">
+                      <span>Consultor</span>
+                      <span>Total</span>
+                      <span>Part.</span>
+                      <span>Mat%</span>
+                      <span>Remat%</span>
+                      <span>Ren%</span>
+                      <span title="Fechadas / Meta de renovações do mês">Meta</span>
+                    </div>
+                    {quadroPercentual.consultores.map((item) => (
+                      <div key={`mix-${item.consultorKey}`} className="ca-board-table-row">
+                        <span className="ca-board-table-name">{item.responsavel}</span>
+                        <span>{item.total}</span>
+                        <span>{formatPercent(item.participacaoPct)}</span>
+                        <span>{formatPercent(item.matriculaPct)}</span>
+                        <span>{formatPercent(item.rematriculaPct)}</span>
+                        <span>{formatPercent(item.conversaoRenovacaoPct)}</span>
+                        <span className="ca-board-table-lista">
+                          {item.metaRenovacoes > 0 ? (
+                            <span title={`${item.renovacao} fechada${item.renovacao === 1 ? "" : "s"} de ${item.metaRenovacoes} na meta`}>
+                              {item.renovacao}/{item.metaRenovacoes}
+                            </span>
+                          ) : (
+                            <span className="ca-board-table-lista-empty">—</span>
+                          )}
                         </span>
-                      ) : (
-                        <span className="ca-board-table-lista-empty">—</span>
-                      )}
-                    </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          </section>
+                </div>
+              </section>
 
-          <p className="ca-board-footnote">
-            As porcentagens usam os eventos classificados desta página, respeitando mês, unidade e filtros globais de produto/consultores.
-          </p>
+              <p className="ca-board-footnote">
+                As porcentagens usam os eventos classificados desta página, respeitando mês, unidade e filtros globais de produto/consultores.
+              </p>
+            </div>
+          </aside>
         </div>
-      </aside>
+      )}
 
       <style>{`
         /* ===== LAYOUT ===== */
@@ -867,8 +895,10 @@ function CicloAluno() {
         /* ===== HEADER ===== */
         .ca-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;gap:16px;flex-wrap:wrap}
         .ca-hdr-left{display:flex;align-items:center;gap:14px}
-        .ca-unit-tag{background:var(--primary);color:#fff;padding:4px 10px;border-radius:6px;font-size:.65rem;font-weight:700;letter-spacing:.06em}
-        .ca-page-title{font-size:1.25rem;font-weight:700;color:var(--text-primary);margin:0;line-height:1.3}
+        .ca-hdr-badge{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;flex-shrink:0;box-shadow:0 8px 20px color-mix(in srgb,var(--primary) 32%,transparent)}
+        .ca-hdr-titles{display:flex;flex-direction:column;gap:2px}
+        .ca-unit-tag{align-self:flex-start;background:color-mix(in srgb,var(--primary) 10%,transparent);color:var(--primary);padding:2px 9px;border-radius:6px;font-size:.62rem;font-weight:700;letter-spacing:.07em;margin-bottom:1px}
+        .ca-page-title{font-size:1.4rem;font-weight:700;color:var(--text-primary);margin:0;line-height:1.2;letter-spacing:-.02em}
         .ca-page-sub{font-size:.78rem;color:var(--text-secondary);margin:0;text-transform:capitalize}
         .ca-hdr-right{display:flex;align-items:center;gap:10px}
         .ca-btn-refresh{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:var(--card);color:var(--text-primary);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:.78rem;font-weight:500;font-family:var(--font-sans);transition:all var(--transition-fast)}
@@ -880,15 +910,17 @@ function CicloAluno() {
 
         /* ===== CARDS ===== */
         .ca-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-        .ca-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;cursor:pointer;transition:all var(--transition-fast);position:relative;overflow:hidden;user-select:none}
+        .ca-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;cursor:pointer;transition:transform var(--transition-fast),box-shadow var(--transition-fast),border-color var(--transition-fast);position:relative;overflow:hidden;user-select:none}
         .ca-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--card-accent);opacity:0;transition:opacity var(--transition-fast)}
-        .ca-card:hover{border-color:color-mix(in srgb,var(--card-accent) 40%,transparent);box-shadow:var(--shadow-md)}
-        .ca-card:hover::before{opacity:1}
-        .ca-card:active{transform:scale(.985)}
-        .ca-card.active{border-color:var(--card-accent);box-shadow:0 0 0 1px var(--card-accent)}
-        .ca-card.active::before{opacity:1}
-        .ca-card-total{cursor:default;--card-accent:var(--primary)}
-        .ca-card-total:hover{transform:none;box-shadow:none;border-color:var(--border)}
+        .ca-card::after{content:'';position:absolute;inset:0;background:radial-gradient(130% 130% at 100% 0,color-mix(in srgb,var(--card-accent) 9%,transparent),transparent 55%);opacity:0;transition:opacity var(--transition-fast);pointer-events:none}
+        .ca-card:hover{border-color:color-mix(in srgb,var(--card-accent) 40%,transparent);box-shadow:var(--shadow-md);transform:translateY(-2px)}
+        .ca-card:hover::before,.ca-card:hover::after{opacity:1}
+        .ca-card:active{transform:translateY(0) scale(.99)}
+        .ca-card.active{border-color:var(--card-accent);box-shadow:0 0 0 1px var(--card-accent),var(--shadow-md)}
+        .ca-card.active::before,.ca-card.active::after{opacity:1}
+        .ca-card-total{cursor:default;--card-accent:var(--primary);background:linear-gradient(135deg,var(--card),color-mix(in srgb,var(--primary) 4%,var(--card)))}
+        .ca-card-total::after{display:none}
+        .ca-card-total:hover{transform:none;box-shadow:var(--shadow-sm);border-color:var(--border)}
         .ca-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
         .ca-card-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--card-accent) 12%,transparent);color:var(--card-accent)}
         .ca-card-pct{font-size:.78rem;font-weight:600;color:var(--card-accent);font-variant-numeric:tabular-nums}
@@ -896,13 +928,20 @@ function CicloAluno() {
         .ca-card-label{font-size:.72rem;color:var(--text-secondary);font-weight:500;letter-spacing:.02em;text-transform:uppercase;margin-top:2px;display:block}
         .ca-card-bar{height:3px;background:var(--border);border-radius:99px;margin-top:12px;overflow:hidden}
         .ca-card-bar-fill{height:100%;border-radius:99px;background:var(--card-accent);transition:width .5s cubic-bezier(.22,1,.36,1)}
+        .ca-card-total-badge{font-size:.62rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);background:var(--background);border:1px solid var(--border);padding:3px 8px;border-radius:99px}
+        .ca-card-stack{display:flex;gap:2px;height:6px;margin-top:12px;border-radius:99px;overflow:hidden;background:var(--border)}
+        .ca-card-stack-seg{height:100%;transition:width .5s cubic-bezier(.22,1,.36,1)}
+        .ca-card-stack-seg:first-child{border-radius:99px 0 0 99px}
+        .ca-card-stack-seg:last-child{border-radius:0 99px 99px 0}
 
         /* ===== SNAPSHOT ===== */
         .ca-snapshot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px}
-        .ca-snapshot-pill{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--text-secondary);font-size:.76rem;box-shadow:var(--shadow-sm)}
+        .ca-snapshot-pill{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--text-secondary);font-size:.76rem;box-shadow:var(--shadow-sm);transition:border-color var(--transition-fast),box-shadow var(--transition-fast)}
+        .ca-snapshot-pill:hover{border-color:color-mix(in srgb,var(--primary) 35%,var(--border));box-shadow:var(--shadow-md)}
+        .ca-snapshot-pill strong{color:var(--text-primary);font-weight:700;font-variant-numeric:tabular-nums}
         .ca-snapshot-pill svg{color:var(--primary);flex-shrink:0}
-        .ca-snapshot-cta{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;padding:9px 14px;border:none;border-radius:999px;background:linear-gradient(135deg,#eef2ff,#dbeafe);color:#1d4ed8;font-size:.76rem;font-weight:700;font-family:var(--font-sans);cursor:pointer;transition:all var(--transition-fast)}
-        .ca-snapshot-cta:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(59,130,246,.18)}
+        .ca-snapshot-cta{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:none;border-radius:999px;background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;font-size:.76rem;font-weight:700;font-family:var(--font-sans);cursor:pointer;transition:transform var(--transition-fast),box-shadow var(--transition-fast);box-shadow:0 6px 16px color-mix(in srgb,var(--primary) 28%,transparent)}
+        .ca-snapshot-cta:hover{transform:translateY(-1px);box-shadow:0 10px 24px color-mix(in srgb,var(--primary) 36%,transparent)}
 
         /* ===== PANEL (filters+table) ===== */
         .ca-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-sm)}
@@ -929,7 +968,8 @@ function CicloAluno() {
         .ca-tbl td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text-primary);vertical-align:middle}
         .ca-tbl tbody tr:last-child td{border-bottom:none}
         .ca-tbl tbody tr{transition:background .12s}
-        .ca-tbl tbody tr:hover{background:var(--background)}
+        .ca-tbl tbody tr:nth-child(even){background:color-mix(in srgb,var(--background) 55%,transparent)}
+        .ca-tbl tbody tr:hover{background:var(--primary-light)}
 
         /* tag */
         .ca-tag{display:inline-block;padding:3px 9px;border-radius:99px;font-size:.67rem;font-weight:600;white-space:nowrap;color:var(--tag-c);background:color-mix(in srgb,var(--tag-c) 12%,transparent)}
@@ -961,74 +1001,80 @@ function CicloAluno() {
         .ca-pag-btn:disabled{opacity:.3;cursor:not-allowed}
         .ca-pag-info{font-size:.78rem;color:var(--text-secondary);font-variant-numeric:tabular-nums;min-width:44px;text-align:center}
 
-        /* ===== QUADRO EM % ===== */
-        .ca-board-backdrop{position:fixed;inset:0;border:none;background:rgba(15,23,42,.38);backdrop-filter:blur(3px);z-index:40}
-        .ca-board{position:fixed;top:0;right:0;height:100vh;width:min(560px,100vw);background:var(--background);border-left:1px solid var(--border);box-shadow:-24px 0 60px rgba(15,23,42,.18);transform:translateX(106%);transition:transform .28s cubic-bezier(.22,1,.36,1);z-index:41;display:flex;flex-direction:column;overflow:hidden}
-        .ca-board.open{transform:translateX(0)}
-        .ca-board-head{position:relative;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:22px 22px 18px;border-bottom:1px dashed var(--border)}
-        .ca-board-head h2{margin:3px 0 4px;font-size:1.2rem;line-height:1.2;color:var(--text-primary)}
-        .ca-board-head p{margin:0;font-size:.78rem;color:var(--text-secondary);max-width:360px}
-        .ca-board-kicker{display:inline-block;padding:5px 10px;border-radius:999px;background:var(--primary-light);color:var(--primary);font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
-        .ca-board-close{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--text-primary);cursor:pointer;transition:all var(--transition-fast)}
-        .ca-board-close:hover{border-color:var(--primary);color:var(--primary)}
-        .ca-board-body{position:relative;display:flex;flex-direction:column;gap:16px;padding:18px 22px 24px;overflow-y:auto}
+        /* ===== QUADRO EM % (modal centralizado) ===== */
+        .ca-board-overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(15,23,42,.55);animation:ca-fade .18s ease}
+        .ca-board{width:min(820px,100%);max-height:88vh;background:var(--card);border:1px solid var(--border);border-radius:20px;box-shadow:0 24px 70px rgba(15,23,42,.4);display:flex;flex-direction:column;overflow:hidden;animation:ca-pop .22s cubic-bezier(.22,1,.36,1)}
+        .ca-board-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:22px 24px 18px;border-bottom:1px solid var(--border)}
+        .ca-board-head h2{margin:5px 0;font-size:1.35rem;line-height:1.2;color:var(--text-primary);font-weight:700;letter-spacing:-.01em}
+        .ca-board-head p{margin:0;font-size:.85rem;color:var(--text-secondary);max-width:430px;line-height:1.45}
+        .ca-board-kicker{display:inline-block;padding:5px 11px;border-radius:999px;background:var(--primary-light);color:var(--primary);font-size:.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+        .ca-board-close{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--text-primary);cursor:pointer;flex-shrink:0;transition:all var(--transition-fast)}
+        .ca-board-close:hover{border-color:var(--danger);color:var(--danger);background:var(--error-light)}
+        .ca-board-body{display:flex;flex-direction:column;gap:18px;padding:20px 24px 26px;overflow-y:auto}
         .ca-board-hero{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-        .ca-board-stat{padding:14px 15px;border-radius:18px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow)}
-        .ca-board-stat-label{display:block;font-size:.69rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);margin-bottom:8px}
-        .ca-board-stat strong{font-size:1.05rem;line-height:1.2;color:var(--text-primary)}
-        .ca-board-section{padding:16px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow)}
-        .ca-board-section-hdr{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+        .ca-board-stat{padding:15px 16px;border-radius:14px;background:var(--background);border:1px solid var(--border)}
+        .ca-board-stat-label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary);font-weight:600;margin-bottom:8px}
+        .ca-board-stat strong{font-size:1.3rem;line-height:1.15;color:var(--text-primary);font-weight:700;font-variant-numeric:tabular-nums}
+        .ca-board-section{padding:18px;border-radius:16px;background:var(--background);border:1px solid var(--border)}
+        .ca-board-section-hdr{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px}
         .ca-board-section-hdr svg{margin-top:2px;color:var(--primary);flex-shrink:0}
-        .ca-board-section-hdr h3{margin:0 0 4px;font-size:.95rem;color:var(--text-primary)}
-        .ca-board-section-hdr p{margin:0;font-size:.76rem;color:var(--text-secondary);line-height:1.45}
+        .ca-board-section-hdr h3{margin:0 0 4px;font-size:1.02rem;color:var(--text-primary);font-weight:700}
+        .ca-board-section-hdr p{margin:0;font-size:.8rem;color:var(--text-secondary);line-height:1.5}
+
+        /* mix do time (cards) */
         .ca-board-mix{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-        .ca-board-mix-card{padding:14px;border-radius:16px;background:color-mix(in srgb,var(--mix-accent) 10%,var(--card));border:1px solid color-mix(in srgb,var(--mix-accent) 20%,var(--border));display:flex;flex-direction:column;gap:6px}
-        .ca-board-mix-card span{font-size:.74rem;font-weight:700;color:var(--text-primary);text-transform:uppercase;letter-spacing:.04em}
-        .ca-board-mix-card strong{font-size:1.35rem;line-height:1;color:var(--text-primary)}
-        .ca-board-mix-card small{font-size:.72rem;color:var(--text-secondary)}
-        .ca-board-rank{display:flex;flex-direction:column;gap:10px}
-        .ca-board-rank-row{display:grid;grid-template-columns:minmax(0,180px) 1fr auto;gap:10px;align-items:center}
-        .ca-board-rank-meta{display:flex;align-items:center;gap:10px;min-width:0}
-        .ca-board-rank-meta strong,.ca-board-table-name{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .ca-board-rank-meta small{font-size:.72rem;color:var(--text-secondary)}
-        .ca-board-rank-pos{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:var(--primary-light);color:var(--primary);font-size:.72rem;font-weight:700;flex-shrink:0}
-        .ca-board-rank-bar{height:9px;border-radius:999px;background:var(--border);overflow:hidden}
+        .ca-board-mix-card{padding:15px 16px;border-radius:14px;background:color-mix(in srgb,var(--mix-accent) 12%,var(--card));border:1px solid color-mix(in srgb,var(--mix-accent) 30%,var(--border));display:flex;flex-direction:column;gap:6px}
+        .ca-board-mix-card span{font-size:.76rem;font-weight:700;color:var(--text-primary);text-transform:uppercase;letter-spacing:.03em}
+        .ca-board-mix-card strong{font-size:1.6rem;line-height:1;color:var(--text-primary);font-weight:700;font-variant-numeric:tabular-nums}
+        .ca-board-mix-card small{font-size:.76rem;color:var(--text-secondary);font-weight:500}
+
+        /* participação no total (rank) */
+        .ca-board-rank{display:flex;flex-direction:column;gap:12px}
+        .ca-board-rank-row{display:grid;grid-template-columns:minmax(0,200px) 1fr auto;gap:14px;align-items:center}
+        .ca-board-rank-meta{display:flex;align-items:center;gap:11px;min-width:0}
+        .ca-board-rank-meta>div{min-width:0}
+        .ca-board-rank-meta strong,.ca-board-table-name{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.86rem;color:var(--text-primary);font-weight:600}
+        .ca-board-rank-meta small{font-size:.74rem;color:var(--text-secondary)}
+        .ca-board-rank-pos{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:var(--primary-light);color:var(--primary);font-size:.76rem;font-weight:700;flex-shrink:0}
+        .ca-board-rank-bar{height:10px;border-radius:999px;background:var(--border);overflow:hidden}
         .ca-board-rank-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--secondary),var(--primary))}
-        .ca-board-rank-value{font-size:.78rem;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums}
-        .ca-board-table-wrap{overflow-x:auto}
-        .ca-board-table{min-width:600px}
-        .ca-board-table-head,.ca-board-table-row{display:grid;grid-template-columns:minmax(170px,1.4fr) repeat(5,minmax(58px,.75fr)) minmax(64px,.85fr);gap:8px;align-items:center}
-        .ca-board-table-lista{font-weight:600;color:var(--text-primary)}
+        .ca-board-rank-value{font-size:.85rem;font-weight:700;color:var(--text-primary);font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+
+        /* taxa por consultor (tabela) */
+        .ca-board-table-wrap{overflow-x:auto;margin:0 -4px;padding:0 4px}
+        .ca-board-table{min-width:560px}
+        .ca-board-table-head,.ca-board-table-row{display:grid;grid-template-columns:minmax(150px,1.5fr) repeat(5,minmax(52px,.8fr)) minmax(60px,.9fr);gap:10px;align-items:center}
+        .ca-board-table-lista{font-weight:700;color:var(--text-primary)}
         .ca-board-table-lista-empty{color:var(--text-secondary);opacity:.55}
-        .ca-board-table-head{padding:0 0 10px;border-bottom:1px dashed var(--border);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary)}
-        .ca-board-table-row{padding:11px 0;border-bottom:1px solid var(--border);font-size:.78rem;color:var(--text-primary);font-variant-numeric:tabular-nums}
+        .ca-board-table-head{padding:0 0 12px;border-bottom:1px solid var(--border);font-size:.72rem;text-transform:uppercase;letter-spacing:.03em;color:var(--text-secondary);font-weight:700}
+        .ca-board-table-row{padding:12px 0;border-bottom:1px solid var(--border);font-size:.84rem;color:var(--text-primary);font-variant-numeric:tabular-nums}
         .ca-board-table-row:last-child{border-bottom:none}
-        .ca-board-footnote{margin:0;font-size:.72rem;line-height:1.5;color:var(--text-secondary)}
-        .ca-board-empty{margin:6px 0 0;padding:14px;border-radius:14px;background:var(--background);border:1px dashed var(--border);font-size:.78rem;color:var(--text-secondary);text-align:center}
+        .ca-board-table-name{font-weight:600}
+        .ca-board-footnote{margin:0;font-size:.76rem;line-height:1.55;color:var(--text-secondary)}
+        .ca-board-empty{margin:0;padding:16px;border-radius:12px;background:var(--card);border:1px dashed var(--border);font-size:.82rem;color:var(--text-secondary);text-align:center}
+
+        @keyframes ca-fade{from{opacity:0}to{opacity:1}}
+        @keyframes ca-pop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
 
         /* ===== LISTA DE RENOVAÇÕES ===== */
         .ca-snapshot-pill-accent{background:linear-gradient(135deg,#eef2ff,#e0e7ff);border-color:#c7d2fe;color:#3730a3;font-weight:600}
         .ca-snapshot-pill-accent svg{color:#4338ca}
-        .ca-board-renlist{display:flex;flex-direction:column;gap:14px}
-        .ca-board-renlist-summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-        .ca-board-renlist-summary>div{padding:12px 14px;border-radius:14px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid var(--border);display:flex;flex-direction:column;gap:2px}
-        .ca-board-renlist-kicker{font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);font-weight:700}
-        .ca-board-renlist-summary strong{font-size:1.4rem;line-height:1.1;color:var(--text-primary);font-variant-numeric:tabular-nums}
-        .ca-board-renlist-summary small{font-size:.72rem;color:var(--text-secondary)}
-        .ca-board-renlist-rows{display:flex;flex-direction:column;gap:8px}
-        .ca-board-renlist-row{display:grid;grid-template-columns:minmax(0,180px) 1fr auto;gap:10px;align-items:center}
-        .ca-board-renlist-meta{min-width:0;display:flex;flex-direction:column;gap:1px}
-        .ca-board-renlist-meta strong{font-size:.82rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .ca-board-renlist-meta small{font-size:.7rem;color:var(--text-secondary);font-variant-numeric:tabular-nums}
-        .ca-board-renlist-bar{height:8px;border-radius:999px;background:var(--border);overflow:hidden}
+        .ca-board-renlist{display:flex;flex-direction:column;gap:16px}
+        .ca-board-renlist-summary{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .ca-board-renlist-summary>div{padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#f8fafc,#eef2ff);border:1px solid var(--border);display:flex;flex-direction:column;gap:3px}
+        .ca-board-renlist-kicker{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary);font-weight:700}
+        .ca-board-renlist-summary strong{font-size:1.55rem;line-height:1.1;color:var(--text-primary);font-weight:700;font-variant-numeric:tabular-nums}
+        .ca-board-renlist-summary small{font-size:.76rem;color:var(--text-secondary)}
+        .ca-board-renlist-rows{display:flex;flex-direction:column;gap:10px}
+        .ca-board-renlist-row{display:grid;grid-template-columns:minmax(0,180px) 1fr auto;gap:14px;align-items:center}
+        .ca-board-renlist-meta{min-width:0;display:flex;flex-direction:column;gap:2px}
+        .ca-board-renlist-meta strong{font-size:.86rem;color:var(--text-primary);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .ca-board-renlist-meta small{font-size:.74rem;color:var(--text-secondary);font-variant-numeric:tabular-nums}
+        .ca-board-renlist-bar{height:9px;border-radius:999px;background:var(--border);overflow:hidden}
         .ca-board-renlist-fill{height:100%;border-radius:999px;transition:width .4s cubic-bezier(.22,1,.36,1)}
         .ca-board-renlist-fill.g{background:linear-gradient(90deg,#34d399,#10b981)}
         .ca-board-renlist-fill.y{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
         .ca-board-renlist-fill.r{background:linear-gradient(90deg,#fb7185,#ef4444)}
-        .ca-board-renlist-pct{font-size:.78rem;font-weight:700;font-variant-numeric:tabular-nums;min-width:46px;text-align:right}
-        .ca-board-renlist-pct.g{color:#059669}
-        .ca-board-renlist-pct.y{color:#b45309}
-        .ca-board-renlist-pct.r{color:#dc2626}
 
         /* edição inline da meta */
         .ca-meta-display{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card);color:var(--text-primary);font-size:.76rem;font-weight:700;font-variant-numeric:tabular-nums;font-family:var(--font-sans);cursor:pointer;transition:all var(--transition-fast);min-width:72px;justify-content:center}
@@ -1070,11 +1116,20 @@ function CicloAluno() {
         .ca-pacto-refresh:disabled{opacity:.4;cursor:not-allowed}
         .ca-spin{animation:spin .8s linear infinite}
 
+        /* ===== DARK MODE FIXES (hardcoded light tokens) ===== */
+        .dark .ca-snapshot-pill-accent{background:linear-gradient(135deg,rgba(99,102,241,.16),rgba(79,70,229,.20));border-color:rgba(99,102,241,.34);color:#c7d2fe}
+        .dark .ca-snapshot-pill-accent svg{color:#a5b4fc}
+        .dark .ca-board-renlist-summary>div{background:linear-gradient(135deg,rgba(255,255,255,.03),rgba(99,102,241,.10))}
+        .dark .ca-meta-display.g{border-color:rgba(16,185,129,.42);background:rgba(16,185,129,.14);color:#34d399}
+        .dark .ca-meta-display.y{border-color:rgba(245,158,11,.42);background:rgba(245,158,11,.14);color:#fbbf24}
+        .dark .ca-meta-display.r{border-color:rgba(239,68,68,.42);background:rgba(239,68,68,.14);color:#f87171}
+
         @keyframes spin{to{transform:rotate(360deg)}}
 
         @media(prefers-reduced-motion:reduce){
           .ca-card,.ca-btn-refresh,.ca-tbl tbody tr,.ca-pag-btn,.ca-card-bar-fill,.ca-btn-board-toggle,.ca-snapshot-cta,.ca-board{transition:none!important}
           .ca-card:hover,.ca-card:active{transform:none!important}
+          .ca-board,.ca-board-overlay{animation:none!important}
         }
 
         /* ===== RESPONSIVE ===== */
@@ -1091,11 +1146,15 @@ function CicloAluno() {
           .ca-search-box{max-width:100%}
           .ca-count{margin-left:0}
           .ca-pag{flex-direction:column;gap:8px}
-          .ca-board{width:100vw}
+          .ca-board-overlay{padding:12px}
+          .ca-board{max-height:92vh}
+          .ca-board-head{padding:18px 18px 14px}
+          .ca-board-body{padding:16px 18px 20px}
           .ca-board-hero,.ca-board-mix{grid-template-columns:1fr}
-          .ca-board-rank-row{grid-template-columns:1fr}
           .ca-board-renlist-summary{grid-template-columns:1fr}
           .ca-board-renlist-row{grid-template-columns:1fr auto}
+          .ca-board-rank-row{grid-template-columns:minmax(0,1fr) auto;row-gap:8px}
+          .ca-board-rank-bar{grid-column:1 / -1;order:3}
         }
         @media(max-width:480px){
           .ca-cards{grid-template-columns:1fr}

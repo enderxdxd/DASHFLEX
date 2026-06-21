@@ -34,9 +34,10 @@ const db = admin.firestore();
 // ============ CONSTANTES ============
 
 const PACTO_BASE_URL = "https://apigw.pactosolucoes.com.br";
-// ⚠️ Endpoint de contatos da Pacto — CONFIRMAR com a Pacto. O nome dos campos
-// também precisa ser validado (ver extractContact). O modo dryRun ajuda nisso.
-const PACTO_CONTACTS_PATH = "/historico-contato";
+// Endpoint de clientes/alunos (lista simplificada). Retorna { content: [...] }
+// com paginação por page/size (sem totalPages). Campos: nome, email, telefone,
+// matricula, codigoCliente, empresa, situacao, situacaoContrato, etc.
+const PACTO_CONTACTS_PATH = "/clientes";
 
 const RD_TOKEN_URL = "https://api.rd.services/auth/token";
 const RD_EVENTS_URL = "https://api.rd.services/platform/events?event_type=conversion";
@@ -73,6 +74,20 @@ function getRdConfig() {
   };
 }
 
+/**
+ * Trava de segurança: o agendamento automático só envia se esta flag estiver "true".
+ * Habilitar com: firebase functions:config:set integration.pacto_rd_enabled="true"
+ * (runs manuais via POST não exigem a flag — são disparados intencionalmente.)
+ */
+function getEnabled() {
+  const c = cfg();
+  const v =
+    (c.integration && c.integration.pacto_rd_enabled) ||
+    process.env.PACTO_RD_ENABLED ||
+    "";
+  return String(v).toLowerCase() === "true";
+}
+
 function readiness() {
   const rd = getRdConfig();
   const hasOAuth = !!(rd.clientId && rd.clientSecret && rd.refreshToken);
@@ -81,6 +96,7 @@ function readiness() {
     pacto: !!getPactoApiKey(),
     rdOAuth: hasOAuth,
     rdApiKey: hasApiKey,
+    agendamentoHabilitado: getEnabled(),
     ready: !!getPactoApiKey() && (hasOAuth || hasApiKey),
   };
 }
@@ -136,20 +152,24 @@ async function getRdAccessToken() {
 
 // ============ PACTO ============
 
-async function fetchPactoContatosPage({ apiKey, empresa, date, page }) {
-  const filtros = {
-    empresas: [Number(empresa) || 1],
-    dataInicioMeta: date,
-    dataTerminoMeta: date,
-  };
+async function fetchPactoContatosPage({ apiKey, page, filters, path, rawParams }) {
+  const usePath = path || PACTO_CONTACTS_PATH;
 
-  const res = await axios.get(`${PACTO_BASE_URL}${PACTO_CONTACTS_PATH}`, {
+  // Padrão: paginação simples (page/size) — é o que /clientes espera.
+  // rawParams: sobrescreve os query params (diagnóstico).
+  // filters: usa o wrapper "filters" (alguns endpoints específicos exigem).
+  let usedParams;
+  if (rawParams) usedParams = { page, size: PAGE_SIZE, ...rawParams };
+  else if (filters) usedParams = { filters: JSON.stringify(filters), page, size: PAGE_SIZE };
+  else usedParams = { page, size: PAGE_SIZE };
+
+  const res = await axios.get(`${PACTO_BASE_URL}${usePath}`, {
     headers: { Authorization: `Bearer ${apiKey}` },
-    params: { filters: JSON.stringify(filtros), page, size: PAGE_SIZE },
+    params: usedParams,
     timeout: 30000,
   });
 
-  return res.data || {};
+  return { data: res.data || {}, usePath, usedParams };
 }
 
 // ============ MAPEAMENTO ============
@@ -177,11 +197,10 @@ function buildRdPayload(contact, { date, conversionIdentifier }) {
       email: contact.email,
       name: contact.name || undefined,
       mobile_phone: contact.phone || undefined,
-      tags: ["pacto", c.fase ? `fase-${c.fase}` : null].filter(Boolean),
-      cf_fase_crm: c.fase || "",
-      cf_canal: c.tipoContato || "",
-      cf_resultado: c.resultado || "",
-      cf_unidade: c.unidade || c.nomeEmpresa || "",
+      tags: ["pacto", c.situacao ? `situacao-${String(c.situacao).toLowerCase()}` : null].filter(Boolean),
+      cf_unidade: c.empresa || c.unidade || c.nomeEmpresa || "",
+      cf_status_aluno: c.situacao || "",
+      cf_matricula: c.matricula || "",
       cf_data_sync: date,
     },
   };
@@ -211,9 +230,10 @@ async function sendToRd(payload, { accessToken, apiKey }) {
  * Nunca lança em caso de "não configurado": retorna { success:false, configured:false }
  * para que o agendador não gere ruído antes das credenciais existirem.
  */
-async function runSync({ date, dryRun = false, limit = 0, empresa = 1, source = "manual" } = {}) {
+async function runSync({ date, dryRun = false, debug = false, limit = 0, empresa = 1, source = "manual", filters = null, path = null, rawParams = null, requireEnabled = false } = {}) {
   const startedAt = Date.now();
   const targetDate = date || new Date().toISOString().slice(0, 10);
+  let debugInfo = null;
 
   const pactoApiKey = getPactoApiKey();
   const rdConf = getRdConfig();
@@ -231,29 +251,53 @@ async function runSync({ date, dryRun = false, limit = 0, empresa = 1, source = 
     };
   }
 
+  // Trava do agendamento automático (não afeta runs manuais nem dryRun).
+  if (requireEnabled && !dryRun && !getEnabled()) {
+    return {
+      success: false,
+      enabled: false,
+      message:
+        "Agendamento desabilitado. Habilite com integration.pacto_rd_enabled=true para ligar a sync automática.",
+    };
+  }
+
   let accessToken = "";
   if (hasOAuth && !dryRun) {
     accessToken = await getRdAccessToken();
   }
 
   let page = 0;
-  let totalPages = 1;
+  let hasMore = true;
   let enviados = 0;
   let ignorados = 0;
   let erros = 0;
   let processados = 0;
   const amostra = [];
 
-  while (page < totalPages) {
-    const data = await fetchPactoContatosPage({
+  while (hasMore) {
+    const fetched = await fetchPactoContatosPage({
       apiKey: pactoApiKey,
-      empresa,
-      date: targetDate,
       page,
+      filters,
+      path,
+      rawParams,
     });
+    const data = fetched.data;
 
-    totalPages = data.totalPages || 1;
     const itens = data.content || data.itens || [];
+
+    if (debug && page === 0) {
+      debugInfo = {
+        httpOk: true,
+        path: fetched.usePath,
+        paramsUsed: fetched.usedParams,
+        topLevelKeys: data && typeof data === "object" ? Object.keys(data) : typeof data,
+        totalPages: data.totalPages ?? null,
+        totalElements: data.totalElements ?? data.total ?? null,
+        itensLen: itens.length,
+        sampleRaw: itens[0] || null,
+      };
+    }
 
     for (const item of itens) {
       if (limit && processados >= limit) break;
@@ -299,8 +343,18 @@ async function runSync({ date, dryRun = false, limit = 0, empresa = 1, source = 
       }
     }
 
-    if (limit && processados >= limit) break;
     page++;
+
+    // Próxima página: respeita totalPages quando existir; senão continua
+    // enquanto a página vier cheia (a lista simplificada não traz metadados).
+    if (limit && processados >= limit) {
+      hasMore = false;
+    } else if (typeof data.totalPages === "number" && data.totalPages > 0) {
+      hasMore = page < data.totalPages;
+    } else {
+      hasMore = itens.length >= PAGE_SIZE;
+    }
+    if (page > 5000) hasMore = false; // trava de segurança
   }
 
   const result = {
@@ -313,6 +367,7 @@ async function runSync({ date, dryRun = false, limit = 0, empresa = 1, source = 
     processados,
     durationMs: Date.now() - startedAt,
     amostra: dryRun ? amostra : undefined,
+    _debug: debug ? debugInfo : undefined,
   };
 
   if (!dryRun) {
@@ -383,8 +438,12 @@ syncApp.post("/", async (req, res) => {
     const result = await runSync({
       date: q.date,
       dryRun: q.dryRun === true || q.dryRun === "true",
+      debug: q.debug === true || q.debug === "true",
       limit: Number(q.limit) || 0,
       empresa: Number(q.empresa) || 1,
+      filters: req.body && typeof req.body.filters === "object" ? req.body.filters : null,
+      path: req.body && typeof req.body.path === "string" ? req.body.path : null,
+      rawParams: req.body && typeof req.body.params === "object" ? req.body.params : null,
       source: "http",
     });
 

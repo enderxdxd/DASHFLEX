@@ -896,7 +896,7 @@ exports.scheduledSyncPactoRD = functions
   .pubsub.schedule("0 8 * * *")
   .timeZone("America/Sao_Paulo")
   .onRun(async () => {
-    const result = await runPactoRdSync({ source: "scheduler" });
+    const result = await runPactoRdSync({ source: "scheduler", requireEnabled: true });
     console.log("[pacto_rd] scheduled run:", JSON.stringify(result));
     return null;
   });

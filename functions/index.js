@@ -875,3 +875,28 @@ exports.pactoProxy = functions
   .region("southamerica-east1")
   .runWith({ timeoutSeconds: 120, memory: "512MB" })
   .https.onRequest(appPacto);
+
+// ==========================================
+// INTEGRAÇÃO PACTO → RD STATION (suporte)
+// Função extra: não altera nenhum fluxo existente.
+// ==========================================
+const { syncApp: pactoRdApp, runSync: runPactoRdSync } = require("./pactoRdSync");
+
+// Endpoint HTTP: GET = status, POST = executa a sincronização
+exports.syncPactoRD = functions
+  .region("southamerica-east1")
+  .runWith({ timeoutSeconds: 540, memory: "512MB" })
+  .https.onRequest(pactoRdApp);
+
+// Agendamento diário às 08:00 (horário de Brasília).
+// Enquanto as credenciais não estiverem configuradas, retorna sem efeito (sem erro).
+exports.scheduledSyncPactoRD = functions
+  .region("southamerica-east1")
+  .runWith({ timeoutSeconds: 540, memory: "512MB" })
+  .pubsub.schedule("0 8 * * *")
+  .timeZone("America/Sao_Paulo")
+  .onRun(async () => {
+    const result = await runPactoRdSync({ source: "scheduler" });
+    console.log("[pacto_rd] scheduled run:", JSON.stringify(result));
+    return null;
+  });

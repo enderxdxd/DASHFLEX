@@ -1,24 +1,32 @@
 /**
  * Integração Pacto -> RD Station (função de SUPORTE).
  *
- * Fluxo: Pacto API -> Cloud Function -> RD Station (eventos de conversão).
+ * Fluxo: Pacto /meta-diaria (CRM por data) -> Cloud Function -> RD Station.
  * NÃO altera nenhum fluxo existente do sistema. É apenas uma função extra.
+ *
+ * Fonte dos dados: GET /meta-diaria — a lista do CRM por data (a tela de metas
+ * do consultor). Traz, por contato: nomeContato, telefones, emails, fase/
+ * descricaoFase (a "origem": Visitantes 24h, Renovação, Aniversariantes, etc.),
+ * matricula, situacaoCliente. Filtra por dataInicio/dataFim + codigoEmpresa.
  *
  * Padrões seguidos (iguais ao pactoProxy.js):
  *  - firebase-functions v1, axios, admin.firestore()
  *  - credenciais via functions.config() ou variáveis de ambiente
  *
- * Configuração esperada (não fica no código):
- *   firebase functions:config:set \
- *     pacto.api_key="..." \
+ * Configuração (não fica no código):
+ *   firebase functions:config:set pacto.api_key="..." rd.api_key="..."
+ *   # opcional OAuth (em vez de rd.api_key):
  *     rd.client_id="..." rd.client_secret="..." rd.refresh_token="..."
- *   # alternativa legada (sem OAuth):
- *     rd.api_key="..."
+ *   # ligar o agendamento automático:
+ *     integration.pacto_rd_enabled="true"
  *
  * Endpoints HTTP:
- *   GET  /  -> status da integração (sem efeito colateral)
+ *   GET  /  -> status (sem efeito colateral)
  *   POST / -> executa a sincronização
- *             query/body: { date?, dryRun?, limit?, empresa? }
+ *             body: { date?, dryRun?, debug?, limit?, empresas?[], fase? }
+ *
+ * Observação: o RD Station Marketing identifica o lead pelo EMAIL (obrigatório).
+ * Contatos sem email são contados em "semEmail" e não são enviados.
  */
 
 const functions = require("firebase-functions/v1");
@@ -34,16 +42,28 @@ const db = admin.firestore();
 // ============ CONSTANTES ============
 
 const PACTO_BASE_URL = "https://apigw.pactosolucoes.com.br";
-// Endpoint de clientes/alunos (lista simplificada). Retorna { content: [...] }
-// com paginação por page/size (sem totalPages). Campos: nome, email, telefone,
-// matricula, codigoCliente, empresa, situacao, situacaoContrato, etc.
-const PACTO_CONTACTS_PATH = "/clientes";
+const PACTO_META_DIARIA_PATH = "/meta-diaria";
 
 const RD_TOKEN_URL = "https://api.rd.services/auth/token";
 const RD_EVENTS_URL = "https://api.rd.services/platform/events?event_type=conversion";
 const RD_CONVERSIONS_URL = "https://api.rd.services/platform/conversions";
 
 const PAGE_SIZE = 50;
+
+// Unidades (codigoEmpresa). Códigos 1–4 retornam dados; 5 vem vazio.
+const EMPRESAS_PADRAO = [1, 2, 3, 4];
+// ⚠️ Mapeamento código → nome da unidade. 4 = Palmas (DDD 63). Os códigos 1/2/3
+// são as unidades de Goiânia (DDD 62) — CONFIRMAR a ordem exata se necessário.
+const EMPRESA_NOMES = {
+  1: "Alphaville",
+  2: "Buena Vista",
+  3: "Marista",
+  4: "Palmas",
+};
+
+function empresaNome(codigo) {
+  return EMPRESA_NOMES[codigo] || `Empresa ${codigo}`;
+}
 
 // ============ CONFIG / CREDENCIAIS ============
 
@@ -103,8 +123,7 @@ function readiness() {
 
 // ============ TOKEN RD STATION ============
 
-const RD_TOKEN_DOC = () =>
-  db.collection("integrations").doc("rd_station_tokens");
+const RD_TOKEN_DOC = () => db.collection("integrations").doc("rd_station_tokens");
 
 /**
  * Retorna um access_token válido do RD Station, usando cache no Firestore e
@@ -118,7 +137,6 @@ async function getRdAccessToken() {
     );
   }
 
-  // Cache
   const snap = await RD_TOKEN_DOC().get();
   if (snap.exists) {
     const d = snap.data();
@@ -127,7 +145,6 @@ async function getRdAccessToken() {
     }
   }
 
-  // Renova
   const res = await axios.post(
     RD_TOKEN_URL,
     { client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken },
@@ -150,18 +167,20 @@ async function getRdAccessToken() {
   return accessToken;
 }
 
-// ============ PACTO ============
+// ============ PACTO (/meta-diaria) ============
 
-async function fetchPactoContatosPage({ apiKey, page, filters, path, rawParams }) {
-  const usePath = path || PACTO_CONTACTS_PATH;
+async function fetchMetaDiaria({ apiKey, codigoEmpresa, date, page, fase, path, rawParams }) {
+  const usePath = path || PACTO_META_DIARIA_PATH;
 
-  // Padrão: paginação simples (page/size) — é o que /clientes espera.
-  // rawParams: sobrescreve os query params (diagnóstico).
-  // filters: usa o wrapper "filters" (alguns endpoints específicos exigem).
+  // rawParams: sobrescreve os query params (diagnóstico). Senão usa o contrato
+  // padrão do /meta-diaria: dataInicio/dataFim + codigoEmpresa + paginação.
   let usedParams;
-  if (rawParams) usedParams = { page, size: PAGE_SIZE, ...rawParams };
-  else if (filters) usedParams = { filters: JSON.stringify(filters), page, size: PAGE_SIZE };
-  else usedParams = { page, size: PAGE_SIZE };
+  if (rawParams) {
+    usedParams = { page, size: PAGE_SIZE, ...rawParams };
+  } else {
+    usedParams = { dataInicio: date, dataFim: date, codigoEmpresa, page, size: PAGE_SIZE };
+    if (fase) usedParams.fase = fase;
+  }
 
   const res = await axios.get(`${PACTO_BASE_URL}${usePath}`, {
     headers: { Authorization: `Bearer ${apiKey}` },
@@ -174,21 +193,46 @@ async function fetchPactoContatosPage({ apiKey, page, filters, path, rawParams }
 
 // ============ MAPEAMENTO ============
 
-/**
- * Extrai email/nome/telefone de um contato da Pacto de forma tolerante,
- * já que os nomes exatos dos campos dependem do endpoint/conta.
- */
-function extractContact(c) {
-  const email = String(c.emailAluno || c.email || c.emailCliente || "").trim();
-  const name = String(c.nomeAluno || c.nome || c.nomeCliente || "").trim();
-  const phone = String(
-    c.telefone || c.celular || c.telefoneCliente || c.fone || ""
-  ).replace(/\D/g, "");
-  return { email, name, phone, raw: c };
+// "a@x.com, b@y.com" -> primeiro email válido
+function firstEmail(s) {
+  if (!s) return "";
+  return (
+    String(s)
+      .split(/[;,/]/)
+      .map((x) => x.trim())
+      .find((x) => /\S+@\S+\.\S+/.test(x)) || ""
+  );
+}
+
+// "(62)99999-0000, (62)3333-1111" -> primeiro telefone (só dígitos)
+function firstPhone(s) {
+  if (!s) return "";
+  const parts = String(s).split(/[;,/]/).map((x) => x.trim()).filter(Boolean);
+  return (parts[0] || "").replace(/\D/g, "");
+}
+
+function slug(s) {
+  return String(s)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+}
+
+function extractContact(c, codigoEmpresa) {
+  return {
+    email: firstEmail(c.emails),
+    name: String(c.nomeContato || c.nome || "").trim(),
+    phone: firstPhone(c.telefones || c.telefone),
+    origem: c.descricaoFase || c.fase || "",
+    matricula: c.matricula || "",
+    situacao: c.situacaoCliente || "",
+    codigoEmpresa,
+    raw: c,
+  };
 }
 
 function buildRdPayload(contact, { date, conversionIdentifier }) {
-  const c = contact.raw;
   return {
     event_type: "CONVERSION",
     event_family: "CDP",
@@ -197,10 +241,11 @@ function buildRdPayload(contact, { date, conversionIdentifier }) {
       email: contact.email,
       name: contact.name || undefined,
       mobile_phone: contact.phone || undefined,
-      tags: ["pacto", c.situacao ? `situacao-${String(c.situacao).toLowerCase()}` : null].filter(Boolean),
-      cf_unidade: c.empresa || c.unidade || c.nomeEmpresa || "",
-      cf_status_aluno: c.situacao || "",
-      cf_matricula: c.matricula || "",
+      tags: ["pacto", contact.origem ? `origem-${slug(contact.origem)}` : null].filter(Boolean),
+      cf_origem: contact.origem || "",
+      cf_unidade: empresaNome(contact.codigoEmpresa),
+      cf_status_aluno: contact.situacao || "",
+      cf_matricula: contact.matricula || "",
       cf_data_sync: date,
     },
   };
@@ -226,11 +271,23 @@ async function sendToRd(payload, { accessToken, apiKey }) {
 // ============ NÚCLEO DA SINCRONIZAÇÃO ============
 
 /**
- * Executa a sincronização Pacto -> RD.
- * Nunca lança em caso de "não configurado": retorna { success:false, configured:false }
- * para que o agendador não gere ruído antes das credenciais existirem.
+ * Sincroniza os contatos do CRM (/meta-diaria) de uma data para o RD Station.
+ * Nunca lança em caso de "não configurado": retorna { success:false, ... } para
+ * que o agendador não gere ruído antes das credenciais existirem.
  */
-async function runSync({ date, dryRun = false, debug = false, limit = 0, empresa = 1, source = "manual", filters = null, path = null, rawParams = null, requireEnabled = false } = {}) {
+async function runSync({
+  date,
+  dryRun = false,
+  debug = false,
+  limit = 0,
+  maxEnviar = 0,
+  empresas = null,
+  fase = null,
+  source = "manual",
+  path = null,
+  rawParams = null,
+  requireEnabled = false,
+} = {}) {
   const startedAt = Date.now();
   const targetDate = date || new Date().toISOString().slice(0, 10);
   let debugInfo = null;
@@ -244,11 +301,7 @@ async function runSync({ date, dryRun = false, debug = false, limit = 0, empresa
     return { success: false, configured: false, error: "PACTO api_key não configurada." };
   }
   if (!hasOAuth && !hasApiKey) {
-    return {
-      success: false,
-      configured: false,
-      error: "RD Station não configurado (OAuth ou api_key).",
-    };
+    return { success: false, configured: false, error: "RD Station não configurado (OAuth ou api_key)." };
   }
 
   // Trava do agendamento automático (não afeta runs manuais nem dryRun).
@@ -266,95 +319,127 @@ async function runSync({ date, dryRun = false, debug = false, limit = 0, empresa
     accessToken = await getRdAccessToken();
   }
 
-  let page = 0;
-  let hasMore = true;
-  let enviados = 0;
-  let ignorados = 0;
-  let erros = 0;
+  const empresaList =
+    Array.isArray(empresas) && empresas.length
+      ? empresas.map(Number).filter(Boolean)
+      : EMPRESAS_PADRAO;
+
   let processados = 0;
+  let enviados = 0;
+  let semEmail = 0;
+  let duplicados = 0;
+  let erros = 0;
   const amostra = [];
+  const errosAmostra = [];
+  const seenEmails = new Set();
+  const porEmpresa = {};
 
-  while (hasMore) {
-    const fetched = await fetchPactoContatosPage({
-      apiKey: pactoApiKey,
-      page,
-      filters,
-      path,
-      rawParams,
-    });
-    const data = fetched.data;
+  for (const codigoEmpresa of empresaList) {
+    let page = 0;
+    let hasMore = true;
+    let empCount = 0;
 
-    const itens = data.content || data.itens || [];
-
-    if (debug && page === 0) {
-      debugInfo = {
-        httpOk: true,
-        path: fetched.usePath,
-        paramsUsed: fetched.usedParams,
-        topLevelKeys: data && typeof data === "object" ? Object.keys(data) : typeof data,
-        totalPages: data.totalPages ?? null,
-        totalElements: data.totalElements ?? data.total ?? null,
-        itensLen: itens.length,
-        sampleRaw: itens[0] || null,
-      };
-    }
-
-    for (const item of itens) {
-      if (limit && processados >= limit) break;
-      processados++;
-
-      const contact = extractContact(item);
-      if (!contact.email) {
-        ignorados++;
-        continue;
-      }
-
-      const payload = buildRdPayload(contact, {
+    while (hasMore) {
+      const fetched = await fetchMetaDiaria({
+        apiKey: pactoApiKey,
+        codigoEmpresa,
         date: targetDate,
-        conversionIdentifier: rdConf.conversionIdentifier,
+        page,
+        fase,
+        path,
+        rawParams,
       });
+      const data = fetched.data;
+      const itens = data.content || [];
 
-      if (dryRun) {
-        if (amostra.length < 5) amostra.push(payload.payload);
-        enviados++; // contabiliza como "seria enviado"
-        continue;
+      if (debug && !debugInfo) {
+        debugInfo = {
+          httpOk: true,
+          path: fetched.usePath,
+          paramsUsed: fetched.usedParams,
+          topLevelKeys: data && typeof data === "object" ? Object.keys(data) : typeof data,
+          totalElements: data.totalElements ?? null,
+          sampleRaw: itens[0] || null,
+        };
       }
 
-      try {
-        await sendToRd(payload, { accessToken, apiKey: rdConf.apiKey });
-        enviados++;
-      } catch (err) {
-        erros++;
-        const responseData = err.response?.data;
-        await db
-          .collection("errors")
-          .add({
-            source: "rd_station",
-            integration: "pacto_rd",
-            email: contact.email,
-            status: err.response?.status || null,
-            response:
-              typeof responseData === "object"
-                ? JSON.stringify(responseData)
-                : responseData || err.message,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          })
-          .catch(() => {});
+      for (const item of itens) {
+        if ((limit && processados >= limit) || (maxEnviar && enviados + erros >= maxEnviar)) {
+          hasMore = false;
+          break;
+        }
+        processados++;
+        empCount++;
+
+        const contact = extractContact(item, codigoEmpresa);
+        if (!contact.email) {
+          semEmail++;
+          continue;
+        }
+        if (seenEmails.has(contact.email)) {
+          duplicados++;
+          continue;
+        }
+        seenEmails.add(contact.email);
+
+        const payload = buildRdPayload(contact, {
+          date: targetDate,
+          conversionIdentifier: rdConf.conversionIdentifier,
+        });
+
+        if (dryRun) {
+          if (amostra.length < 5) amostra.push(payload.payload);
+          enviados++;
+          continue;
+        }
+
+        try {
+          await sendToRd(payload, { accessToken, apiKey: rdConf.apiKey });
+          enviados++;
+        } catch (err) {
+          erros++;
+          const responseData = err.response?.data;
+          if (errosAmostra.length < 3) {
+            errosAmostra.push({
+              email: contact.email,
+              status: err.response?.status || null,
+              response:
+                typeof responseData === "object"
+                  ? responseData
+                  : String(responseData || err.message).slice(0, 400),
+            });
+          }
+          await db
+            .collection("errors")
+            .add({
+              source: "rd_station",
+              integration: "pacto_rd",
+              email: contact.email,
+              codigoEmpresa,
+              status: err.response?.status || null,
+              response:
+                typeof responseData === "object"
+                  ? JSON.stringify(responseData)
+                  : responseData || err.message,
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            })
+            .catch(() => {});
+        }
       }
+
+      page++;
+      if ((limit && processados >= limit) || (maxEnviar && enviados + erros >= maxEnviar)) {
+        hasMore = false;
+      } else if (typeof data.totalPages === "number" && data.totalPages > 0) {
+        hasMore = page < data.totalPages;
+      } else {
+        hasMore = itens.length >= PAGE_SIZE;
+      }
+      if (page > 5000) hasMore = false; // trava de segurança
     }
 
-    page++;
-
-    // Próxima página: respeita totalPages quando existir; senão continua
-    // enquanto a página vier cheia (a lista simplificada não traz metadados).
-    if (limit && processados >= limit) {
-      hasMore = false;
-    } else if (typeof data.totalPages === "number" && data.totalPages > 0) {
-      hasMore = page < data.totalPages;
-    } else {
-      hasMore = itens.length >= PAGE_SIZE;
-    }
-    if (page > 5000) hasMore = false; // trava de segurança
+    porEmpresa[codigoEmpresa] = empCount;
+    if ((limit && processados >= limit) || (maxEnviar && enviados + erros >= maxEnviar)) break;
   }
 
   const result = {
@@ -362,11 +447,14 @@ async function runSync({ date, dryRun = false, debug = false, limit = 0, empresa
     dryRun,
     date: targetDate,
     enviados,
-    ignorados,
+    semEmail,
+    duplicados,
     erros,
     processados,
+    porEmpresa,
     durationMs: Date.now() - startedAt,
     amostra: dryRun ? amostra : undefined,
+    errosAmostra: errosAmostra.length ? errosAmostra : undefined,
     _debug: debug ? debugInfo : undefined,
   };
 
@@ -378,9 +466,11 @@ async function runSync({ date, dryRun = false, debug = false, limit = 0, empresa
         source,
         date: targetDate,
         enviados,
-        ignorados,
+        semEmail,
+        duplicados,
         erros,
         processados,
+        porEmpresa,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       })
       .catch(() => {});
@@ -394,7 +484,7 @@ async function runSync({ date, dryRun = false, debug = false, limit = 0, empresa
           lastRunAt: admin.firestore.FieldValue.serverTimestamp(),
           status: erros > 0 ? "partial_success" : "success",
           enviados,
-          ignorados,
+          semEmail,
           erros,
         },
         { merge: true }
@@ -418,11 +508,13 @@ syncApp.get("/", async (req, res) => {
     return res.status(200).json({
       success: true,
       integration: "pacto_rd",
+      fonte: "/meta-diaria (CRM por data)",
+      unidades: EMPRESA_NOMES,
       configurado: readiness(),
       ultimaSincronizacao: stateSnap.exists ? stateSnap.data() : null,
       uso: {
-        executar: "POST / com body opcional { date, dryRun, limit, empresa }",
-        teste: "POST /?dryRun=true&limit=1",
+        executar: "POST / body { date, dryRun, debug, limit, empresas[], fase }",
+        teste: 'POST / { "dryRun": true, "limit": 1 }',
       },
     });
   } catch (err) {
@@ -434,16 +526,18 @@ syncApp.get("/", async (req, res) => {
 // POST: executa a sincronização
 syncApp.post("/", async (req, res) => {
   try {
-    const q = { ...req.query, ...req.body };
+    const b = req.body || {};
+    const q = req.query || {};
     const result = await runSync({
-      date: q.date,
-      dryRun: q.dryRun === true || q.dryRun === "true",
-      debug: q.debug === true || q.debug === "true",
-      limit: Number(q.limit) || 0,
-      empresa: Number(q.empresa) || 1,
-      filters: req.body && typeof req.body.filters === "object" ? req.body.filters : null,
-      path: req.body && typeof req.body.path === "string" ? req.body.path : null,
-      rawParams: req.body && typeof req.body.params === "object" ? req.body.params : null,
+      date: b.date || q.date,
+      dryRun: b.dryRun === true || q.dryRun === "true",
+      debug: b.debug === true || q.debug === "true",
+      limit: Number(b.limit || q.limit) || 0,
+      maxEnviar: Number(b.maxEnviar || q.maxEnviar) || 0,
+      empresas: Array.isArray(b.empresas) ? b.empresas : null,
+      fase: typeof b.fase === "string" ? b.fase : null,
+      path: typeof b.path === "string" ? b.path : null,
+      rawParams: b && typeof b.params === "object" ? b.params : null,
       source: "http",
     });
 

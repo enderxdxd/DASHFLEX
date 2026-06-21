@@ -47,6 +47,8 @@ const PACTO_META_DIARIA_PATH = "/meta-diaria";
 const RD_TOKEN_URL = "https://api.rd.services/auth/token";
 const RD_EVENTS_URL = "https://api.rd.services/platform/events?event_type=conversion";
 const RD_CONVERSIONS_URL = "https://api.rd.services/platform/conversions";
+// Endpoint clássico (1.3) que usa o "Token público" (token_rdstation, 32 hex).
+const RD_13_CONVERSIONS_URL = "https://www.rdstation.com.br/api/1.3/conversions";
 
 const PAGE_SIZE = 50;
 
@@ -89,6 +91,7 @@ function getRdConfig() {
     clientSecret: rd.client_secret || process.env.RD_CLIENT_SECRET || "",
     refreshToken: rd.refresh_token || process.env.RD_REFRESH_TOKEN || "",
     apiKey: rd.api_key || process.env.RD_API_KEY || "",
+    publicToken: rd.public_token || process.env.RD_PUBLIC_TOKEN || "",
     conversionIdentifier:
       rd.conversion_identifier || process.env.RD_CONVERSION_IDENTIFIER || "Sync Pacto",
   };
@@ -112,12 +115,14 @@ function readiness() {
   const rd = getRdConfig();
   const hasOAuth = !!(rd.clientId && rd.clientSecret && rd.refreshToken);
   const hasApiKey = !!rd.apiKey;
+  const hasPublic = !!rd.publicToken;
   return {
     pacto: !!getPactoApiKey(),
     rdOAuth: hasOAuth,
     rdApiKey: hasApiKey,
+    rdPublicToken: hasPublic,
     agendamentoHabilitado: getEnabled(),
-    ready: !!getPactoApiKey() && (hasOAuth || hasApiKey),
+    ready: !!getPactoApiKey() && (hasOAuth || hasPublic || hasApiKey),
   };
 }
 
@@ -253,14 +258,38 @@ function buildRdPayload(contact, { date, conversionIdentifier }) {
 
 // ============ RD STATION (envio) ============
 
-async function sendToRd(payload, { accessToken, apiKey }) {
+async function sendToRd(payload, { accessToken, apiKey, publicToken }) {
+  // 1) OAuth (moderno): /platform/events com Bearer
   if (accessToken) {
     return axios.post(RD_EVENTS_URL, payload, {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       timeout: 20000,
     });
   }
-  // Fallback legado via api_key (endpoint de conversões)
+
+  // 2) Token público (clássico 1.3): cria conversão via token_rdstation
+  if (publicToken) {
+    const p = payload.payload;
+    const body = {
+      token_rdstation: publicToken,
+      identificador: p.conversion_identifier,
+      email: p.email,
+      nome: p.name,
+      celular: p.mobile_phone,
+      tags: p.tags,
+      cf_origem: p.cf_origem,
+      cf_unidade: p.cf_unidade,
+      cf_status_aluno: p.cf_status_aluno,
+      cf_matricula: p.cf_matricula,
+      cf_data_sync: p.cf_data_sync,
+    };
+    return axios.post(RD_13_CONVERSIONS_URL, body, {
+      headers: { "Content-Type": "application/json" },
+      timeout: 20000,
+    });
+  }
+
+  // 3) Fallback: api_key no /platform/conversions
   return axios.post(
     `${RD_CONVERSIONS_URL}?api_key=${encodeURIComponent(apiKey)}`,
     { event_type: "CONVERSION", event_family: "CDP", payload: payload.payload },
@@ -296,12 +325,13 @@ async function runSync({
   const rdConf = getRdConfig();
   const hasOAuth = !!(rdConf.clientId && rdConf.clientSecret && rdConf.refreshToken);
   const hasApiKey = !!rdConf.apiKey;
+  const hasPublic = !!rdConf.publicToken;
 
   if (!pactoApiKey) {
     return { success: false, configured: false, error: "PACTO api_key não configurada." };
   }
-  if (!hasOAuth && !hasApiKey) {
-    return { success: false, configured: false, error: "RD Station não configurado (OAuth ou api_key)." };
+  if (!hasOAuth && !hasPublic && !hasApiKey) {
+    return { success: false, configured: false, error: "RD Station não configurado (OAuth, token público ou api_key)." };
   }
 
   // Trava do agendamento automático (não afeta runs manuais nem dryRun).
@@ -394,7 +424,11 @@ async function runSync({
         }
 
         try {
-          await sendToRd(payload, { accessToken, apiKey: rdConf.apiKey });
+          await sendToRd(payload, {
+            accessToken,
+            apiKey: rdConf.apiKey,
+            publicToken: rdConf.publicToken,
+          });
           enviados++;
         } catch (err) {
           erros++;

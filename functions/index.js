@@ -880,7 +880,10 @@ exports.pactoProxy = functions
 // INTEGRAÇÃO PACTO → RD STATION (suporte)
 // Função extra: não altera nenhum fluxo existente.
 // ==========================================
-const { syncApp: pactoRdApp, runSync: runPactoRdSync } = require("./pactoRdSync");
+const {
+  syncApp: pactoRdApp,
+  runScheduledCatchup: runPactoRdCatchup,
+} = require("./pactoRdSync");
 
 // Endpoint HTTP: GET = status, POST = executa a sincronização
 exports.syncPactoRD = functions
@@ -896,7 +899,9 @@ exports.scheduledSyncPactoRD = functions
   .pubsub.schedule("0 8 * * *")
   .timeZone("America/Sao_Paulo")
   .onRun(async () => {
-    const result = await runPactoRdSync({ source: "scheduler", requireEnabled: true });
+    // Catch-up: processa os dias pendentes (do último até hoje) em sequência,
+    // salvando o progresso por dia. Gated por integration.pacto_rd_enabled.
+    const result = await runPactoRdCatchup({ maxDias: 7, source: "scheduler" });
     console.log("[pacto_rd] scheduled run:", JSON.stringify(result));
     return null;
   });

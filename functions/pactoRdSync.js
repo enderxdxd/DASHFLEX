@@ -43,6 +43,7 @@ const db = admin.firestore();
 
 const PACTO_BASE_URL = "https://apigw.pactosolucoes.com.br";
 const PACTO_META_DIARIA_PATH = "/meta-diaria";
+const PACTO_HISTORICO_CONTATO_PATH = "/historico-contato";
 
 const RD_TOKEN_URL = "https://api.rd.services/auth/token";
 const RD_EVENTS_URL = "https://api.rd.services/platform/events?event_type=conversion";
@@ -51,14 +52,14 @@ const RD_CONVERSIONS_URL = "https://api.rd.services/platform/conversions";
 const RD_13_CONVERSIONS_URL = "https://www.rdstation.com.br/api/1.3/conversions";
 
 const PAGE_SIZE = 50;
+const CONSULTOR_CACHE_COLLECTION = "pacto_rd_consultor_cache";
 
 // Unidades (codigoEmpresa). Códigos 1–4 retornam dados; 5 vem vazio.
 const EMPRESAS_PADRAO = [1, 2, 3, 4];
-// ⚠️ Mapeamento código → nome da unidade. 4 = Palmas (DDD 63). Os códigos 1/2/3
-// são as unidades de Goiânia (DDD 62) — CONFIRMAR a ordem exata se necessário.
+// Mapeamento código → nome da unidade (confirmado pelo usuário).
 const EMPRESA_NOMES = {
-  1: "Alphaville",
-  2: "Buena Vista",
+  1: "Buena Vista",
+  2: "Alphaville",
   3: "Marista",
   4: "Palmas",
 };
@@ -196,6 +197,169 @@ async function fetchMetaDiaria({ apiKey, codigoEmpresa, date, page, fase, path, 
   return { data: res.data || {}, usePath, usedParams };
 }
 
+async function fetchHistoricoContato({ apiKey, codigoEmpresa, date, page }) {
+  const filters = {
+    empresas: [Number(codigoEmpresa)],
+    dataInicioMeta: date,
+    dataTerminoMeta: date,
+  };
+
+  const res = await axios.get(`${PACTO_BASE_URL}${PACTO_HISTORICO_CONTATO_PATH}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    params: {
+      filters: JSON.stringify(filters),
+      page,
+      size: PAGE_SIZE,
+    },
+    timeout: 30000,
+  });
+
+  return res.data || {};
+}
+
+function consultorKey(v) {
+  if (v === null || v === undefined) return "";
+  return String(v).trim();
+}
+
+function firstPresent(values) {
+  for (const v of values) {
+    if (v !== null && v !== undefined && String(v).trim() !== "") return v;
+  }
+  return "";
+}
+
+function extractConsultorCodigo(c) {
+  const responsavelCadastro = c.responsavelCadastro || c.responsavel || {};
+  const colaborador = c.colaborador || c.consultor || {};
+  return consultorKey(
+    firstPresent([
+      c.codigoConsultor,
+      c.codigoColaborador,
+      c.codigoColaboradorResponsavel,
+      c.codigoResponsavel,
+      c.codigoResponsavelCadastro,
+      c.responsavelCadastroCodigo,
+      c.consultorCodigo,
+      c.colaboradorCodigo,
+      responsavelCadastro.codigo,
+      responsavelCadastro.id,
+      colaborador.codigo,
+      colaborador.id,
+    ])
+  );
+}
+
+function extractConsultorFromHistorico(c) {
+  const responsavelCadastro = c.responsavelCadastro || c.responsavel || {};
+  const colaborador = c.colaborador || c.consultor || {};
+  const codigo = consultorKey(
+    firstPresent([
+      responsavelCadastro.codigo,
+      responsavelCadastro.id,
+      c.codigoResponsavelCadastro,
+      c.responsavelCadastroCodigo,
+      c.codigoColaborador,
+      c.codigoColaboradorResponsavel,
+      c.codigoConsultor,
+      c.consultorCodigo,
+      c.colaboradorCodigo,
+      colaborador.codigo,
+      colaborador.id,
+    ])
+  );
+  const nome = String(
+    firstPresent([
+      responsavelCadastro.nomeApresentar,
+      responsavelCadastro.nome,
+      responsavelCadastro.name,
+      c.nomeResponsavelCadastro,
+      c.nomeColaborador,
+      c.nomeConsultor,
+      colaborador.nomeApresentar,
+      colaborador.nome,
+      colaborador.name,
+    ])
+  ).trim();
+
+  return { codigo, nome };
+}
+
+async function getConsultorNomeMap({ apiKey, date, empresas, debugInfo }) {
+  const cacheBuildDate = new Date().toISOString().slice(0, 10);
+  const empresasKey = empresas.map(Number).filter(Boolean).sort((a, b) => a - b).join("-");
+  const cacheRef = db
+    .collection(CONSULTOR_CACHE_COLLECTION)
+    .doc(`${date}_${empresasKey}_${cacheBuildDate}`);
+
+  const cached = await cacheRef.get().catch(() => null);
+  if (cached && cached.exists) {
+    const map = cached.data()?.map || {};
+    if (debugInfo) {
+      debugInfo.consultoresCache = "hit";
+      debugInfo.consultoresMapeados = Object.keys(map).length;
+    }
+    return map;
+  }
+
+  const map = {};
+  const errors = [];
+
+  for (const codigoEmpresa of empresas) {
+    let page = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      try {
+        const data = await fetchHistoricoContato({ apiKey, codigoEmpresa, date, page });
+        const itens = data.content || [];
+
+        for (const item of itens) {
+          const consultor = extractConsultorFromHistorico(item);
+          if (consultor.codigo && consultor.nome) map[consultor.codigo] = consultor.nome;
+        }
+
+        page++;
+        if (typeof data.totalPages === "number" && data.totalPages > 0) {
+          hasMore = page < data.totalPages;
+        } else {
+          hasMore = itens.length >= PAGE_SIZE;
+        }
+      } catch (err) {
+        errors.push({
+          codigoEmpresa,
+          status: err.response?.status || null,
+          message: err.message,
+        });
+        hasMore = false;
+      }
+
+      if (page > 5000) hasMore = false;
+    }
+  }
+
+  if (!errors.length) {
+    await cacheRef
+      .set({
+        date,
+        cacheBuildDate,
+        empresas,
+        map,
+        count: Object.keys(map).length,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      })
+      .catch(() => {});
+  }
+
+  if (debugInfo) {
+    debugInfo.consultoresCache = "miss";
+    debugInfo.consultoresMapeados = Object.keys(map).length;
+    debugInfo.consultoresErros = errors.length ? errors : undefined;
+  }
+
+  return map;
+}
+
 // ============ MAPEAMENTO ============
 
 // "a@x.com, b@y.com" -> primeiro email válido
@@ -225,6 +389,7 @@ function slug(s) {
 }
 
 function extractContact(c, codigoEmpresa) {
+  const codigoConsultor = extractConsultorCodigo(c);
   return {
     email: firstEmail(c.emails),
     name: String(c.nomeContato || c.nome || "").trim(),
@@ -232,6 +397,8 @@ function extractContact(c, codigoEmpresa) {
     origem: c.descricaoFase || c.fase || "",
     matricula: c.matricula || "",
     situacao: c.situacaoCliente || "",
+    codigoConsultor,
+    consultorNome: "",
     codigoEmpresa,
     raw: c,
   };
@@ -246,11 +413,18 @@ function buildRdPayload(contact, { date, conversionIdentifier }) {
       email: contact.email,
       name: contact.name || undefined,
       mobile_phone: contact.phone || undefined,
-      tags: ["pacto", contact.origem ? `origem-${slug(contact.origem)}` : null].filter(Boolean),
+      tags: [
+        "pacto",
+        contact.origem ? `origem-${slug(contact.origem)}` : null,
+        contact.codigoEmpresa ? `unidade-${slug(empresaNome(contact.codigoEmpresa))}` : null,
+        contact.consultorNome ? `consultor-${slug(contact.consultorNome)}` : null,
+      ].filter(Boolean),
       cf_origem: contact.origem || "",
       cf_unidade: empresaNome(contact.codigoEmpresa),
       cf_status_aluno: contact.situacao || "",
       cf_matricula: contact.matricula || "",
+      cf_consultor_codigo: contact.codigoConsultor || "",
+      cf_consultor_nome: contact.consultorNome || "",
       cf_data_sync: date,
     },
   };
@@ -281,6 +455,8 @@ async function sendToRd(payload, { accessToken, apiKey, publicToken }) {
       cf_unidade: p.cf_unidade,
       cf_status_aluno: p.cf_status_aluno,
       cf_matricula: p.cf_matricula,
+      cf_consultor_codigo: p.cf_consultor_codigo,
+      cf_consultor_nome: p.cf_consultor_nome,
       cf_data_sync: p.cf_data_sync,
     };
     return axios.post(RD_13_CONVERSIONS_URL, body, {
@@ -354,6 +530,14 @@ async function runSync({
       ? empresas.map(Number).filter(Boolean)
       : EMPRESAS_PADRAO;
 
+  if (debug) debugInfo = {};
+  const consultorNomeMap = await getConsultorNomeMap({
+    apiKey: pactoApiKey,
+    date: targetDate,
+    empresas: empresaList,
+    debugInfo,
+  });
+
   let processados = 0;
   let enviados = 0;
   let semEmail = 0;
@@ -382,15 +566,16 @@ async function runSync({
       const data = fetched.data;
       const itens = data.content || [];
 
-      if (debug && !debugInfo) {
-        debugInfo = {
+      if (debug && debugInfo && !debugInfo.metaDiariaCaptured) {
+        Object.assign(debugInfo, {
+          metaDiariaCaptured: true,
           httpOk: true,
           path: fetched.usePath,
           paramsUsed: fetched.usedParams,
           topLevelKeys: data && typeof data === "object" ? Object.keys(data) : typeof data,
           totalElements: data.totalElements ?? null,
           sampleRaw: itens[0] || null,
-        };
+        });
       }
 
       for (const item of itens) {
@@ -411,6 +596,9 @@ async function runSync({
           continue;
         }
         seenEmails.add(contact.email);
+        if (contact.codigoConsultor) {
+          contact.consultorNome = consultorNomeMap[contact.codigoConsultor] || "";
+        }
 
         const payload = buildRdPayload(contact, {
           date: targetDate,
@@ -529,6 +717,85 @@ async function runSync({
   return result;
 }
 
+// ============ AGENDAMENTO (catch-up sequencial) ============
+
+const SCHED_CURSOR_DOC = () => db.collection("sync_state").doc("pacto_rd_scheduler");
+const START_DATE_PADRAO = "2026-06-19";
+
+function getStartDate() {
+  const c = cfg();
+  return (
+    (c.integration && c.integration.pacto_rd_start_date) ||
+    process.env.PACTO_RD_START_DATE ||
+    START_DATE_PADRAO
+  );
+}
+
+function addDaysISO(iso, n) {
+  const d = new Date(`${iso}T12:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// Data de hoje em America/Sao_Paulo (UTC-3, sem horário de verão desde 2019)
+function hojeSaoPaulo() {
+  const sp = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  return sp.toISOString().slice(0, 10);
+}
+
+/**
+ * Processa em sequência os dias pendentes: do último processado + 1 (ou da data
+ * inicial, se nunca rodou) até hoje, um dia por vez. Salva o cursor após CADA
+ * dia — se a execução estourar o tempo, a próxima continua de onde parou.
+ */
+async function runScheduledCatchup({ maxDias = 7, source = "scheduler" } = {}) {
+  if (!getEnabled()) {
+    return {
+      success: false,
+      enabled: false,
+      message: "Agendamento desabilitado. Habilite com integration.pacto_rd_enabled=true.",
+    };
+  }
+
+  const startDate = getStartDate();
+  const hoje = hojeSaoPaulo();
+
+  const snap = await SCHED_CURSOR_DOC().get();
+  const lastDone = snap.exists ? snap.data().lastDate : null;
+  let cursor = lastDone ? addDaysISO(lastDone, 1) : startDate;
+
+  const dias = [];
+  while (cursor <= hoje && dias.length < maxDias) {
+    const r = await runSync({ date: cursor, source, requireEnabled: false });
+    dias.push({
+      date: cursor,
+      enviados: r.enviados,
+      semEmail: r.semEmail,
+      erros: r.erros,
+      success: r.success,
+    });
+    if (!r.success) break; // erro: para e NÃO avança o cursor (tenta de novo depois)
+    await SCHED_CURSOR_DOC()
+      .set(
+        { lastDate: cursor, updatedAt: admin.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
+      )
+      .catch(() => {});
+    cursor = addDaysISO(cursor, 1);
+  }
+
+  const pendentes = cursor <= hoje;
+  return {
+    success: true,
+    hoje,
+    startDate,
+    diasProcessados: dias.length,
+    dias,
+    pendentes,
+    proximaData: pendentes ? cursor : null,
+  };
+}
+
 // ============ HTTP APP ============
 
 const syncApp = express();
@@ -562,6 +829,17 @@ syncApp.post("/", async (req, res) => {
   try {
     const b = req.body || {};
     const q = req.query || {};
+
+    // Modo catch-up: processa os dias pendentes (19 → hoje) em sequência.
+    if (b.catchup === true || q.catchup === "true") {
+      const result = await runScheduledCatchup({
+        maxDias: Number(b.maxDias || q.maxDias) || 7,
+        source: "http-catchup",
+      });
+      const code = result.success ? 200 : result.enabled === false ? 400 : 500;
+      return res.status(code).json(result);
+    }
+
     const result = await runSync({
       date: b.date || q.date,
       dryRun: b.dryRun === true || q.dryRun === "true",
@@ -583,4 +861,4 @@ syncApp.post("/", async (req, res) => {
   }
 });
 
-module.exports = { syncApp, runSync, readiness };
+module.exports = { syncApp, runSync, runScheduledCatchup, readiness };

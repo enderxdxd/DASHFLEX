@@ -531,12 +531,30 @@ async function runSync({
       : EMPRESAS_PADRAO;
 
   if (debug) debugInfo = {};
-  const consultorNomeMap = await getConsultorNomeMap({
+  // Mapa código→nome do consultor. Fonte: historico-contato (responsavelCadastro),
+  // que usa a MESMA chave do meta-diaria (codigoColaboradorResponsavel). Como ele
+  // só cobre quem registrou contato no dia, acumulamos os nomes num doc persistente
+  // — a cobertura cresce a cada execução e fica completa com o uso.
+  const historicoMap = await getConsultorNomeMap({
     apiKey: pactoApiKey,
     date: targetDate,
     empresas: empresaList,
     debugInfo,
   });
+  const cumulRef = db.collection(CONSULTOR_CACHE_COLLECTION).doc("cumulativo");
+  const cumulSnap = await cumulRef.get().catch(() => null);
+  const cumul = cumulSnap && cumulSnap.exists ? cumulSnap.data().map || {} : {};
+  const consultorNomeMap = { ...cumul, ...historicoMap };
+  if (Object.keys(consultorNomeMap).length > Object.keys(cumul).length) {
+    await cumulRef
+      .set({
+        map: consultorNomeMap,
+        count: Object.keys(consultorNomeMap).length,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      })
+      .catch(() => {});
+  }
+  if (debugInfo) debugInfo.consultorMapTotal = Object.keys(consultorNomeMap).length;
 
   let processados = 0;
   let enviados = 0;

@@ -19,17 +19,13 @@ app.post("/", (req, res) => {
   let fileBuffer = null;
   let fileName = "";
   let unidade = "";
-  let autoConvertAdmin = "true"; // default mantém comportamento atual
 
-  // Captura campos simples
-  // - unidade
-  // - autoConvertAdmin (flag "true" | "false")
+  // Captura campos simples (unidade). A substituição de "Administrador" por
+  // Resp. Venda agora é automática, então o antigo campo autoConvertAdmin é ignorado.
   busboy.on("field", (fieldname, val) => {
     if (fieldname === "unidade") {
       unidade = val.trim().toLowerCase();
       console.log(`Unidade recebida: ${unidade}`);
-    } else if (fieldname === "autoConvertAdmin") {
-      autoConvertAdmin = val.trim().toLowerCase();
     }
   });
 
@@ -73,8 +69,10 @@ app.post("/", (req, res) => {
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
 
-      // Lê em modo array pra preservar colunas com headers duplicados
-      // (a planilha agora tem duas colunas "Responsável": a 1ª = recebimento, a 2ª = venda).
+      // Lê em modo array pra preservar colunas com headers duplicados.
+      // A planilha tem duas colunas "Responsável" (o cabeçalho pode vir com espaço
+      // sobrando): a 1ª (coluna E) = Resp. Venda (fallback); a 2ª (coluna F) =
+      // Resp. Recebimento (A QUE VALE). Detectamos por POSIÇÃO/ordem das colunas.
       const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
       if (sheetData.length < 2) {
         return res.status(400).json({ success: false, error: "Nenhuma linha encontrada na planilha" });
@@ -83,7 +81,8 @@ app.post("/", (req, res) => {
       const headerRowArr = sheetData[0].map((h) => (h || "").toString().trim());
       const respColIndices = [];
       headerRowArr.forEach((h, idx) => {
-        if (h === "Responsável" || h === "Responsavel") respColIndices.push(idx);
+        const norm = h.toLowerCase();
+        if (norm === "responsável" || norm === "responsavel") respColIndices.push(idx);
       });
 
       // Constrói cada linha como objeto preservando a 1ª ocorrência de chaves duplicadas
@@ -95,8 +94,8 @@ app.post("/", (req, res) => {
           obj[h] = arr[idx];
         });
         if (respColIndices.length >= 2) {
-          obj.__respRecebimento__ = arr[respColIndices[0]];
-          obj.__respVenda__ = arr[respColIndices[1]];
+          obj.__respVenda__ = arr[respColIndices[0]];        // E (1ª) = Resp. Venda = fallback
+          obj.__respRecebimento__ = arr[respColIndices[1]];  // F (2ª) = Resp. Recebimento = a que vale
         }
         return obj;
       });
@@ -104,8 +103,6 @@ app.post("/", (req, res) => {
       if (!rows.length) {
         return res.status(400).json({ success: false, error: "Nenhuma linha encontrada na planilha" });
       }
-
-      const shouldConvert = autoConvertAdmin === "true";
 
       // Transforma linhas em objetos de venda válidos
       const sales = [];
@@ -123,29 +120,29 @@ app.post("/", (req, res) => {
             .trim()
         ) || 0;
 
-        // extrai Resp. Recebimento e Resp. Venda
-        // Quando a planilha vem com duas colunas "Responsável", usamos as chaves
-        // posicionais (__respRecebimento__/__respVenda__). Senão caímos no fallback antigo.
-        const respRecebimento = (
+        // Coluna F (Resp. Recebimento) é a que VALE; coluna E (Resp. Venda) é o fallback.
+        // Formato novo: chaves posicionais __respRecebimento__ (F) / __respVenda__ (E).
+        // Mantém compatibilidade com o formato antigo (nomes explícitos das colunas).
+        const respColF = (
           row.__respRecebimento__ ||
           row["Resp. Recebimento"] ||
           row["Resp Recebimento"] ||
           row["Responsável"] ||
           ""
-        ).toString().trim();
+        ).toString().trim();   // a que vale (F)
 
-        const respVenda = (
+        const respColE = (
           row.__respVenda__ ||
           row["Resp. Venda"] ||
           row["Resp Venda"] ||
           ""
-        ).toString().trim();
+        ).toString().trim();   // fallback (E)
 
-        // Se o responsável for 'Administrador' ou 'RECORRENCIA' e usuário optou pela conversão, usa o respVenda
-        const deveSubstituir = shouldConvert && 
-          (respRecebimento === 'Administrador' || respRecebimento.toUpperCase() === 'RECORRENCIA') && 
-          respVenda;
-        const responsavelFinal = deveSubstituir ? respVenda : respRecebimento;
+        // Se F for administrativo (Administrador/RECORRENCIA), usa E. Substituição
+        // automática (não depende mais do toggle autoConvertAdmin — ver plano §5).
+        const ehAdmin =
+          respColF === "Administrador" || respColF.toUpperCase() === "RECORRENCIA";
+        const responsavelFinal = (ehAdmin && respColE) ? respColE : respColF;
 
         // 🔧 NOVA LÓGICA: Usar campo "Duração" da planilha diretamente
         const duracaoRaw = (row["Duração"] || "").toString().trim();
@@ -184,8 +181,8 @@ app.post("/", (req, res) => {
           produto:            (row["Produto"]               || "").trim(),
           matricula:          (row["Matrícula"]             || "").trim(),
           nome:               (row["Nome"]                  || "").trim(),
-          responsavel:        responsavelFinal,    // Usa o respVenda se for 'Administrador'
-          respVenda,                              // mantém o respVenda original
+          responsavel:        responsavelFinal,    // F, ou E quando F = Administrador
+          respVenda:          respColE,            // coluna E original (Resp. Venda)
           dataCadastro:       (row["Data de Cadastro"]      || "").trim(),
           numeroContrato:     (row["N° Contrato"]           || "").trim(),
           
@@ -903,5 +900,34 @@ exports.scheduledSyncPactoRD = functions
     // salvando o progresso por dia. Gated por integration.pacto_rd_enabled.
     const result = await runPactoRdCatchup({ maxDias: 7, source: "scheduler" });
     console.log("[pacto_rd] scheduled run:", JSON.stringify(result));
+    return null;
+  });
+
+// ==========================================
+// INTEGRAÇÃO RD CONVERSAS → PACTO (suporte)
+// Função extra: lê as conversas do RD Conversas e grava como Simples Registro
+// na meta diária do Pacto. Não altera nenhum fluxo existente.
+// ==========================================
+const {
+  conversasApp: pactoConversasApp,
+  runScheduledCatchup: runConversasRdCatchup,
+} = require("./conversasRdSync");
+
+// Endpoint HTTP: GET = status, POST = executa a sincronização
+exports.syncConversasRD = functions
+  .region("southamerica-east1")
+  .runWith({ timeoutSeconds: 540, memory: "512MB" })
+  .https.onRequest(pactoConversasApp);
+
+// Agendamento diário às 08:10 (logo após a sync Pacto→RD das 08:00).
+// Gated por integration.conversas_rd_enabled (sem flag, retorna sem efeito).
+exports.scheduledSyncConversasRD = functions
+  .region("southamerica-east1")
+  .runWith({ timeoutSeconds: 540, memory: "512MB" })
+  .pubsub.schedule("10 8 * * *")
+  .timeZone("America/Sao_Paulo")
+  .onRun(async () => {
+    const result = await runConversasRdCatchup({ maxDias: 3, source: "scheduler" });
+    console.log("[conversas_rd] scheduled run:", JSON.stringify(result));
     return null;
   });

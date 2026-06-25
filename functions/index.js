@@ -14,6 +14,48 @@ const db = admin.firestore();
 const app = express();
 app.use(cors({ origin: true }));
 
+// 🔍 DIAGNÓSTICO TEMPORÁRIO — comparar produtos gravados x config global.
+// GET /uploadXLS?unidade=alphaville&mes=2026-06   (remover depois)
+app.get("/", async (req, res) => {
+  try {
+    const unidade = (req.query.unidade || "alphaville").toLowerCase();
+    const mes = req.query.mes || "2026-06";
+
+    const cfgSnap = await db.doc("configuracoes/global/filtros/produtos").get();
+    const selecionados = (cfgSnap.exists ? cfgSnap.data().selecionados : []) || [];
+    const selSet = new Set(selecionados.map((p) => String(p).trim().toLowerCase()));
+
+    const vsnap = await db.collection("faturamento").doc(unidade).collection("vendas").get();
+    const cont = {};
+    let totalMes = 0;
+    const sampleDocs = [];
+    vsnap.forEach((d) => {
+      const v = d.data();
+      if ((v.dataFormatada || "").slice(0, 7) !== mes) return;
+      totalMes++;
+      const p = v.produto === undefined || v.produto === null ? "(undefined)" : String(v.produto);
+      cont[p] = (cont[p] || 0) + 1;
+      if (sampleDocs.length < 2) sampleDocs.push(v);
+    });
+
+    const produtos = Object.entries(cont)
+      .map(([p, n]) => ({ produtoJSON: JSON.stringify(p), qtd: n, match: selSet.has(p.trim().toLowerCase()) }))
+      .sort((a, b) => b.qtd - a.qtd);
+
+    return res.json({
+      unidade,
+      mes,
+      totalVendasMes: totalMes,
+      configCount: selecionados.length,
+      configSampleJSON: selecionados.slice(0, 15).map((p) => JSON.stringify(p)),
+      produtos,
+      sampleDocs,
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 app.post("/", (req, res) => {
   const busboy = new Busboy({ headers: req.headers });
   let fileBuffer = null;
@@ -78,27 +120,44 @@ app.post("/", (req, res) => {
         return res.status(400).json({ success: false, error: "Nenhuma linha encontrada na planilha" });
       }
 
-      const headerRowArr = sheetData[0].map((h) => (h || "").toString().trim());
-      const respColIndices = [];
-      headerRowArr.forEach((h, idx) => {
-        const norm = h.toLowerCase();
-        if (norm === "responsável" || norm === "responsavel") respColIndices.push(idx);
-      });
+      const toCellText = (value) => (value === undefined || value === null ? "" : String(value).trim());
+      const normHeader = (value) => toCellText(value)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[º°]/g, "")
+        .trim()
+        .replace(/\s*_\d+$/, "")
+        .replace(/\s+/g, " ")
+        .toLowerCase();
 
-      // Constrói cada linha como objeto preservando a 1ª ocorrência de chaves duplicadas
-      // e expõe as duas colunas de Responsável (quando há duplicata) por chaves dedicadas.
-      const rows = sheetData.slice(1).map((arr) => {
-        const obj = {};
-        headerRowArr.forEach((h, idx) => {
-          if (!h || h in obj) return;
-          obj[h] = arr[idx];
+      const criarLeitorLinha = (headers, values) => {
+        const mapa = {};
+        headers.forEach((header, idx) => {
+          const chave = normHeader(header);
+          if (!chave) return;
+          if (!mapa[chave]) mapa[chave] = [];
+          mapa[chave].push(values[idx]);
         });
-        if (respColIndices.length >= 2) {
-          obj.__respVenda__ = arr[respColIndices[0]];        // E (1ª) = Resp. Venda = fallback
-          obj.__respRecebimento__ = arr[respColIndices[1]];  // F (2ª) = Resp. Recebimento = a que vale
-        }
-        return obj;
-      });
+
+        return {
+          get: (...nomes) => {
+            for (const nome of nomes) {
+              const valores = mapa[normHeader(nome)];
+              if (!valores || !valores.length) continue;
+              const preenchido = valores.map(toCellText).find(Boolean);
+              if (preenchido) return preenchido;
+            }
+            return "";
+          },
+          getNth: (nome, idx) => {
+            const valores = mapa[normHeader(nome)] || [];
+            return toCellText(valores[idx]);
+          },
+        };
+      };
+
+      const headerRowArr = sheetData[0];
+      const rows = sheetData.slice(1).map((arr) => criarLeitorLinha(headerRowArr, arr));
 
       if (!rows.length) {
         return res.status(400).json({ success: false, error: "Nenhuma linha encontrada na planilha" });
@@ -107,13 +166,13 @@ app.post("/", (req, res) => {
       // Transforma linhas em objetos de venda válidos
       const sales = [];
       for (const row of rows) {
-        const dataLancRaw = (row["Data Lançamento"] || "").trim();
+        const dataLancRaw = row.get("data lancamento");
         if (!dataLancRaw) continue;
         const parsed = dayjs(dataLancRaw, "DD/MM/YYYY");
         if (!parsed.isValid()) continue;
 
         const valor = Number(
-          (row["Valor"] || "")
+          row.get("valor")
             .replace("R$", "")
             .replace(/\./g, "")
             .replace(",", ".")
@@ -121,22 +180,10 @@ app.post("/", (req, res) => {
         ) || 0;
 
         // Coluna F (Resp. Recebimento) é a que VALE; coluna E (Resp. Venda) é o fallback.
-        // Formato novo: chaves posicionais __respRecebimento__ (F) / __respVenda__ (E).
-        // Mantém compatibilidade com o formato antigo (nomes explícitos das colunas).
-        const respColF = (
-          row.__respRecebimento__ ||
-          row["Resp. Recebimento"] ||
-          row["Resp Recebimento"] ||
-          row["Responsável"] ||
-          ""
-        ).toString().trim();   // a que vale (F)
-
-        const respColE = (
-          row.__respVenda__ ||
-          row["Resp. Venda"] ||
-          row["Resp Venda"] ||
-          ""
-        ).toString().trim();   // fallback (E)
+        // No layout novo as duas colunas se chamam "Responsavel"; por isso lemos por ordem.
+        const respColE = row.getNth("responsavel", 0) || row.get("resp. venda", "resp venda");
+        const respColF = row.getNth("responsavel", 1) ||
+          row.get("resp. recebimento", "resp recebimento", "responsavel");
 
         // Se F for administrativo (Administrador/RECORRENCIA), usa E. Substituição
         // automática (não depende mais do toggle autoConvertAdmin — ver plano §5).
@@ -145,7 +192,7 @@ app.post("/", (req, res) => {
         const responsavelFinal = (ehAdmin && respColE) ? respColE : respColF;
 
         // 🔧 NOVA LÓGICA: Usar campo "Duração" da planilha diretamente
-        const duracaoRaw = (row["Duração"] || "").toString().trim();
+        const duracaoRaw = row.get("duracao");
         let duracaoMeses = 0;
         
         // Extrai número da duração (ex: "12" = 12 meses)
@@ -157,8 +204,8 @@ app.post("/", (req, res) => {
         }
         
         // Processa datas apenas para referência (opcional)
-        const dataInicioRaw = (row["Data Início"] || "").trim();
-        const dataTerminoRaw = (row["Data Término"] || "").trim();
+        const dataInicioRaw = row.get("data inicio");
+        const dataTerminoRaw = row.get("data termino");
         
         let dataInicioFormatada = "";
         let dataTerminoFormatada = "";
@@ -178,13 +225,13 @@ app.post("/", (req, res) => {
         }
 
         sales.push({
-          produto:            (row["Produto"]               || "").trim(),
-          matricula:          (row["Matrícula"]             || "").trim(),
-          nome:               (row["Nome"]                  || "").trim(),
+          produto:            row.get("produto"),
+          matricula:          row.get("matricula"),
+          nome:               row.get("nome cliente", "nome"),
           responsavel:        responsavelFinal,    // F, ou E quando F = Administrador
           respVenda:          respColE,            // coluna E original (Resp. Venda)
-          dataCadastro:       (row["Data de Cadastro"]      || "").trim(),
-          numeroContrato:     (row["N° Contrato"]           || "").trim(),
+          dataCadastro:       row.get("data cadastro", "data de cadastro"),
+          numeroContrato:     row.get("contrato", "n contrato"),
           
           // 🔧 NOVA LÓGICA: Usar duração da planilha diretamente
           dataInicio:         dataInicioFormatada,          // Data formatada YYYY-MM-DD
@@ -195,18 +242,18 @@ app.post("/", (req, res) => {
           duracaoMeses:       duracaoMeses,                 // Número de meses (1, 3, 6, 12, 24, etc)
           
           // Campos originais para referência
-          dataInicioOriginal: (row["Data Início"]           || "").trim(),
-          dataTerminoOriginal:(row["Data Término"]          || "").trim(),
+          dataInicioOriginal: dataInicioRaw,
+          dataTerminoOriginal:dataTerminoRaw,
           duracao:            duracaoRaw,                   // Valor original da planilha
-          modalidades:        (row["Modalidades"]           || "").trim(),
-          plano:              (row["Plano"]                 || "").trim(),
-          situacaoContrato:   (row["Situação de Contrato"]  || "").trim(),
+          modalidades:        row.get("modalidades"),
+          plano:              row.get("Plano"),
+          situacaoContrato:   row.get("situacao contrato", "situacao de contrato"),
           dataLancamento:     dataLancRaw,
           dataFormatada:      parsed.format("YYYY-MM-DD"),
-          formaPagamento:     (row["Forma Pagamento"]       || "").trim(),
-          condicaoPagamento:  (row["Condicao Pagamento"]    || "").trim(),
+          formaPagamento:     row.get("forma pagamento"),
+          condicaoPagamento:  row.get("condicao pagamento"),
           valor,
-          empresa:            (row["Empresa"]               || "").trim(),
+          empresa:            row.get("empresa"),
           unidade
         });
       }

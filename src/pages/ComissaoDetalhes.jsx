@@ -16,6 +16,7 @@ import { useConfigRem } from '../hooks/useConfigRem';
 import { calcularRemuneracao } from '../utils/remuneracao';
 import { calcularRemuneracaoPorDuracao } from '../utils/calculoRemuneracaoDuracao';
 import { gerarPDFComissoes, gerarPDFResumo } from '../utils/pdfGenerator';
+import { ehVendaPlano, vendaCombinaProdutosSelecionados } from '../utils/produtoMatching';
 import '../styles/ComissaoComponents.css';
 
 // Função para aplicar correção de diárias (baseada no sistema real)
@@ -63,7 +64,7 @@ const ehPlanoAposCorrecao = (venda) => {
     return false;
   }
   
-  if (produtoLower !== 'plano') {
+  if (produtoLower !== 'plano' && !ehVendaPlano(vendaCorrigida)) {
     return false;
   }
   
@@ -111,7 +112,7 @@ const calcularComissaoReal = (venda, ehPlano, temDesconto, bateuMetaIndividual, 
   
   const isDiaria = isDiariaOriginal || isDiariaCorrigida;
   
-  if (produtosSelecionados.length > 0 && !produtosSelecionados.includes(venda.produto) && !isDiaria) {
+  if (produtosSelecionados.length > 0 && !vendaCombinaProdutosSelecionados(venda, produtosSelecionados) && !isDiaria) {
     return 0;
   }
   
@@ -256,7 +257,7 @@ export default function ComissaoDetalhes() {
       
       const isDiaria = isDiariaOriginal || isDiariaCorrigida;
       
-      if (produtosSelecionados.length > 0 && !produtosSelecionados.includes(v.produto) && !isDiaria) {
+      if (produtosSelecionados.length > 0 && !vendaCombinaProdutosSelecionados(v, produtosSelecionados) && !isDiaria) {
         return false;
       }
       
@@ -380,11 +381,8 @@ export default function ComissaoDetalhes() {
       'QUITAÇÃO DE DINHEIRO - CANCELAMENTO'
     ]);
     
-    const produtosSelecionadosSet = new Set(produtosSelecionados);
-    
     return {
       produtosNaoComissionaveisFixos,
-      produtosSelecionadosSet,
       temProdutosSelecionados: produtosSelecionados.length > 0
     };
   }, [produtosSelecionados]);
@@ -412,7 +410,7 @@ export default function ComissaoDetalhes() {
       
       // Filtro de produtos selecionados
       if (filtrosOtimizados.temProdutosSelecionados && 
-          !filtrosOtimizados.produtosSelecionadosSet.has(v.produto) && 
+          !vendaCombinaProdutosSelecionados(v, produtosSelecionados) &&
           !isDiaria) {
         return false;
       }

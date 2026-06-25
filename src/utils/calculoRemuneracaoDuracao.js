@@ -4,6 +4,7 @@
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 import { corrigirClassificacaoDiarias, ehPlanoAposCorrecao } from './correcaoDiarias';
+import { vendaCombinaProdutosSelecionados } from './produtoMatching';
 
 dayjs.extend(customParseFormat);
 
@@ -144,8 +145,7 @@ export function isProdutoComissionavel(venda, produtosSelecionados = []) {
   
   // Verificar filtro global
   if (produtosSelecionados.length > 0) {
-    const produtoOriginal = venda.produto?.trim() || '';
-    return produtosSelecionados.includes(produtoOriginal);
+    return vendaCombinaProdutosSelecionados(venda, produtosSelecionados);
   }
   
   return true;

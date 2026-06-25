@@ -86,6 +86,9 @@ const hasFreshMemoryCache = () =>
   Array.isArray(memoryCache) &&
   Date.now() - memoryCacheTimestamp < CACHE_TTL;
 
+const getVendaUnidade = (venda) =>
+  (venda?._unidadeOriginal || venda?.unidade || "").trim().toLowerCase();
+
 export const useVendas = (unidade, metas = [], options = {}) => {
   // OTIMIZAÇÃO: Realtime desabilitado por padrão para melhor performance
   // Use refreshVendas() para atualizar manualmente quando necessário
@@ -473,7 +476,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
   const vendasUnidadeAtual = useMemo(() => {
     if (!unidade) return [];
     return vendasAgrupadas.filter((v) => {
-      const unidadeVenda = (v.unidade || "").toLowerCase();
+      const unidadeVenda = getVendaUnidade(v);
       return unidadeVenda === unidade.toLowerCase();
     });
   }, [vendasAgrupadas, unidade]);

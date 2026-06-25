@@ -3,6 +3,7 @@ import { useReducer, useState, useEffect, useMemo } from "react";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import { useParams } from 'react-router-dom';
+import { ehVendaPlano } from '../utils/produtoMatching';
 
 dayjs.extend(isBetween);
 
@@ -217,7 +218,7 @@ export const useFilters = (
       return false;
     }
     
-    if (produto !== 'plano') {
+    if (produto !== 'plano' && !ehVendaPlano(vendaCorrigida)) {
       return false;
     }
     

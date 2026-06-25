@@ -43,6 +43,7 @@ import {
 } from "../hooks/useAnalytics";
 import { useProjectionFromFiltered } from "../hooks/useProjectionFromFiltered";
 import { useShareData } from "../hooks/useShareData";
+import { vendaCombinaProdutosSelecionados } from "../utils/produtoMatching";
 import { ExpandButton, ChartModal } from "../components/ui/ExpandableChart";
 
 // Configurar dayjs para português
@@ -110,12 +111,9 @@ export default function AnalyticsPage() {
     if (produtosSelecionados.length === 0) return todasVendas;
     
     // Filtra apenas vendas dos produtos selecionados (MESMA LÓGICA DO DASHBOARD)
-    const vendasComFiltro = todasVendas.filter(venda => {
-      const produtoVenda = (venda.produto || "").trim().toLowerCase();
-      return produtosSelecionados.some(produtoSelecionado => 
-        produtoSelecionado.toLowerCase() === produtoVenda
-      );
-    });
+    const vendasComFiltro = todasVendas.filter(venda =>
+      vendaCombinaProdutosSelecionados(venda, produtosSelecionados)
+    );
     
     console.log('📊 Analytics - Aplicando filtro de produtos:');
     console.log('📊 Analytics - Produtos selecionados:', produtosSelecionados);

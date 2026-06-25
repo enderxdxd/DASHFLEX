@@ -14,6 +14,7 @@ import { db } from "../firebase";
 import { useGlobalProdutos } from "../hooks/useGlobalProdutos";
 import { useMetas } from "../hooks/useMetas";
 import { useVendas } from "../hooks/useVendas";
+import { vendaCombinaProdutosSelecionados } from "../utils/produtoMatching";
 import "../styles/Metas.css";
 
 dayjs.locale("pt-br");
@@ -48,15 +49,13 @@ export default function Metas() {
   const { vendas: vendasAgrupadas, loading: vendasLoading, error: vendasError, refreshVendas } = useVendas(unidade);
   const { metas, loading: metasLoading, error: metasError, refreshMetas } = useMetas(unidade);
 
-  const produtosSelecionadosSet = useMemo(() => new Set(produtosSelecionados.map((item) => item.trim())), [produtosSelecionados]);
   const vendasFiltradas = useMemo(() => {
     if (!produtosLoaded) return [];
     return vendasAgrupadas.filter((venda) => {
-      const produto = venda.produto?.trim();
-      if (!produto) return false;
-      return produtosSelecionadosSet.size === 0 || produtosSelecionadosSet.has(produto);
+      if (!venda.produto?.trim()) return false;
+      return vendaCombinaProdutosSelecionados(venda, produtosSelecionados);
     });
-  }, [produtosLoaded, produtosSelecionadosSet, vendasAgrupadas]);
+  }, [produtosLoaded, produtosSelecionados, vendasAgrupadas]);
   const vendasDoMes = useMemo(() => vendasFiltradas.filter((venda) => getVendaMonth(venda) === selectedMonth), [selectedMonth, vendasFiltradas]);
   const vendasPeriodoCruzado = useMemo(() => vendasFiltradas.filter((venda) => getVendaMonth(venda) === crossUnitPeriod), [crossUnitPeriod, vendasFiltradas]);
   const metasDoMes = useMemo(() => metas.filter((meta) => meta.periodo === selectedMonth).sort((a, b) => sortPt(a.responsavel?.trim() || "", b.responsavel?.trim() || "")), [metas, selectedMonth]);

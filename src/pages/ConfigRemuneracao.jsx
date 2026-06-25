@@ -8,6 +8,7 @@ import { useGroupedVendas } from '../hooks/useGroupedVendas';
 import { useConfigRem } from '../hooks/useConfigRem';
 import { useMetas } from '../hooks/useMetas';
 import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
+import { vendaCombinaProdutosSelecionados } from '../utils/produtoMatching';
 import { calcularRemuneracaoPorDuracao, calcularDuracaoPlano, verificarDescontoPlano, calcularPremiacaoSupervisor } from '../utils/calculoRemuneracaoDuracao';
 
 import { useDescontosSimples } from '../utils/useDescontosSimples';
@@ -211,7 +212,7 @@ const PlanosVisualizerIntegrado = ({ comissaoPlanos, configRem, unidade, vendas,
       const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
       return (
         v.produto &&
-        produtosSelecionados.includes(v.produto.trim()) &&
+        vendaCombinaProdutosSelecionados(v, produtosSelecionados) &&
         mes === selectedMonth
       );
     });

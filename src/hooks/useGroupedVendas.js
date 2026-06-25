@@ -1,6 +1,9 @@
 // src/hooks/useGroupedVendas.js
 import { useMemo } from 'react';
 
+const getVendaUnidade = (venda) =>
+  (venda?._unidadeOriginal || venda?.unidade || '').trim().toLowerCase();
+
 /**
  * Hook para agrupar vendas de planos que foram divididas em múltiplos pagamentos
  * 
@@ -48,7 +51,7 @@ export const useGroupedVendas = (vendas, enabled = true) => {
       }
       
       const responsavel = (venda.responsavel || '').trim().toLowerCase();
-      const unidadeVenda = (venda.unidade || '').trim().toLowerCase();
+      const unidadeVenda = getVendaUnidade(venda);
       const dataStr = venda.dataFormatada || venda.dataLancamento || '';
       const mes = dataStr.substring(0, 7); // YYYY-MM
       

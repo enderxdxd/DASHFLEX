@@ -15,11 +15,15 @@ import { useConfigRem } from '../hooks/useConfigRem';
 import { useUserRole } from '../hooks/useUserRole';
 import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
 import Loading3D from '../components/ui/Loading3D';
+import { vendaCombinaProdutosSelecionados } from '../utils/produtoMatching';
 
 import dayjs from "dayjs";
 import 'dayjs/locale/pt-br';
 
 dayjs.locale('pt-br');
+
+const getVendaUnidade = (venda) =>
+  (venda?._unidadeOriginal || venda?.unidade || "").trim().toLowerCase();
 
 const Dashboard = () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -98,25 +102,15 @@ const Dashboard = () => {
     // Se não há produtos selecionados, inclui todas as vendas
     if (produtosSelecionados.length === 0) return vendas;
     
-    // Filtra apenas vendas dos produtos selecionados
-    return vendas.filter(venda => {
-      const produtoVenda = (venda.produto || "").trim().toLowerCase();
-      return produtosSelecionados.some(produtoSelecionado => 
-        produtoSelecionado.toLowerCase() === produtoVenda
-      );
-    });
+    // Filtra apenas vendas dos produtos selecionados, tratando variantes de plano como PLANO.
+    return vendas.filter(venda => vendaCombinaProdutosSelecionados(venda, produtosSelecionados));
   }, [vendas, produtosSelecionados, produtosLoaded]);
 
   // Vendas excluídas (para mostrar no card adicional)
   const vendasExcluidas = useMemo(() => {
     if (!vendas.length || !produtosLoaded || produtosSelecionados.length === 0) return [];
     
-    return vendas.filter(venda => {
-      const produtoVenda = (venda.produto || "").trim().toLowerCase();
-      return !produtosSelecionados.some(produtoSelecionado => 
-        produtoSelecionado.toLowerCase() === produtoVenda
-      );
-    });
+    return vendas.filter(venda => !vendaCombinaProdutosSelecionados(venda, produtosSelecionados));
   }, [vendas, produtosSelecionados, produtosLoaded]);
 
   // 🎯 NOVA LÓGICA: Dois tipos de faturamento
@@ -128,7 +122,7 @@ const Dashboard = () => {
     
     // TODAS as vendas da unidade (não filtra por responsáveis oficiais)
     const vendasDaUnidade = vendasFiltradas.filter(v => 
-      (v.unidade || "").toLowerCase() === unidadeLower
+      getVendaUnidade(v) === unidadeLower
     );
     
     // Usar substring em vez de dayjs() dentro do loop — ~100x mais rápido
@@ -198,7 +192,7 @@ const Dashboard = () => {
   // Vendas filtradas apenas da unidade atual (para o gráfico de performance)
   const vendasUnidadeParaChart = useMemo(() => {
     const u = (unidade || '').toLowerCase();
-    return filteredVendas.filter(v => (v.unidade || '').toLowerCase() === u);
+    return filteredVendas.filter(v => getVendaUnidade(v) === u);
   }, [filteredVendas, unidade]);
 
   // Calcula % de consultores batendo meta (usando faturamento da unidade)
@@ -209,7 +203,7 @@ const Dashboard = () => {
     if (!metasDoMes.length) return 0;
 
     const vendasDaUnidade = vendasFiltradas.filter(v => 
-      (v.unidade || "").toLowerCase() === (unidade || "").toLowerCase() &&
+      getVendaUnidade(v) === (unidade || "").toLowerCase() &&
       dayjs(v.dataFormatada, 'YYYY-MM-DD').format('YYYY-MM') === selectedMonth
     );
 

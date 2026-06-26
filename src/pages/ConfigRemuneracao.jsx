@@ -1773,7 +1773,7 @@ const ConfigRemuneracao = () => {
   const { unidade } = useParams();
   // Dark mode is handled globally
   
-  const { vendas: vendasOriginais, loading: vendasLoading, responsaveis } = useVendas(unidade, [], { groupPlans: false });
+  const { vendas: vendasOriginais, loading: vendasLoading, responsaveis } = useVendas(unidade, [], { groupPlans: false, deriveMetrics: false });
   
   // APLICAR AGRUPAMENTO DE PLANOS DIVIDIDOS
   const vendasAgrupadas = useGroupedVendas(vendasOriginais);

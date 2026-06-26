@@ -9,8 +9,6 @@ import PerformanceChart from "../components/dashboard/PerformanceChart";
 import VendasTable from "../components/dashboard/VendasTable";
 import MonthSelector from "../components/dashboard/MonthSelector";
 import FilterControls from "../components/dashboard/FilterControls";
-import AnalyticsSummary from "../components/dashboard/AnalyticsSummary";
-import { useConfigRem } from '../hooks/useConfigRem';
 import { useUserRole } from '../hooks/useUserRole';
 import { useGlobalProdutos } from '../hooks/useGlobalProdutos';
 import Loading3D from '../components/ui/Loading3D';
@@ -42,8 +40,6 @@ const Dashboard = () => {
     return saved || dayjs().format('YYYY-MM');
   });
 
-  const { configRem } = useConfigRem(unidade, selectedMonth);
-
   useEffect(() => {
     localStorage.setItem('selectedMonth', selectedMonth);
   }, [selectedMonth]);
@@ -66,7 +62,7 @@ const Dashboard = () => {
     responsaveis,
     produtos,
     refreshVendas, // ← Função para atualizar dados manualmente
-  } = useVendas(unidade);
+  } = useVendas(unidade, [], { deriveMetrics: false });
 
   const {
     metas,
@@ -277,8 +273,6 @@ const Dashboard = () => {
       </div>
     );
   }
-
-  const formattedMonth = dayjs(`${selectedMonth}-01`).format('MMMM [de] YYYY');
 
   return (
     <div className="dashboard-layout">

@@ -57,7 +57,7 @@ function CicloAluno() {
     vendasOriginais,
     loading: vendasLoading,
     refreshVendas,
-  } = useVendas(unidade, [], { groupPlans: false });
+  } = useVendas(unidade, [], { groupPlans: false, deriveMetrics: false });
 
   const { metas, loading: metasLoading, refreshMetas } = useMetas(unidade);
   const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();

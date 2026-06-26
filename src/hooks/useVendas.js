@@ -92,7 +92,7 @@ const getVendaUnidade = (venda) =>
 export const useVendas = (unidade, metas = [], options = {}) => {
   // OTIMIZAÇÃO: Realtime desabilitado por padrão para melhor performance
   // Use refreshVendas() para atualizar manualmente quando necessário
-  const { enableRealtime = false, groupPlans = true } = options;
+  const { enableRealtime = false, groupPlans = true, deriveMetrics = true } = options;
   
   // Estados brutos — inicializa vazio, cache async (IndexedDB) carrega no useEffect
   const [vendas, setVendas] = useState(() => memoryCache || []);
@@ -422,6 +422,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
 
   // ▲ Comparativo mês atual x anterior
   useEffect(() => {
+    if (!deriveMetrics) return;
     if (!vendasAgrupadas.length) return;
     const cur = selectedMonth;
     const prev = dayjs(cur + "-01", "YYYY-MM-DD")
@@ -442,7 +443,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
     setTotalCurrent(totalCur);
     setTotalPrevious(totalPrev);
     setPercentChange(totalPrev > 0 ? ((totalCur - totalPrev) / totalPrev) * 100 : 0);
-  }, [vendasAgrupadas, selectedMonth]);
+  }, [deriveMetrics, vendasAgrupadas, selectedMonth]);
 
   // ——————————————————————————————————————————————————————————————
   // ▼ Filtragem por metas/responsáveis oficiais
@@ -453,15 +454,17 @@ export const useVendas = (unidade, metas = [], options = {}) => {
 
   // ▼ Vendas da unidade atual (para métricas específicas da unidade)
   const vendasUnidadeAtual = useMemo(() => {
+    if (!deriveMetrics) return [];
     if (!unidade) return [];
     return vendasAgrupadas.filter((v) => {
       const unidadeVenda = getVendaUnidade(v);
       return unidadeVenda === unidade.toLowerCase();
     });
-  }, [vendasAgrupadas, unidade]);
+  }, [deriveMetrics, vendasAgrupadas, unidade]);
 
   // ▼ Vendas já filtradas de acordo com todos os critérios (TODAS as unidades para filtro global)
   const vendasFiltradas = useMemo(() => {
+    if (!deriveMetrics) return [];
     if (!unidade) return [];
     return vendasAgrupadas.filter((v) => {
       // ✅ CORREÇÃO: Não filtra por unidade - permite vendas de todas as unidades
@@ -513,6 +516,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
     });
   }, [
     vendasAgrupadas,
+    deriveMetrics,
     unidade,
     filtroResponsavel,
     filtroProduto,
@@ -527,6 +531,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
 
   // ▼ Ordenação
   const vendasOrdenadas = useMemo(() => {
+    if (!deriveMetrics) return [];
     if (!sortConfig.key) return vendasFiltradas;
     return [...vendasFiltradas].sort((a, b) => {
       const dir = sortConfig.direction === "asc" ? 1 : -1;
@@ -534,23 +539,26 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       if (a[sortConfig.key] > b[sortConfig.key]) return 1 * dir;
       return 0;
     });
-  }, [vendasFiltradas, sortConfig]);
+  }, [deriveMetrics, vendasFiltradas, sortConfig]);
 
   // ▼ Paginação
   const paginatedVendas = useMemo(() => {
+    if (!deriveMetrics) return [];
     const start = (currentPage - 1) * itemsPerPage;
     return vendasOrdenadas.slice(start, start + itemsPerPage);
-  }, [vendasOrdenadas, currentPage]);
+  }, [deriveMetrics, vendasOrdenadas, currentPage]);
 
   //---------------------------------
   // ▲ Métricas e estatísticas
   const totalFaturado = useMemo(() =>
+    !deriveMetrics ? 0 :
     vendasAgrupadas.reduce((sum, v) => sum + Number(v.valor || 0), 0)
-  , [vendasAgrupadas]);
+  , [deriveMetrics, vendasAgrupadas]);
 
   const totalFiltrado = useMemo(() =>
+    !deriveMetrics ? 0 :
     vendasFiltradas.reduce((sum, v) => sum + Number(v.valor || 0), 0)
-  , [vendasFiltradas]);
+  , [deriveMetrics, vendasFiltradas]);
 
   const mediaPorVenda = useMemo(() => (
     vendasFiltradas.length ? totalFiltrado / vendasFiltradas.length : 0
@@ -558,6 +566,9 @@ export const useVendas = (unidade, metas = [], options = {}) => {
 
   // ▲ Dados para gráfico
   const chartData = useMemo(() => {
+    if (!deriveMetrics) {
+      return { labels: [], datasets: [{ label: "Vendas (R$)", data: [] }] };
+    }
     const byResp = {};
     vendasAgrupadas.forEach((v) => {
       const d = dayjs(v.dataFormatada, "YYYY-MM-DD");
@@ -572,11 +583,12 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       labels: Object.keys(byResp),
       datasets: [{ label: "Vendas (R$)", data: Object.values(byResp) }],
     };
-  }, [vendasAgrupadas, chartTimeRange]);
+  }, [deriveMetrics, vendasAgrupadas, chartTimeRange]);
 
   // ▲ Contagens e variações em número de vendas
   const prevMonth = dayjs(selectedMonth + "-01", "YYYY-MM-DD").subtract(1, "month").format("YYYY-MM");
   const { countAtual, countAnterior } = useMemo(() => {
+    if (!deriveMetrics) return { countAtual: 0, countAnterior: 0 };
     let atual = 0;
     let anterior = 0;
 
@@ -587,7 +599,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
     }
 
     return { countAtual: atual, countAnterior: anterior };
-  }, [vendasAgrupadas, selectedMonth, prevMonth]);
+  }, [deriveMetrics, vendasAgrupadas, selectedMonth, prevMonth]);
   const pctVendas         = countAnterior ? ((countAtual - countAnterior) / countAnterior) * 100 : 0;
 
   // Exposição da API do hook

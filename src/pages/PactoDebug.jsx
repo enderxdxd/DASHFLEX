@@ -12,6 +12,7 @@ export default function PactoDebug() {
 
   const { vendasOriginais, loading: vendasLoading } = useVendas(unidade, [], {
     groupPlans: false,
+    deriveMetrics: false,
   });
 
   const [result, setResult] = useState(null);

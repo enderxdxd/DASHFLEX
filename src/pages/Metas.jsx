@@ -46,7 +46,7 @@ export default function Metas() {
   const [editRemType, setEditRemType] = useState("comissao");
 
   const { produtosSelecionados, loaded: produtosLoaded } = useGlobalProdutos();
-  const { vendas: vendasAgrupadas, loading: vendasLoading, error: vendasError, refreshVendas } = useVendas(unidade);
+  const { vendas: vendasAgrupadas, loading: vendasLoading, error: vendasError, refreshVendas } = useVendas(unidade, [], { deriveMetrics: false });
   const { metas, loading: metasLoading, error: metasError, refreshMetas } = useMetas(unidade);
 
   const vendasFiltradas = useMemo(() => {

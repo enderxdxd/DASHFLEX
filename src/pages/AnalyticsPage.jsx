@@ -72,7 +72,7 @@ export default function AnalyticsPage() {
     vendas: vendasRaw,
     loading: loadingVendas,
     error: errorVendas
-  } = useVendas(unidade || "");
+  } = useVendas(unidade || "", [], { deriveMetrics: false });
 
   const {
     metas,

@@ -319,30 +319,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
 
       if (cached && cached.length > 0) {
         processData(cached, 'indexeddb');
-        
-        // Background revalidation silenciosa (não bloqueia UI)
-        if (!enableRealtime) {
-          if (process.env.NODE_ENV !== 'production') console.log(`[PERF] useVendas: starting background revalidation...`);
-          if (!sharedFetchPromise) {
-            sharedFetchPromise = getDocs(collectionGroup(db, "vendas"))
-              .then((snap) => snap.docs.map((d) => ({ 
-                id: d.id, 
-                _unidadeOriginal: d.ref.parent.parent.id,
-                ...d.data() 
-              })))
-              .finally(() => {
-                sharedFetchPromise = null;
-              });
-          }
-          sharedFetchPromise
-            .then((data) => {
-              if (isMountedRef.current) {
-                processData(data, 'firebase');
-              }
-            })
-            .catch(() => {}); // Silencioso - já temos cache
-          return;
-        }
+        if (!enableRealtime) return;
       }
 
       // Sem cache — busca do Firebase
@@ -451,15 +428,17 @@ export const useVendas = (unidade, metas = [], options = {}) => {
       .subtract(1, "month")
       .format("YYYY-MM");
 
-    const sum = (month) => {
-      const filtered = vendasAgrupadas.filter((v) => {
-        const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
-        return mes === month;
-      });
-      return filtered.reduce((s, v) => s + Number(v.valor || 0), 0);
-    };
-    const totalCur = sum(cur);
-    const totalPrev = sum(prev);
+    let totalCur = 0;
+    let totalPrev = 0;
+
+    for (let i = 0; i < vendasAgrupadas.length; i++) {
+      const venda = vendasAgrupadas[i];
+      const mes = (venda.dataFormatada || "").substring(0, 7);
+      const valor = Number(venda.valor || 0);
+      if (mes === cur) totalCur += valor;
+      else if (mes === prev) totalPrev += valor;
+    }
+
     setTotalCurrent(totalCur);
     setTotalPrevious(totalPrev);
     setPercentChange(totalPrev > 0 ? ((totalCur - totalPrev) / totalPrev) * 100 : 0);
@@ -526,7 +505,7 @@ export const useVendas = (unidade, metas = [], options = {}) => {
   
       // filtro de mês selecionado
       if (selectedMonth) {
-        const mes = dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM");
+        const mes = (v.dataFormatada || "").substring(0, 7);
         if (mes !== selectedMonth) return false;
       }
   
@@ -597,10 +576,18 @@ export const useVendas = (unidade, metas = [], options = {}) => {
 
   // ▲ Contagens e variações em número de vendas
   const prevMonth = dayjs(selectedMonth + "-01", "YYYY-MM-DD").subtract(1, "month").format("YYYY-MM");
-  const vendasMesAtual    = useMemo(() => vendasAgrupadas.filter((v) => dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === selectedMonth), [vendasAgrupadas, selectedMonth]);
-  const vendasMesAnterior = useMemo(() => vendasAgrupadas.filter((v) => dayjs(v.dataFormatada, "YYYY-MM-DD").format("YYYY-MM") === prevMonth), [vendasAgrupadas, prevMonth]);
-  const countAtual        = vendasMesAtual.length;
-  const countAnterior     = vendasMesAnterior.length;
+  const { countAtual, countAnterior } = useMemo(() => {
+    let atual = 0;
+    let anterior = 0;
+
+    for (let i = 0; i < vendasAgrupadas.length; i++) {
+      const mes = (vendasAgrupadas[i].dataFormatada || "").substring(0, 7);
+      if (mes === selectedMonth) atual += 1;
+      else if (mes === prevMonth) anterior += 1;
+    }
+
+    return { countAtual: atual, countAnterior: anterior };
+  }, [vendasAgrupadas, selectedMonth, prevMonth]);
   const pctVendas         = countAnterior ? ((countAtual - countAnterior) / countAnterior) * 100 : 0;
 
   // Exposição da API do hook

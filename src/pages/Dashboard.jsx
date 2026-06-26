@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { lazy, Suspense, useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useVendas } from "../hooks/useVendas";
 import { useMetas } from "../hooks/useMetas";
@@ -7,7 +7,6 @@ import NavBar from "../components/NavBar";
 import MetricCards from "../components/dashboard/MetricCards";
 import PerformanceChart from "../components/dashboard/PerformanceChart";
 import VendasTable from "../components/dashboard/VendasTable";
-import FileUploader from "../components/dashboard/FileUploader";
 import MonthSelector from "../components/dashboard/MonthSelector";
 import FilterControls from "../components/dashboard/FilterControls";
 import AnalyticsSummary from "../components/dashboard/AnalyticsSummary";
@@ -24,6 +23,8 @@ dayjs.locale('pt-br');
 
 const getVendaUnidade = (venda) =>
   (venda?._unidadeOriginal || venda?.unidade || "").trim().toLowerCase();
+
+const FileUploader = lazy(() => import("../components/dashboard/FileUploader"));
 
 const Dashboard = () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -414,16 +415,18 @@ const Dashboard = () => {
 
         {role === 'admin' && (
           <div className="dashboard-section">
-            <FileUploader
-              file={file}
-              setFile={setFile}
-              handleUpload={handleUpload}
-              uploading={uploading}
-              autoConvertAdmin={autoConvertAdmin}
-              setAutoConvertAdmin={setAutoConvertAdmin}
-              processedData={processedData} 
-              successMessage={successMessage}
-            />
+            <Suspense fallback={<div className="loading-indicator">Carregando importador...</div>}>
+              <FileUploader
+                file={file}
+                setFile={setFile}
+                handleUpload={handleUpload}
+                uploading={uploading}
+                autoConvertAdmin={autoConvertAdmin}
+                setAutoConvertAdmin={setAutoConvertAdmin}
+                processedData={processedData}
+                successMessage={successMessage}
+              />
+            </Suspense>
           </div>
         )}
       </main>

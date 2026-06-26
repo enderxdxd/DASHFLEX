@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import dayjs from "dayjs";
-import DatePicker from "react-datepicker";
 import { useParams } from "react-router-dom"
 import "react-datepicker/dist/react-datepicker.css";
-import { collectionGroup, collection, onSnapshot,getDocs, writeBatch,updateDoc,doc } from "firebase/firestore";
+import { collection, getDocs, writeBatch } from "firebase/firestore";
 import { db } from "../../firebase";
 import { deleteVendasDoMes } from "../../utils/firestoreHelpers";
 import { useUserRole } from "../../hooks/useUserRole";
+
+const DatePicker = lazy(() => import("react-datepicker"));
 
 const VendasTable = ({ 
   vendas, 
@@ -249,29 +250,33 @@ const VendasTable = ({
             {role === "admin" && (
               <>
                 <div className="date-inputs-container">
-                  <DatePicker
-                    selected={startDate}
-                    onChange={date => setStartDate(date)}
-                    selectsStart
-                    startDate={startDate}
-                    endDate={endDate}
-                    placeholderText="Data inicial"
-                    dateFormat="dd/MM/yyyy"
-                    className="date-input"
-                    maxDate={endDate}
-                  />
+                  <Suspense fallback={<span className="date-input">...</span>}>
+                    <DatePicker
+                      selected={startDate}
+                      onChange={date => setStartDate(date)}
+                      selectsStart
+                      startDate={startDate}
+                      endDate={endDate}
+                      placeholderText="Data inicial"
+                      dateFormat="dd/MM/yyyy"
+                      className="date-input"
+                      maxDate={endDate}
+                    />
+                  </Suspense>
                   <span className="date-separator">até</span>
-                  <DatePicker
-                    selected={endDate}
-                    onChange={date => setEndDate(date)}
-                    selectsEnd
-                    startDate={startDate}
-                    endDate={endDate}
-                    minDate={startDate}
-                    placeholderText="Data final"
-                    dateFormat="dd/MM/yyyy"
-                    className="date-input"
-                  />
+                  <Suspense fallback={<span className="date-input">...</span>}>
+                    <DatePicker
+                      selected={endDate}
+                      onChange={date => setEndDate(date)}
+                      selectsEnd
+                      startDate={startDate}
+                      endDate={endDate}
+                      minDate={startDate}
+                      placeholderText="Data final"
+                      dateFormat="dd/MM/yyyy"
+                      className="date-input"
+                    />
+                  </Suspense>
                 </div>
                 
                 <button

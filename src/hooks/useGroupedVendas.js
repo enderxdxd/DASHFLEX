@@ -4,6 +4,8 @@ import { useMemo } from 'react';
 const getVendaUnidade = (venda) =>
   (venda?._unidadeOriginal || venda?.unidade || '').trim().toLowerCase();
 
+const groupedVendasCache = new WeakMap();
+
 /**
  * Hook para agrupar vendas de planos que foram divididas em múltiplos pagamentos
  * 
@@ -25,6 +27,11 @@ export const useGroupedVendas = (vendas, enabled = true) => {
 
     if (!enabled) {
       return vendas;
+    }
+
+    const cached = groupedVendasCache.get(vendas);
+    if (cached) {
+      return cached;
     }
 
     // Usar Map para melhor performance em vez de arrays separados
@@ -90,12 +97,15 @@ export const useGroupedVendas = (vendas, enabled = true) => {
 
     // Se não há vendas de planos agrupadas, retorna as vendas originais
     if (planosAgrupados.size === 0) {
+      groupedVendasCache.set(vendas, vendas);
       return vendas;
     }
 
     // Combinar planos agrupados com outras vendas (sem sorting para performance)
     // O sorting pode ser feito no componente que precisa se necessário
-    return [...planosAgrupados.values(), ...outrasVendas];
+    const grouped = [...planosAgrupados.values(), ...outrasVendas];
+    groupedVendasCache.set(vendas, grouped);
+    return grouped;
   }, [vendas, enabled]);
 };
 

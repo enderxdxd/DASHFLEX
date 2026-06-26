@@ -10,8 +10,11 @@ import { db } from '../firebase';
 let _cachedUserData = null;
 let _cachedUid = null;
 let _fetchPromise = null;
+let _cachedClaims = null;
+let _cachedClaimsUid = null;
+let _claimsPromise = null;
 
-async function fetchUserData(user) {
+export async function fetchUserData(user) {
   if (!user) return null;
   
   // Se já tem cache para este UID, retorna imediatamente
@@ -46,6 +49,7 @@ async function fetchUserData(user) {
           ...fallback,
           name: data.name || fallback.name,
           role: data.role || 'user',
+          allowedUnits: data.allowedUnits || data.unidades || [],
           firestoreData: data
         };
       } else {
@@ -72,16 +76,48 @@ async function fetchUserData(user) {
   return _fetchPromise;
 }
 
+export async function fetchUserClaims(user, forceRefresh = false) {
+  if (!user) return {};
+
+  if (!forceRefresh && _cachedClaimsUid === user.uid && _cachedClaims) {
+    return _cachedClaims;
+  }
+
+  if (_claimsPromise) {
+    return _claimsPromise;
+  }
+
+  _claimsPromise = user.getIdTokenResult(forceRefresh)
+    .then((result) => {
+      _cachedClaims = result.claims || {};
+      _cachedClaimsUid = user.uid;
+      return _cachedClaims;
+    })
+    .catch(() => ({}))
+    .finally(() => {
+      _claimsPromise = null;
+    });
+
+  return _claimsPromise;
+}
+
 // Limpa o cache (usar no logout)
 export function clearUserDataCache() {
   _cachedUserData = null;
   _cachedUid = null;
   _fetchPromise = null;
+  _cachedClaims = null;
+  _cachedClaimsUid = null;
+  _claimsPromise = null;
 }
 
 // Retorna dados cacheados sem hook (para uso síncrono)
 export function getCachedUserData() {
   return _cachedUserData;
+}
+
+export function getCachedUserClaims() {
+  return _cachedClaims;
 }
 
 // Hook principal

@@ -33,8 +33,8 @@ const PageLoader = () => (
       }}>
         <div style={{ width: '140px', height: '28px', borderRadius: '8px', background: 'var(--border, #e2e8f0)', animation: 'shimmer 1.5s infinite' }} />
         <div style={{ height: '1px', background: 'var(--border, #e2e8f0)', margin: '0.5rem 0' }} />
-        {[1,2,3,4,5].map(i => (
-          <div key={i} style={{ width: `${70 + Math.random() * 30}%`, height: '32px', borderRadius: '6px', background: 'var(--border, #e2e8f0)', opacity: 1 - i * 0.12, animation: `shimmer 1.5s infinite ${i * 0.1}s` }} />
+        {[82, 74, 92, 68, 86].map((width, i) => (
+          <div key={i} style={{ width: `${width}%`, height: '32px', borderRadius: '6px', background: 'var(--border, #e2e8f0)', opacity: 1 - (i + 1) * 0.12, animation: `shimmer 1.5s infinite ${(i + 1) * 0.1}s` }} />
         ))}
       </div>
       {/* Skeleton content */}

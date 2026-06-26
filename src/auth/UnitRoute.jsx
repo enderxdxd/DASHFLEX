@@ -3,20 +3,23 @@ import React, { useEffect, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import Loading3D from '../components/ui/Loading3D';
+import { fetchUserClaims, getCachedUserClaims } from "../hooks/useUserData";
 
 export default function UnitRoute({ children }) {
   const { unidade } = useParams();
-  const [user, setUser] = useState(null);
-  const [claims, setClaims] = useState({});
-  const [loading, setLoading] = useState(true);
+  const cachedClaims = getCachedUserClaims();
+  const currentUser = getAuth().currentUser;
+  const [user, setUser] = useState(currentUser || null);
+  const [claims, setClaims] = useState(cachedClaims || {});
+  const [loading, setLoading] = useState(!(currentUser && cachedClaims));
   const auth = getAuth();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (u) {
         // Força o refresh do token para pegar os custom claims atualizados
-        const idTokenResult = await u.getIdTokenResult(true);
-        setClaims(idTokenResult.claims || {});
+        const nextClaims = await fetchUserClaims(u, false);
+        setClaims(nextClaims || {});
         setUser(u);
       } else {
         setUser(null);

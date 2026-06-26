@@ -1,5 +1,5 @@
 // src/pages/AnalyticsPage.jsx
-import React, { useState, useEffect, useMemo } from "react";
+import React, { lazy, Suspense, useState, useEffect, useMemo } from "react";
 import { Navigate, useParams, Link } from "react-router-dom";
 import dayjs from "dayjs";
 import 'dayjs/locale/pt-br';
@@ -10,8 +10,6 @@ import {
   Mail, MessageCircle
 } from "lucide-react";
 import "../styles/AnalyticsPage.css";
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import Loading3D from '../components/ui/Loading3D';
 
 // Componentes
@@ -23,7 +21,6 @@ import TopPerformersChart from "../components/analytics/TopPerformersChart";
 import ProductPieChart from "../components/analytics/ProductPieChart";
 import LineChart from "../components/dashboard/LineChart";
 import FiltersPanel from "../components/ui/FiltersPanel";
-import PDFExporter from "../components/export/PDFExporter";
 import QuickStats from "../components/analytics/QuickStats";
 import AppliedFiltersSection from "../components/analytics/AppliedFiltersSection";
 import EnhancedTable from "../components/analytics/EnhancedTable";
@@ -48,6 +45,8 @@ import { ExpandButton, ChartModal } from "../components/ui/ExpandableChart";
 
 // Configurar dayjs para português
 dayjs.locale('pt-br');
+
+const PDFExporter = lazy(() => import("../components/export/PDFExporter"));
 
 export default function AnalyticsPage() {
   const { unidade } = useParams();
@@ -340,6 +339,11 @@ const applyFilters = (filters) => {
   // Função para exportar para PDF
   const exportToPDF = async () => {
     try {
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas')
+      ]);
+
       // Elemento que será convertido em PDF
       const element = document.querySelector('.details-content');
       if (!element) return;
@@ -897,18 +901,20 @@ const applyFilters = (filters) => {
                       <span className="filter-count">{Object.keys(activeFilters).length}</span>
                     )}
                   </button>
-                  <PDFExporter
-                    unidade={unidade}
-                    selMonth={selMonth}
-                    activeFilters={activeFilters}
-                    filteredData={filteredData}
-                    metaUnidade={metaUnidade}
-                    totalVendasMes={totalVendasMes}
-                    metaAtingidaPercent={metaAtingidaPercent}
-                    trend={trend}
-                    breakdown={breakdown}
-                    top5={top5}
-                  />
+                  <Suspense fallback={<button className="export-button" disabled>Carregando...</button>}>
+                    <PDFExporter
+                      unidade={unidade}
+                      selMonth={selMonth}
+                      activeFilters={activeFilters}
+                      filteredData={filteredData}
+                      metaUnidade={metaUnidade}
+                      totalVendasMes={totalVendasMes}
+                      metaAtingidaPercent={metaAtingidaPercent}
+                      trend={trend}
+                      breakdown={breakdown}
+                      top5={top5}
+                    />
+                  </Suspense>
                 </div>
               </div>
               {Object.keys(activeFilters).length === 0 ? (
